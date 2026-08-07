@@ -66,6 +66,8 @@ if "modo_vista" not in st.session_state:
     st.session_state.modo_vista = vista_en_url
 if "user" not in st.session_state:
     st.session_state.user = params.get("user", "")
+
+# Control explícito para abrir/cerrar el expander de nuevo pedido
 if "expandir_nuevo_pedido" not in st.session_state:
     st.session_state.expandir_nuevo_pedido = False
 
@@ -110,6 +112,7 @@ if st.session_state.modo_vista == "Cliente":
         st.title(f"🧵 Bienvenido, {nombre_cliente}")
         st.markdown("---")
 
+        # Sincronizamos el estado del expander con st.session_state.expandir_nuevo_pedido
         with st.expander("➕ Enviar Nuevo Pedido", expanded=st.session_state.expandir_nuevo_pedido):
             st.markdown("📦 **Tipo de Producto:**")
             tipo_producto = st.radio("Producto:", ["GORRA", "TELA", "VARIOS"], horizontal=True, label_visibility="collapsed")
@@ -145,14 +148,12 @@ if st.session_state.modo_vista == "Cliente":
                         status_placeholder.error("❌ Error: Debes adjuntar al menos un archivo.")
                     else:
                         try:
-                            # Indicador de proceso
                             status_placeholder.info("⏳ Enviando pedido, por favor espera...")
                             
                             lista_archivos_guardados = []
                             for archivo in archivos_subidos:
                                 bytes_contenido = archivo.getvalue()
                                 
-                                # Procesamiento de imagen
                                 if archivo.name.lower().endswith(('.png', '.jpg', '.jpeg', '.webp')):
                                     img = Image.open(io.BytesIO(bytes_contenido))
                                     if img.mode in ("CMYK", "P"): img = img.convert("RGB")
@@ -179,12 +180,11 @@ if st.session_state.modo_vista == "Cliente":
                                 "timestamp": datetime.now()
                             }
                             
-                            # Guardado con referencia para verificación posterior
                             ref = db.collection("pedidos_bordado").document()
                             ref.set(data_pedido)
                             
-                            # Verificación de existencia real en la base de datos
                             if ref.get().exists:
+                                # Forzamos el cierre del panel cambiando la variable de estado antes de recargar
                                 st.session_state.expandir_nuevo_pedido = False
                                 status_placeholder.success("🎉 ¡Tu orden se envió y guardó correctamente!")
                                 st.rerun() 
@@ -193,9 +193,8 @@ if st.session_state.modo_vista == "Cliente":
                                 st.session_state.expandir_nuevo_pedido = True
                             
                         except Exception as e:
-                            # AVISO DE ERROR: Se muestra el error exacto si algo falló al guardar
                             status_placeholder.error(f"❌ Error al enviar el pedido: {str(e)}")
-                            st.session_state.expandir_nuevo_pedido = True # Mantiene el formulario abierto
+                            st.session_state.expandir_nuevo_pedido = True
 
         st.markdown("---")
         st.subheader("📋 Estado de Mis Pedidos y Posición en Cola")
