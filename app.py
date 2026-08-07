@@ -469,7 +469,7 @@ else:
         # PESTAÑA: COMPLETADOS / ENTREGADOS
         # =========================================================
         with tab_admin_comp:
-            pedidos_completados_admin = [(doc.id, doc.to_dict()) for doc in docs if doc.to_dict().get('estado'] == "Completado"]
+            pedidos_completados_admin = [(doc.id, doc.to_dict()) for doc in docs if doc.to_dict().get('estado') == "Completado"]
 
             if pedidos_completados_admin:
                 cols = st.columns(4)
@@ -609,24 +609,18 @@ else:
         # =========================================================
         st.markdown("---")
         with st.expander("🚨 Zona de Peligro: Limpieza Masiva de Historial"):
-            st.warning("⚠️ Esta acción eliminará **todos** los pedidos de la base de datos de Firebase de forma permanente.")
-            
-            confirmar_borrado_total = st.checkbox("Confirmo que deseo vaciar todo el historial de pedidos de la base de datos")
-            
-            if st.button("🔥 ELIMINAR TODO EL HISTORIAL DE FIREBASE", use_container_width=True):
-                if confirmar_borrado_total:
-                    try:
-                        todos_docs_borrar = db.collection("pedidos_bordado").stream()
-                        contador = 0
-                        for d in todos_docs_borrar:
-                            db.collection("pedidos_bordado").document(d.id).delete()
-                            contador += 1
-                        st.success(f"✅ Se han eliminado {contador} registros del historial con éxito.")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Error al vaciar el historial: {e}")
-                else:
-                    st.error("❌ Debes marcar la casilla de confirmación para ejecutar esta acción.")
+            st.warning("⚠️ Esta acción eliminará todos los registros de pedidos en la base de datos de manera permanente.")
+            if st.button("⚠️ BORRAR TODO EL HISTORIAL DE PEDIDOS", use_container_width=True):
+                try:
+                    for doc in docs:
+                        db.collection("pedidos_bordado").document(doc.id).delete()
+                    st.success("¡Historial eliminado por completo!")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Error al limpiar la base de datos: {e}")
 
     except Exception as e:
-        st.error(f"Error al cargar administración: {e}")
+        if "ResourceExhausted" in str(type(e).__name__) or "quota" in str(e).lower():
+            st.error("⚠️ Límite de base de datos alcanzado temporalmente. Espera unos segundos.")
+        else:
+            st.error(f"Error: {e}")
