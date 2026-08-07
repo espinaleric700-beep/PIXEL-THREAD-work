@@ -208,17 +208,18 @@ if st.session_state.modo_vista == "Cliente":
                 nombre_cliente = data_u.get('nombre_usuario', st.session_state.user)
                 logo_cliente_b64 = data_u.get('logo_b64', None)
 
-            col_c1, col_c2 = st.columns([0.2, 3.8])
+            # ENCABEZADO GRANDE PARA EL CLIENTE Y SU LOGO
+            col_c1, col_c2 = st.columns([0.1, 3.9], vertical_alignment="center")
             with col_c1:
                 if logo_cliente_b64:
                     try:
-                        st.image(base64.b64decode(logo_cliente_b64), width=45)
+                        st.image(base64.b64decode(logo_cliente_b64), width=85)
                     except Exception:
-                        st.markdown("👤", unsafe_allow_html=True)
+                        st.markdown("<h1>👤</h1>", unsafe_allow_html=True)
                 else:
-                    st.markdown("👤", unsafe_allow_html=True)
+                    st.markdown("<h1>👤</h1>", unsafe_allow_html=True)
             with col_c2:
-                st.subheader(f"Hola, {nombre_cliente}")
+                st.markdown(f"<h1 style='margin:0; font-size:2.2rem !important;'>Hola, {nombre_cliente}</h1>", unsafe_allow_html=True)
 
             if st.session_state.mensaje_exito:
                 st.success(st.session_state.mensaje_exito)
@@ -468,7 +469,7 @@ else:
         # PESTAÑA: COMPLETADOS / ENTREGADOS
         # =========================================================
         with tab_admin_comp:
-            pedidos_completados_admin = [(doc.id, doc.to_dict()) for doc in docs if doc.to_dict().get('estado') == "Completado"]
+            pedidos_completados_admin = [(doc.id, doc.to_dict()) for doc in docs if doc.to_dict().get('estado'] == "Completado"]
 
             if pedidos_completados_admin:
                 cols = st.columns(4)
