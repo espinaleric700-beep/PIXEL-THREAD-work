@@ -142,7 +142,7 @@ if st.session_state.modo_vista == "Cliente":
             with st.expander("➕ Enviar Nuevo Pedido", expanded=False):
                 # Opciones de producto y ubicación fuera del formulario principal para actualización inmediata
                 st.markdown("📦 **Selecciona el Tipo de Producto:**")
-                tipo_producto = st.radio("Producto:", ["GORRA", "TELA"], horizontal=True, label_visibility="collapsed", key="tipo_producto_dinamico")
+                tipo_producto = st.radio("Producto:", ["GORRA", "TELA", "VARIOS"], horizontal=True, label_visibility="collapsed", key="tipo_producto_dinamico")
 
                 ubicacion = "N/A"
                 estilo_frente = "N/A"
