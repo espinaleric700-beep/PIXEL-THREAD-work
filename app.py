@@ -266,12 +266,15 @@ else:
             p = doc.to_dict()
             doc_id = doc.id
             
-            # --- ENCABEZADO CON ID DE PEDIDO + NOMBRE DEL CLIENTE ---
-            id_pedido = p.get('id', 'Sin ID')
+            # --- ENCABEZADO CON NOMBRE DEL CLIENTE Y NOMBRE DEL PROYECTO ---
             nombre_cliente = p.get('cliente', 'Desconocido')
-            st.markdown(f"### 🆔 {id_pedido} — 👤 Cliente: {nombre_cliente}")
+            nombre_proyecto = p.get('nombre_proyecto', 'Sin Nombre')
+            id_pedido = p.get('id', 'Sin ID')
             
-            st.markdown(f"**Proyecto:** {p.get('nombre_proyecto')} | **Estado:** `{p.get('estado')}`")
+            st.markdown(f"### 👤 {nombre_cliente} — 🧵 {nombre_proyecto}")
+            
+            # Mostramos el ID del pedido y el estado de forma secundaria abajo
+            st.markdown(f"**ID de Pedido:** `{id_pedido}` | **Estado:** `{p.get('estado')}`")
             st.text(f"Producto: {p.get('producto')} | Ubicación: {p.get('ubicacion')} | Estilo: {p.get('estilo')}")
             if p.get('comentarios'):
                 st.text(f"Comentarios: {p.get('comentarios')}")
