@@ -68,7 +68,6 @@ db = init_fb()
 # --- PERSISTENCIA TOTAL MEDIANTE PARÁMETROS DE URL ---
 params = st.query_params
 
-# Recuperar vista de la URL o usar "Cliente" por defecto
 vista_en_url = params.get("seccion", "Cliente")
 if "modo_vista" not in st.session_state:
     st.session_state.modo_vista = vista_en_url
@@ -76,7 +75,6 @@ else:
     if vista_en_url in ["Cliente", "Admin"]:
         st.session_state.modo_vista = vista_en_url
 
-# Recuperar usuario de la URL o usar vacío por defecto para exigir inicio de sesión
 usuario_en_url = params.get("user", "")
 if "user" not in st.session_state:
     st.session_state.user = usuario_en_url
@@ -108,25 +106,57 @@ st.markdown("---")
 if st.session_state.modo_vista == "Cliente":
     st.title("🧵 Pixel Thread - Portal de Cliente")
     
-    # Campo de identificador / "Inicio de sesión" del cliente
     user_input = st.text_input("Ingresa tu Nombre o ID de Usuario para continuar:", value=st.session_state.user)
     
     if user_input != st.session_state.user:
         actualizar_url_y_estado("Cliente", user_input)
 
-    # Validamos si el usuario ha escrito su nombre (iniciado sesión) para mostrar el contenido
     if not st.session_state.user.strip():
         st.info("👆 Por favor, ingresa tu nombre o ID de usuario arriba para acceder a tus pedidos y enviar nuevas solicitudes.")
     else:
-        st.success(f"Sesión activa como: **{st.session_state.user}**")
+        # Verificamos si este usuario tiene un logo de perfil registrado en la base de datos de usuarios
+        user_doc_ref = db.collection("usuarios_perfil").document(st.session_state.user.strip().lower())
+        user_doc = user_doc_ref.get()
+        
+        logo_perfil_b64 = ""
+        if user_doc.exists:
+            logo_perfil_b64 = user_doc.to_dict().get("logo_usuario", "")
+
+        # Contenedor superior con la información del usuario y su logo de perfil opcional
+        col_perfil1, col_perfil2 = st.columns([3, 1])
+        with col_perfil1:
+            st.success(f"Sesión activa como: **{st.session_state.user}**")
+        with col_perfil2:
+            if logo_perfil_b64:
+                st.image(base64.b64decode(logo_perfil_b64), width=60, caption="Logo de Usuario")
+
+        # Opción para registrar o actualizar el logo general del usuario si no tiene o desea cambiarlo
+        with st.expander("⚙️ Configurar / Subir Logo de Usuario (Perfil)", expanded=not bool(logo_perfil_b64)):
+            with st.form("form_logo_usuario"):
+                logo_usuario_file = st.file_uploader("Sube el logo de tu marca/usuario (PNG, JPG)", type=["png", "jpg", "jpeg"], key="logo_u_sub")
+                guardar_logo_btn = st.form_submit_button("💾 Guardar Logo de Usuario")
+                
+                if guardar_logo_btn:
+                    if logo_usuario_file is not None:
+                        l_b64 = base64.b64encode(logo_usuario_file.getvalue()).decode("utf-8")
+                        user_doc_ref.set({
+                            "nombre_usuario": st.session_state.user.strip(),
+                            "logo_usuario": l_b64,
+                            "actualizado": datetime.now()
+                        }, merge=True)
+                        st.success("¡Logo de usuario guardado correctamente!")
+                        st.rerun()
+                    else:
+                        st.warning("⚠️ Debes seleccionar una imagen primero.")
+
         st.markdown("---")
 
-        # Opción de Enviar Nuevo Pedido colocada DESPUÉS de iniciar sesión
+        # Opción de Enviar Nuevo Pedido
         with st.expander("➕ Enviar Nuevo Pedido", expanded=False):
             with st.form("form_pedido_streamlit", clear_on_submit=True):
                 nombre_proyecto = st.text_input("1. Nombre o Referencia del Proyecto")
                 
-                archivo_subido = st.file_uploader("2. Sube tu Logo (PNG, JPG, DST, PES)", type=["png", "jpg", "jpeg", "dst", "pes"])
+                archivo_subido = st.file_uploader("2. Sube tu Logo del Pedido (PNG, JPG, DST, PES)", type=["png", "jpg", "jpeg", "dst", "pes"])
                 
                 st.markdown("3. **Selecciona el Tipo de Producto:**")
                 tipo_producto = st.radio("Producto:", ["GORRA", "TELA"], horizontal=True, label_visibility="collapsed")
@@ -212,6 +242,16 @@ if st.session_state.modo_vista == "Cliente":
                             st.success("🎉 ¡Tu pedido ha sido completado con éxito por el taller!")
 
                         st.markdown(f"*Producto:* {pedido.get('producto')} | *Ubicación:* {pedido.get('ubicacion')}")
+                        
+                        # Vista previa miniatura si el archivo es una imagen válida (png, jpg, jpeg)
+                        archivo_nombre = pedido.get('archivo_nombre', '').lower()
+                        archivo_data = pedido.get('archivo_data', '')
+                        if archivo_data and (archivo_nombre.endswith('.png') or archivo_nombre.endswith('.jpg') or archivo_nombre.endswith('.jpeg')):
+                            st.markdown("**Vista Previa del Archivo:**")
+                            st.image(base64.b64decode(archivo_data), width=120)
+                        elif archivo_data:
+                            st.text(f"Archivo adjunto: {pedido.get('archivo_nombre')} (Vista previa no disponible para este formato)")
+
                         st.markdown("---")
             else:
                 st.info(f"No tienes pedidos registrados todavía bajo el usuario: **{st.session_state.user}**")
@@ -248,10 +288,17 @@ else:
                             st.markdown(f"**Estilo:** {p.get('estilo')}")
                 with col_info2:
                     st.markdown(f"**Archivo:** {p.get('archivo_nombre')}")
-                    if p.get('archivo_data'):
+                    
+                    # Vista previa miniatura en el panel del administrador si es imagen
+                    a_nombre = p.get('archivo_nombre', '').lower()
+                    a_data = p.get('archivo_data', '')
+                    if a_data and (a_nombre.endswith('.png') or a_nombre.endswith('.jpg') or a_nombre.endswith('.jpeg')):
+                        st.image(base64.b64decode(a_data), width=100, caption="Miniatura del Logo")
+
+                    if a_data:
                         st.download_button(
                             label="📥 Descargar Logo Adjunto",
-                            data=base64.b64decode(p.get('archivo_data')),
+                            data=base64.b64decode(a_data),
                             file_name=p.get('archivo_nombre'),
                             mime="application/octet-stream",
                             key=f"dl_{doc_id}"
