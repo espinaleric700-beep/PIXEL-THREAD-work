@@ -71,6 +71,10 @@ if "user" not in st.session_state:
 if "expandir_nuevo_pedido" not in st.session_state:
     st.session_state.expandir_nuevo_pedido = False
 
+# Estado para mostrar el aviso de éxito temporalmente
+if "mensaje_exito" not in st.session_state:
+    st.session_state.mensaje_exito = ""
+
 def actualizar_url_y_estado(nueva_vista, nuevo_usuario):
     st.session_state.modo_vista = nueva_vista
     st.session_state.user = nuevo_usuario
@@ -110,6 +114,12 @@ if st.session_state.modo_vista == "Cliente":
             nombre_cliente = user_doc.to_dict().get('nombre_usuario', st.session_state.user)
 
         st.title(f"🧵 Bienvenido, {nombre_cliente}")
+        
+        # Muestra el aviso de éxito si existe en la sesión y luego lo limpia
+        if st.session_state.mensaje_exito:
+            st.success(st.session_state.mensaje_exito)
+            st.session_state.mensaje_exito = ""
+
         st.markdown("---")
 
         with st.expander("➕ Enviar Nuevo Pedido", expanded=st.session_state.expandir_nuevo_pedido):
@@ -128,7 +138,6 @@ if st.session_state.modo_vista == "Cliente":
 
             st.markdown("---")
 
-            # Campos fuera de st.form para permitir el control absoluto del expander
             nombre_proyecto = st.text_input("1. Nombre o Referencia del Proyecto", key="input_nombre_proyecto")
             archivos_subidos = st.file_uploader(
                 "2. Sube tus Archivos del Pedido (PNG, JPG, DST, PES, PDF, EMB)", 
@@ -141,7 +150,6 @@ if st.session_state.modo_vista == "Cliente":
             status_placeholder = st.empty()
             
             if st.button("🚀 ENVIAR PEDIDO A PRODUCCIÓN", key="btn_enviar_pedido_prod"):
-                # Cierra el panel de inmediato al hacer clic
                 st.session_state.expandir_nuevo_pedido = False
                 
                 if not nombre_proyecto:
@@ -188,7 +196,7 @@ if st.session_state.modo_vista == "Cliente":
                         ref.set(data_pedido)
                         
                         if ref.get().exists:
-                            status_placeholder.success("🎉 ¡Tu orden se envió y guardó correctamente!")
+                            st.session_state.mensaje_exito = "🎉 ¡Pedido enviado con éxito a producción!"
                             st.rerun() 
                         else:
                             status_placeholder.error("❌ El pedido no pudo ser verificado en la base de datos. Inténtalo de nuevo.")
