@@ -412,7 +412,6 @@ else:
 
                             # --- GESTIÓN DE ARCHIVOS ---
                             with st.expander("📤 Gestionar Archivos al Cliente"):
-                                # Limpiamos los datos anteriores de forma segura
                                 lista_finales = limpiar_lista_archivos(p.get('archivos_finales', []))
                                 
                                 if lista_finales:
@@ -440,7 +439,6 @@ else:
                                             status_subida = st.empty()
                                             total_archivos = len(archivos_entregables)
                                             
-                                            # Blanqueamos el campo primero para evitar conflictos de Firestore
                                             db.collection("pedidos_bordado").document(doc_id).update({"archivos_finales": []})
                                             
                                             for idx, af in enumerate(archivos_entregables, start=1):
@@ -470,7 +468,8 @@ else:
         # PESTAÑA: COMPLETADOS / ENTREGADOS
         # =========================================================
         with tab_admin_comp:
-            pedidos_completados_admin = [(doc.id, doc.to_dict()) for doc in docs if doc.to_dict().get('estado'] == "Completado"]
+            # Corrección aplicada aquí: .get('estado') en lugar de .get('estado']
+            pedidos_completados_admin = [(doc.id, doc.to_dict()) for doc in docs if doc.to_dict().get('estado') == "Completado"]
 
             if pedidos_completados_admin:
                 cols = st.columns(4)
