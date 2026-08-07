@@ -114,7 +114,6 @@ def procesar_archivo_subido(arch):
     if nombre_lower.endswith(('png', 'jpg', 'jpeg')):
         try:
             img = Image.open(BytesIO(b_cont))
-            # Reducir tamaño máximo a 700x700 para garantizar que no rebase el límite de Firestore
             img.thumbnail((700, 700))
             if img.mode in ("RGBA", "P"):
                 img = img.convert("RGB")
@@ -428,7 +427,7 @@ else:
                 st.info("🎉 No hay pedidos pendientes de revisión.")
 
         with tab_admin_comp:
-            pedidos_completados_admin = [(doc.id, doc.to_dict()) for doc in docs if doc.to_dict().get('estado'] == "Completado"]
+            pedidos_completados_admin = [(doc.id, doc.to_dict()) for doc in docs if doc.to_dict().get('estado') == "Completado"]
 
             if pedidos_completados_admin:
                 cols = st.columns(4)
