@@ -210,21 +210,20 @@ def render_estado_badge(estado):
     else:
         st.markdown("**Estado:** Completado <span class='dot-blue'></span>", unsafe_allow_html=True)
 
-# --- ENCABEZADO SUPERIOR CORREGIDO CON IMAGEN PERSONALIZADA ---
-col_head1, col_head2 = st.columns([3, 1])
+# --- ENCABEZADO SUPERIOR: TU LOGO Y DESPUÉS EL TEXTO PIXEL THREAD ---
+col_head_logo, col_head_title, col_head_menu = st.columns([0.08, 2.92, 1], vertical_alignment="center")
 
-with col_head1:
-    c_logo_img, c_logo_txt = st.columns([0.15, 0.85], vertical_alignment="center")
-    with c_logo_img:
-        try:
-            img_logo_header = Image.open("PIXEL THREAD W_Mesa de trabajo 1.jpg")
-            st.image(img_logo_header, width=65)
-        except Exception:
-            st.markdown("<h1>🧵</h1>", unsafe_allow_html=True)
-    with col_head2:
-        st.title("PIXEL THREAD")
+with col_head_logo:
+    try:
+        img_logo_header = Image.open("PIXEL THREAD W_Mesa de trabajo 1_2.jpg")
+        st.image(img_logo_header, width=48)
+    except Exception:
+        st.markdown("🧵")
 
-with col_head2:
+with col_head_title:
+    st.title("PIXEL THREAD")
+
+with col_head_menu:
     with st.popover("⚙️ Menú"):
         st.markdown("### Navegación")
         if st.button("👤 Panel Cliente", use_container_width=True): 
@@ -722,7 +721,7 @@ else:
 
         st.markdown("---")
         with st.expander("🚨 Zona de Peligro: Limpieza Masiva de Historial"):
-            st.warning("⚠️ Esta acción eliminará todos los registros de pedidos en la base de datos de manera permanente.")
+            st.warning("⚠️ Esta acciónදේශ Esta acción eliminará todos los registros de pedidos en la base de datos de manera permanente.")
             if st.button("⚠️ BORRAR TODO EL HISTORIAL DE PEDIDOS", use_container_width=True):
                 try:
                     for doc in docs:
@@ -737,4 +736,3 @@ else:
             st.error("⚠️ Límite de base de datos alcanzado temporalmente. Espera unos segundos.")
         else:
             st.error(f"Error: {e}")
-            
