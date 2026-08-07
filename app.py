@@ -205,7 +205,6 @@ if st.session_state.modo_vista == "Cliente":
                         if p.get('comentarios'):
                             st.markdown(f"**Comentarios:** {p.get('comentarios')}")
                         
-                        # Mostrar miniaturas de los archivos subidos por el cliente
                         archivos = p.get('archivos', [])
                         if archivos:
                             st.markdown("🖼️ **Archivos Adjuntos:**")
@@ -223,13 +222,11 @@ if st.session_state.modo_vista == "Cliente":
                                     else:
                                         st.text(f"📄 {nombre_a}")
                                     
-                                    # Botón para descargar el archivo original
                                     try:
                                         st.download_button(f"📥 {nombre_a}", data=base64.b64decode(data_a), file_name=nombre_a, key=f"dl_orig_{p.get('id')}_{idx_a}")
                                     except Exception:
                                         pass
 
-                        # Mostrar entregables finales si los hay
                         af = p.get('archivos_finales', [])
                         if af:
                             st.success("✨ ¡Entregables listos para descargar!")
@@ -268,40 +265,41 @@ else:
         for doc in docs:
             p = doc.to_dict()
             doc_id = doc.id
-            with st.container():
-                st.markdown(f"### 🆔 {p.get('id')} - {p.get('nombre_proyecto')}")
-                st.text(f"Cliente: {p.get('cliente')} | Estado: {p.get('estado')}")
-                st.text(f"Producto: {p.get('producto')} | Ubicación: {p.get('ubicacion')} | Estilo: {p.get('estilo')}")
-                if p.get('comentarios'):
-                    st.text(f"Comentarios: {p.get('comentarios')}")
+            
+            # --- ENCABEZADO CON ID Y NOMBRE DEL CLIENTE ---
+            nombre_cliente_display = p.get('cliente', 'Desconocido')
+            st.markdown(f"### 🆔 {p.get('id')} | 👤 {nombre_cliente_display}")
+            st.markdown(f"**Proyecto:** {p.get('nombre_proyecto')} | **Estado:** `{p.get('estado')}`")
+            
+            st.text(f"Producto: {p.get('producto')} | Ubicación: {p.get('ubicacion')} | Estilo: {p.get('estilo')}")
+            if p.get('comentarios'):
+                st.text(f"Comentarios: {p.get('comentarios')}")
 
-                # Vista previa de archivos en el panel admin también
-                archivos = p.get('archivos', [])
-                if archivos:
-                    st.markdown("🖼️ **Archivos del Cliente:**")
-                    for arch_item in archivos:
-                        nombre_a = arch_item.get('nombre', 'archivo')
-                        data_a = arch_item.get('data')
-                        if nombre_a.lower().endswith(('png', 'jpg', 'jpeg')):
-                            try:
-                                st.image(base64.b64decode(data_a), caption=nombre_a, width=120)
-                            except Exception:
-                                pass
-                        st.download_button(f"📥 Descargar {nombre_a}", data=base64.b64decode(data_a), file_name=nombre_a, key=f"dl_admin_orig_{p.get('id')}_{nombre_a}")
+            archivos = p.get('archivos', [])
+            if archivos:
+                st.markdown("🖼️ **Archivos del Cliente:**")
+                for arch_item in archivos:
+                    nombre_a = arch_item.get('nombre', 'archivo')
+                    data_a = arch_item.get('data')
+                    if nombre_a.lower().endswith(('png', 'jpg', 'jpeg')):
+                        try:
+                            st.image(base64.b64decode(data_a), caption=nombre_a, width=120)
+                        except Exception:
+                            pass
+                    st.download_button(f"📥 Descargar {nombre_a}", data=base64.b64decode(data_a), file_name=nombre_a, key=f"dl_admin_orig_{p.get('id')}_{nombre_a}")
 
-                # Selector de estado rápido
-                estados = ["Pendiente", "En Proceso", "Completado"]
-                est_actual = p.get('estado', 'Pendiente')
-                nuevo_est = st.selectbox("Actualizar Estado", estados, index=estados.index(est_actual) if est_actual in estados else 0, key=f"st_{doc_id}")
-                if nuevo_est != est_actual:
-                    db.collection("pedidos_bordado").document(doc_id).update({"estado": nuevo_est})
-                    st.success("¡Estado actualizado!")
-                    st.rerun()
-                
-                if st.button(f"🗑️ Eliminar Pedido {p.get('id')}", key=f"del_{doc_id}"):
-                    db.collection("pedidos_bordado").document(doc_id).delete()
-                    st.warning("Pedido eliminado.")
-                    st.rerun()
-                st.markdown("---")
+            estados = ["Pendiente", "En Proceso", "Completado"]
+            est_actual = p.get('estado', 'Pendiente')
+            nuevo_est = st.selectbox("Actualizar Estado", estados, index=estados.index(est_actual) if est_actual in estados else 0, key=f"st_{doc_id}")
+            if nuevo_est != est_actual:
+                db.collection("pedidos_bordado").document(doc_id).update({"estado": nuevo_est})
+                st.success("¡Estado actualizado!")
+                st.rerun()
+            
+            if st.button(f"🗑️ Eliminar Pedido {p.get('id')}", key=f"del_{doc_id}"):
+                db.collection("pedidos_bordado").document(doc_id).delete()
+                st.warning("Pedido eliminado.")
+                st.rerun()
+            st.markdown("---")
     except Exception as e:
         st.error(f"Error al cargar panel de administración: {e}")
