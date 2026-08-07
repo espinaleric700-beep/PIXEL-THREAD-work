@@ -2,6 +2,9 @@ import streamlit as st
 import firebase_admin
 from firebase_admin import credentials, storage, firestore
 
+# Configuración de la página en Streamlit
+st.set_page_config(page_title="Gestión de Pedidos - Bordado", page_icon="🧵", layout="wide")
+
 # Inicializar Firebase Admin usando st.secrets
 if not firebase_admin._apps:
     cred_dict = dict(st.secrets["firebase"])
@@ -12,79 +15,70 @@ if not firebase_admin._apps:
 
 db = firestore.client()
 
-st.title("🚀 Gestión de Pedidos de Bordado")
+st.title("🧵 Gestión de Pedidos de Bordado")
 
-# --- PANEL DE ADMINISTRACIÓN ---
+# --- PANEL DE ADMINISTRACIÓN (SIDEBAR) ---
 st.sidebar.header("Panel de Administración")
 modo_admin = st.sidebar.checkbox("Activar modo administrador")
 
 if modo_admin:
-    st.markdown("---")
-    st.subheader("⚙️ Opciones de Administrador")
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("⚙️ Opciones de Administrador")
     
-    st.warning("⚠️ Zona de peligro: Las acciones aquí pueden eliminar datos de forma permanente.")
-    
-    # Botón para eliminar el historial
-    if st.button("🗑️ Eliminar Todo el Historial de Firebase", type="primary"):
-        confirmacion = st.checkbox("Confirmo que deseo borrar todos los pedidos y archivos almacenados.")
-        
+    if st.sidebar.button("🗑️ Eliminar Todo el Historial", type="primary"):
+        confirmacion = st.sidebar.checkbox("Confirmo que deseo borrar todo.")
         if confirmacion:
             try:
-                with st.spinner("Eliminando registros y archivos..."):
-                    # 1. Eliminar documentos de la colección 'pedidos_bordado' en Firestore
-                    pedidos_ref = db.collection('pedidos_bordado')
-                    docs = pedidos_ref.stream()
-                    
-                    contador_docs = 0
-                    for doc in docs:
-                        # Opcional: Si deseas eliminar también el archivo físico de Storage usando la URL guardada:
-                        # (Aquí puedes agregar la lógica de Storage si almacenas la ruta exacta)
-                        doc.reference.delete()
-                        contador_docs += 1
-                        
-                    # 2. Opcional: Eliminar archivos de la carpeta en Storage
-                    bucket = storage.bucket()
-                    blobs = bucket.list_blobs(prefix="pedidos_archivos/")
-                    contador_archivos = 0
-                    for blob in blobs:
-                        blob.delete()
-                        contador_archivos += 1
-
-                st.success(f"¡Historial eliminado con éxito! Se borraron {contador_docs} registros y {contador_archivos} archivos.")
-            except Exception as e:
-                st.error(f"Error al eliminar el historial: {e}")
-        else:
-            st.info("Por favor, marca la casilla de confirmación para habilitar el borrado.")
-
-    st.markdown("---")
-
-# --- INTERFAZ PRINCIPAL DE SUBIDA ---
-st.subheader("Subir Nuevo Pedido")
-archivo = st.file_uploader("Sube tu archivo de diseño", type=["dst", "pes", "jef", "png", "jpg"])
-nombre_cliente = st.text_input("Nombre del Cliente")
-
-if st.button("SUBIR Y COMPLETAR"):
-    if archivo is not None:
-        try:
-            with st.spinner("Subiendo archivo a Firebase Storage..."):
-                bucket = storage.bucket()
+                # 1. Borrar documentos de Firestore
+                docs = db.collection('pedidos_bordado').stream()
+                for doc in docs:
+                    doc.reference.delete()
                 
-                # Crear ruta en el Storage
+                # 2. Borrar archivos de Storage
+                bucket = storage.bucket()
+                blobs = bucket.list_blobs(prefix="pedidos_archivos/")
+                for blob in blobs:
+                    blob.delete()
+                    
+                st.sidebar.success("¡Historial eliminado por completo!")
+                st.rerun()
+            except Exception as e:
+                st.sidebar.error(f"Error: {e}")
+
+# --- SECCIÓN 1: NUEVO PEDIDO ---
+st.subheader("➕ Subir Nuevo Pedido")
+
+col1, col2 = st.columns(2)
+
+with col1:
+    nombre_cliente = st.text_input("Nombre del Cliente")
+    tipo_prenda = st.selectbox("Tipo de Prenda", ["Gorra", "Camisa / Polo", "Chaqueta", "Parche", "Otro"])
+    cantidad = st.number_input("Cantidad de piezas", min_value=1, value=1)
+
+with col2:
+    medidas = st.text_input("Medidas del diseño (ej. 10x5 cm)")
+    observaciones = st.text_area("Observaciones / Notas adicionales")
+    archivo = st.file_uploader("Sube tu archivo de diseño", type=["dst", "pes", "jef", "png", "jpg"])
+
+if st.button("🚀 SUBIR Y COMPLETAR", type="primary"):
+    if archivo is not None and nombre_cliente.strip() != "":
+        try:
+            with st.spinner("Subiendo archivo y guardando pedido..."):
+                bucket = storage.bucket()
                 blob = bucket.blob(f"pedidos_archivos/{archivo.name}")
                 
-                # Subir el archivo desde los bytes del uploader de Streamlit
-                blob.upload_from_string(
-                    archivo.getvalue(),
-                    content_type=archivo.type
-                )
-                
-                # Hacer el archivo público
+                # Subir archivo binario
+                blob.upload_from_string(archivo.getvalue(), content_type=archivo.type)
                 blob.make_public()
                 download_url = blob.public_url
 
-                # Guardar datos en Firestore
+                # Guardar todos los datos en Firestore
                 pedido_data = {
                     "nombre_cliente": nombre_cliente,
+                    "tipo_prenda": tipo_prenda,
+                    "cantidad": cantidad,
+                    "medidas": medidas,
+                    "observaciones": observaciones,
                     "archivoUrl": download_url,
                     "archivoNombre": archivo.name,
                     "fechaSubida": firestore.SERVER_TIMESTAMP
@@ -92,10 +86,43 @@ if st.button("SUBIR Y COMPLETAR"):
                 
                 db.collection('pedidos_bordado').add(pedido_data)
 
-            st.success("¡Pedido y archivo subidos con éxito!")
-            st.markdown(f"[Ver archivo subido]({download_url})")
+            st.success("¡Pedido registrado y archivo guardado con éxito!")
+            st.rerun()
 
         except Exception as e:
-            st.error(f"Error al subir: {e}")
+            st.error(f"Error al procesar el pedido: {e}")
     else:
-        st.warning("Por favor, selecciona un archivo antes de continuar.")
+        st.warning("Por favor, completa al menos el 'Nombre del Cliente' y selecciona un 'archivo'.")
+
+# --- SECCIÓN 2: HISTORIAL DE PEDIDOS REGISTRADOS ---
+st.markdown("---")
+st.subheader("📋 Historial de Pedidos en la Base de Datos")
+
+try:
+    pedidos_ref = db.collection('pedidos_bordado').order_by('fechaSubida', direction=firestore.Query.DESCENDING).stream()
+    
+    hay_pedidos = False
+    for doc in pedidos_ref:
+        hay_pedidos = True
+        p = doc.to_dict()
+        
+        with st.expander(f"Cliente: {p.get('nombre_cliente', 'Sin nombre')} — Prenda: {p.get('tipo_prenda', 'N/A')} (Cant: {p.get('cantidad', 1)})"):
+            st.write(f"**Medidas:** {p.get('medidas', 'No especificadas')}")
+            st.write(f"**Observaciones:** {p.get('observaciones', 'Ninguna')}")
+            st.write(f"**Archivo:** {p.get('archivoNombre', 'Desconocido')}")
+            
+            url_archivo = p.get('archivoUrl')
+            if url_archivo:
+                st.markdown(f"[📥 Descargar / Ver Archivo de Diseño]({url_archivo})")
+                
+            # Botón individual para borrar un pedido específico
+            if st.button(f"Eliminar este pedido", key=doc.id):
+                db.collection('pedidos_bordado').document(doc.id).delete()
+                st.success("Pedido eliminado correctamente.")
+                st.rerun()
+
+    if not hay_pedidos:
+        st.info("No hay pedidos registrados en este momento.")
+
+except Exception as e:
+    st.info("Configurando la conexión o la base de datos está vacía. Sube tu primer pedido arriba.")
