@@ -86,7 +86,7 @@ def actualizar_url_y_estado(nueva_vista, nuevo_usuario):
     st.query_params["user"] = nuevo_usuario
     st.rerun()
 
-# Lista de administradores autorizados (incluyendo Pixel2580)
+# Lista de administradores autorizados
 ADMINS_AUTORIZADOS = ["Pixel2580", "eric"]
 
 # Barra superior de navegación entre paneles
@@ -121,10 +121,22 @@ if st.session_state.modo_vista == "Cliente":
         user_doc = user_doc_ref.get()
         
         nombre_cliente = st.session_state.user
+        logo_cliente_b64 = None
         if user_doc.exists:
-            nombre_cliente = user_doc.to_dict().get('nombre_usuario', st.session_state.user)
+            data_u = user_doc.to_dict()
+            nombre_cliente = data_u.get('nombre_usuario', st.session_state.user)
+            logo_cliente_b64 = data_u.get('logo_b64', None)
 
-        st.title(f"🧵 Bienvenido, {nombre_cliente}")
+        # Encabezado con Logo opcional al lado del nombre
+        col_h1, col_h2 = st.columns([1, 6])
+        with col_h1:
+            if logo_cliente_b64:
+                try:
+                    st.image(base64.b64decode(logo_cliente_b64), width=60)
+                except Exception:
+                    pass
+        with col_h2:
+            st.title(f"🧵 Bienvenido, {nombre_cliente}")
         
         if st.session_state.mensaje_exito:
             st.success(st.session_state.mensaje_exito)
@@ -277,10 +289,11 @@ if st.session_state.modo_vista == "Cliente":
 else:
     st.title("🛠️ Panel de Administración")
     
-    # --- REGISTRO Y GESTIÓN DE CLIENTES ---
+    # --- REGISTRO DE CLIENTES ---
     with st.expander("➕ Registrar Nuevo Cliente", expanded=False):
         with st.form("form_nuevo_cliente_admin", clear_on_submit=True):
             nuevo_id_cliente = st.text_input("ID o Nombre del Nuevo Cliente")
+            logo_nuevo_subido = st.file_uploader("Logo / Icono del Cliente (Opcional)", type=["png", "jpg", "jpeg"])
             submit_registro = st.form_submit_button("✨ Crear Cliente")
             
             if submit_registro:
@@ -291,52 +304,74 @@ else:
                     if doc_ref_nuevo.get().exists:
                         st.error("⚠️ Este cliente ya existe.")
                     else:
+                        logo_b64 = None
+                        if logo_nuevo_subido:
+                            img_bytes = logo_nuevo_subido.getvalue()
+                            logo_b64 = base64.b64encode(img_bytes).decode("utf-8")
+
                         doc_ref_nuevo.set({
                             "nombre_usuario": nuevo_id_cliente.strip(),
+                            "logo_b64": logo_b64,
                             "creado": datetime.now()
                         })
                         st.success(f"¡Cliente '{nuevo_id_cliente.strip()}' registrado exitosamente!")
                         st.rerun()
 
     st.markdown("---")
-    st.subheader("👥 Gestión de Clientes Existentes")
 
-    try:
-        clientes_docs = list(db.collection("usuarios_perfil").stream())
-        if not clientes_docs:
-            st.info("No hay clientes registrados.")
-        
-        for c_doc in clientes_docs:
-            c_data = c_doc.to_dict()
-            c_id = c_doc.id
+    # --- GESTIÓN DE CLIENTES EXISTENTES (MINIMIZABLE) ---
+    with st.expander("👥 Gestión de Clientes Existentes", expanded=False):
+        try:
+            clientes_docs = list(db.collection("usuarios_perfil").stream())
+            if not clientes_docs:
+                st.info("No hay clientes registrados.")
             
-            with st.container():
-                col_c1, col_c2, col_c3 = st.columns([3, 1, 1])
-                with col_c1:
-                    st.write(f"👤 **{c_data.get('nombre_usuario')}** (ID: `{c_id}`)")
+            for c_doc in clientes_docs:
+                c_data = c_doc.to_dict()
+                c_id = c_doc.id
+                c_logo = c_data.get('logo_b64', None)
                 
-                with col_c2:
-                    if st.button("✏️ Editar", key=f"edit_{c_id}"):
-                        st.session_state[f"edit_mode_{c_id}"] = not st.session_state.get(f"edit_mode_{c_id}", False)
-                
-                with col_c3:
-                    if st.button("🗑️ Borrar", key=f"del_client_{c_id}"):
-                        db.collection("usuarios_perfil").document(c_id).delete()
-                        st.warning(f"Cliente {c_id} eliminado.")
-                        st.rerun()
-
-                # Formulario de Edición inline para el cliente
-                if st.session_state.get(f"edit_mode_{c_id}", False):
-                    with st.form(key=f"form_edit_client_{c_id}"):
-                        nuevo_nombre_cliente = st.text_input("Modificar Nombre/ID de Visualización:", value=c_data.get('nombre_usuario', ''))
-                        if st.form_submit_button("💾 Guardar Cambios"):
-                            db.collection("usuarios_perfil").document(c_id).update({"nombre_usuario": nuevo_nombre_cliente.strip()})
-                            st.session_state[f"edit_mode_{c_id}"] = False
-                            st.success("¡Cliente actualizado con éxito!")
+                with st.container():
+                    col_logo, col_c1, col_c2, col_c3 = st.columns([0.5, 2.5, 1, 1])
+                    with col_logo:
+                        if c_logo:
+                            try:
+                                st.image(base64.b64decode(c_logo), width=35)
+                            except Exception:
+                                st.write("🖼️")
+                        else:
+                            st.write("👤")
+                    with col_c1:
+                        st.write(f"**{c_data.get('nombre_usuario')}** (`{c_id}`)")
+                    
+                    with col_c2:
+                        if st.button("✏️ Editar", key=f"edit_{c_id}"):
+                            st.session_state[f"edit_mode_{c_id}"] = not st.session_state.get(f"edit_mode_{c_id}", False)
+                    
+                    with col_c3:
+                        if st.button("🗑️ Borrar", key=f"del_client_{c_id}"):
+                            db.collection("usuarios_perfil").document(c_id).delete()
+                            st.warning(f"Cliente {c_id} eliminado.")
                             st.rerun()
-                st.markdown("---")
-    except Exception as e:
-        st.error(f"Error al cargar clientes: {e}")
+
+                    # Formulario de Edición inline para el cliente
+                    if st.session_state.get(f"edit_mode_{c_id}", False):
+                        with st.form(key=f"form_edit_client_{c_id}"):
+                            nuevo_nombre_cliente = st.text_input("Modificar Nombre/ID:", value=c_data.get('nombre_usuario', ''))
+                            nuevo_logo_subido = st.file_uploader("Actualizar Logo / Icono (Opcional)", type=["png", "jpg", "jpeg"], key=f"logo_up_{c_id}")
+                            
+                            if st.form_submit_button("💾 Guardar Cambios"):
+                                update_data = {"nombre_usuario": nuevo_nombre_cliente.strip()}
+                                if nuevo_logo_subido:
+                                    update_data["logo_b64"] = base64.b64encode(nuevo_logo_subido.getvalue()).decode("utf-8")
+                                
+                                db.collection("usuarios_perfil").document(c_id).update(update_data)
+                                st.session_state[f"edit_mode_{c_id}"] = False
+                                st.success("¡Cliente actualizado con éxito!")
+                                st.rerun()
+                    st.markdown("---")
+        except Exception as e:
+            st.error(f"Error al cargar clientes: {e}")
 
     st.markdown("---")
     st.subheader("📋 Gestión de Pedidos Entrantes")
