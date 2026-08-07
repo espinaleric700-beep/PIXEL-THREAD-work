@@ -127,10 +127,10 @@ if st.session_state.modo_vista == "Cliente":
             nombre_cliente = data_u.get('nombre_usuario', st.session_state.user)
             logo_cliente_b64 = data_u.get('logo_b64', None)
 
-        # Cabecera centralizada horizontalmente con icono grande alineado al texto
+        # Cabecera centralizada horizontalmente con el icono al lado izquierdo exacto del texto
         col_esp_izq, col_contenido, col_esp_der = st.columns([1, 4, 1])
         with col_contenido:
-            sub_c1, sub_c2 = st.columns([0.45, 3.55])
+            sub_c1, sub_c2 = st.columns([0.28, 3.72])
             with sub_c1:
                 if logo_cliente_b64:
                     try:
