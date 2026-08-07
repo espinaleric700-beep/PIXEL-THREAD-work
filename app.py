@@ -104,7 +104,6 @@ st.markdown("---")
 # 1. PANEL DE CLIENTE
 # =========================================================
 if st.session_state.modo_vista == "Cliente":
-    st.title("🧵 Pixel Thread - Portal de Cliente")
     
     user_input = st.text_input("Ingresa tu Nombre o ID de Usuario para continuar:", value=st.session_state.user, key="input_nombre_usuario")
     
@@ -112,24 +111,27 @@ if st.session_state.modo_vista == "Cliente":
         actualizar_url_y_estado("Cliente", user_input)
 
     if not st.session_state.user.strip():
+        st.title("🧵 Pixel Thread - Portal de Cliente")
         st.info("👆 Por favor, ingresa tu nombre o ID de usuario arriba para acceder a tus pedidos y enviar nuevas solicitudes.")
     else:
         user_doc_ref = db.collection("usuarios_perfil").document(st.session_state.user.strip().lower())
         user_doc = user_doc_ref.get()
         
         if not user_doc.exists:
+            st.title("🧵 Pixel Thread - Portal de Cliente")
             st.error(f"❌ El usuario **{st.session_state.user}** no está registrado en el sistema. Por favor, contacta al administrador para que cree tu cuenta.")
         else:
             datos_usuario = user_doc.to_dict()
             logo_perfil_b64 = datos_usuario.get("logo_usuario", "")
+            nombre_cliente = datos_usuario.get('nombre_usuario', st.session_state.user)
 
-            # Contenedor superior con la información del usuario y su logo al lado
-            col_perfil1, col_perfil2 = st.columns([3, 1])
-            with col_perfil1:
-                st.success(f"Sesión activa como: **{st.session_state.user}**")
-            with col_perfil2:
+            # TÍTULO DINÁMICO CON LOGO E ICONO AL LADO
+            col_t1, col_t2 = st.columns([5, 1])
+            with col_t1:
+                st.title(f"🧵 {nombre_cliente}")
+            with col_t2:
                 if logo_perfil_b64:
-                    st.image(base64.b64decode(logo_perfil_b64), width=60, caption="Tu Logo")
+                    st.image(base64.b64decode(logo_perfil_b64), width=65)
 
             st.markdown("---")
 
