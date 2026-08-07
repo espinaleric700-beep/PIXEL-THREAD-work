@@ -106,7 +106,8 @@ st.markdown("---")
 if st.session_state.modo_vista == "Cliente":
     st.title("🧵 Pixel Thread - Portal de Cliente")
     
-    user_input = st.text_input("Ingresa tu Nombre o ID de Usuario para continuar:", value=st.session_state.user)
+    # Campo para ingresar el usuario de manera independiente
+    user_input = st.text_input("Ingresa tu Nombre o ID de Usuario para continuar:", value=st.session_state.user, key="input_nombre_usuario")
     
     if user_input != st.session_state.user:
         actualizar_url_y_estado("Cliente", user_input)
@@ -122,22 +123,20 @@ if st.session_state.modo_vista == "Cliente":
         if not user_doc.exists:
             st.warning(f"⚠️ El usuario **{st.session_state.user}** no está registrado. Por favor, sube el logo de tu marca/usuario para completar tu registro por primera vez:")
             
-            with st.form("form_registro_primer_vez"):
-                logo_registro_file = st.file_uploader("Sube el logo de tu usuario (PNG, JPG)", type=["png", "jpg", "jpeg"])
-                registrar_btn = st.form_submit_button("✨ Registrar Cuenta y Logo")
-                
-                if registrar_btn:
-                    if logo_registro_file is not None:
-                        l_b64 = base64.b64encode(logo_registro_file.getvalue()).decode("utf-8")
-                        user_doc_ref.set({
-                            "nombre_usuario": st.session_state.user.strip(),
-                            "logo_usuario": l_b64,
-                            "creado": datetime.now()
-                        })
-                        st.success("¡Registro completado con éxito!")
-                        st.rerun()
-                    else:
-                        st.warning("⚠️ Debes subir una imagen para continuar con el registro.")
+            logo_registro_file = st.file_uploader("Sube el logo de tu usuario (PNG, JPG)", type=["png", "jpg", "jpeg"], key="uploader_logo_registro")
+            
+            if st.button("✨ Registrar Cuenta y Logo"):
+                if logo_registro_file is not None:
+                    l_b64 = base64.b64encode(logo_registro_file.getvalue()).decode("utf-8")
+                    user_doc_ref.set({
+                        "nombre_usuario": st.session_state.user.strip(),
+                        "logo_usuario": l_b64,
+                        "creado": datetime.now()
+                    })
+                    st.success("¡Registro completado con éxito!")
+                    st.rerun()
+                else:
+                    st.warning("⚠️ Debes subir una imagen para continuar con el registro.")
         
         # SI EL USUARIO YA EXISTE -> MUESTRA SU PERFIL CON EL LOGO AL LADO Y EL RESTO DE FUNCIONES
         else:
