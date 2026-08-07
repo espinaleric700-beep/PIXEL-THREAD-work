@@ -9,7 +9,7 @@ from streamlit_autorefresh import st_autorefresh
 st.set_page_config(page_title="Pixel Thread | Pro", layout="wide")
 st_autorefresh(interval=10000, limit=1000, key="auto_refrescar")
 
-# --- CSS AVANZADO PARA INTERFAZ Y CÍRCULOS PARPADEANTES ---
+# --- CSS AVANZADO PARA INTERFAZ Y CÍRCULOS CON RESPLANDOR SUAVE ---
 st.markdown("""
 <style>
     :root {
@@ -51,19 +51,7 @@ st.markdown("""
     h1 { color: var(--primary) !important; text-transform: uppercase; letter-spacing: 2px; }
     h2, h3 { color: var(--primary) !important; text-transform: uppercase; letter-spacing: 1px; }
 
-    /* --- ANIMACIÓN DE CÍRCULOS PARPADEANTES --- */
-    @keyframes parpadeo-rojo {
-        0% { opacity: 1; transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 75, 75, 0.7); }
-        70% { opacity: 0.4; transform: scale(1.1); box-shadow: 0 0 0 6px rgba(255, 75, 75, 0); }
-        100% { opacity: 1; transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 75, 75, 0); }
-    }
-
-    @keyframes parpadeo-verde {
-        0% { opacity: 1; transform: scale(1); box-shadow: 0 0 0 0 rgba(0, 255, 128, 0.7); }
-        70% { opacity: 0.4; transform: scale(1.1); box-shadow: 0 0 0 6px rgba(0, 255, 128, 0); }
-        100% { opacity: 1; transform: scale(1); box-shadow: 0 0 0 0 rgba(0, 255, 128, 0); }
-    }
-
+    /* --- CÍRCULOS CON RESPLANDOR ESTABLE (SIN PARPADEO MOLESTO) --- */
     .dot-red {
         height: 10px;
         width: 10px;
@@ -71,7 +59,7 @@ st.markdown("""
         border-radius: 50%;
         display: inline-block;
         margin-left: 6px;
-        animation: parpadeo-rojo 1.5s infinite;
+        box-shadow: 0 0 8px #ff4b4b;
         vertical-align: middle;
     }
 
@@ -82,7 +70,7 @@ st.markdown("""
         border-radius: 50%;
         display: inline-block;
         margin-left: 6px;
-        animation: parpadeo-verde 1.5s infinite;
+        box-shadow: 0 0 8px #00ff80;
         vertical-align: middle;
     }
 
@@ -93,6 +81,7 @@ st.markdown("""
         border-radius: 50%;
         display: inline-block;
         margin-left: 6px;
+        box-shadow: 0 0 8px #00bfff;
         vertical-align: middle;
     }
 </style>
