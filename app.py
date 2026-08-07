@@ -7,11 +7,11 @@ import io
 from PIL import Image
 from streamlit_autorefresh import st_autorefresh
 
-# --- CONFIGURACIÓN (MODIFICADO A WIDE PARA PANTALLA COMPLETA) ---
+# --- CONFIGURACIÓN ---
 st.set_page_config(page_title="Pixel Thread | Pro", layout="wide")
-st_autorefresh(interval=10000, limit=1000, key="auto_refrescar") # Subido a 10 segundos para optimizar cuota
+st_autorefresh(interval=10000, limit=1000, key="auto_refrescar")
 
-# --- CSS AVANZADO (INCLUYE AJUSTES DE ANCHO COMPLETO) ---
+# --- CSS AVANZADO ---
 st.markdown("""
 <style>
     :root {
@@ -28,7 +28,6 @@ st.markdown("""
                           linear-gradient(90deg, rgba(0, 255, 204, 0.05) 1px, transparent 1px);
         background-size: 50px 50px; pointer-events: none; z-index: 0;
     }
-    /* Forzar ancho completo en contenedores principales */
     .block-container {
         max-width: 100% !important;
         padding-left: 3rem;
@@ -117,7 +116,7 @@ if st.session_state.modo_vista == "Cliente":
         actualizar_url("Cliente", user_input)
 
     if not st.session_state.user.strip():
-        st.info("👆 Por favor, ingresa tu nombre o ID de usuario arriba para acceder a tus pedidos.")
+        st.info("👆 Por favor, ingresa tu nombre o ID de usuario arriba para acceder à tus pedidos.")
     else:
         try:
             user_doc_ref = db.collection("usuarios_perfil").document(st.session_state.user.strip().lower())
@@ -204,63 +203,69 @@ if st.session_state.modo_vista == "Cliente":
             mis_pedidos = [p.to_dict() for p in todos if p.to_dict().get("cliente", "").strip().lower() == st.session_state.user.strip().lower()]
 
             if mis_pedidos:
-                pedidos_cliente_activos = []
-                pedidos_cliente_completados = []
-
-                for p in mis_pedidos:
-                    if p.get('estado') == "Completado":
-                        pedidos_cliente_completados.append(p)
-                    else:
-                        pedidos_cliente_activos.append(p)
+                pedidos_cliente_activos = [p for p in mis_pedidos if p.get('estado') != "Completado"]
+                pedidos_cliente_completados = [p for p in mis_pedidos if p.get('estado') == "Completado"]
 
                 if pedidos_cliente_completados:
                     with st.expander(f"📦 Historial de Mis Pedidos Completados / Entregados ({len(pedidos_cliente_completados)})", expanded=False):
-                        st.info("Aquí puedes consultar y volver a descargar los entregables de tus trabajos finalizados.")
-                        
                         for p in pedidos_cliente_completados:
-                            st.markdown(f"### 🧵 Proyecto: {p.get('nombre_proyecto')}")
-                            st.markdown(f"**ID de Pedido:** `{p.get('id')}` | **Estado:** `✅ Completado`")
-                            st.markdown(f"**Producto:** {p.get('producto')} | **Ubicación:** {p.get('ubicacion')} | **Estilo:** {p.get('estilo')}")
+                            # DISEÑO HORIZONTAL EN COLUMNAS
+                            col_h1, col_h2, col_h3, col_h4 = st.columns([2, 2, 2, 2])
+                            with col_h1:
+                                st.markdown(f"**Proyecto:** {p.get('nombre_proyecto')}")
+                            with col_h2:
+                                st.markdown(f"**ID:** `{p.get('id')}`")
+                            with col_h3:
+                                st.markdown(f"**Estado:** `✅ Completado`")
+                            with col_h4:
+                                st.markdown(f"**Prod:** {p.get('producto')} | **Ubi:** {p.get('ubicacion')}")
                             
                             af = p.get('archivos_finales', [])
                             if af:
-                                st.success("✨ Archivos Entregados:")
+                                cols_dl = st.columns(len(af))
                                 for idx_f, f_item in enumerate(af):
-                                    st.download_button(
-                                        f"📥 Descargar: {f_item.get('nombre')}", 
-                                        data=base64.b64decode(f_item.get('data')), 
-                                        file_name=f_item.get('nombre'), 
-                                        key=f"dl_client_comp_{p.get('id')}_{idx_f}"
-                                    )
+                                    with cols_dl[idx_f]:
+                                        st.download_button(
+                                            f"📥 {f_item.get('nombre')}", 
+                                            data=base64.b64decode(f_item.get('data')), 
+                                            file_name=f_item.get('nombre'), 
+                                            key=f"dl_client_comp_{p.get('id')}_{idx_f}"
+                                        )
                             st.markdown("---")
                     st.markdown("<br>", unsafe_allow_html=True)
 
                 if pedidos_cliente_activos:
                     for p in pedidos_cliente_activos:
                         with st.container():
-                            st.markdown(f"### 🧵 Proyecto: {p.get('nombre_proyecto')}")
-                            st.markdown(f"**ID de Pedido:** `{p.get('id')}` | **Estado:** `{p.get('estado')}`")
-                            st.markdown(f"**Producto:** {p.get('producto')} | **Ubicación:** {p.get('ubicacion')} | **Estilo:** {p.get('estilo')}")
+                            # DISTRIBUCIÓN HORIZONTAL DE DATOS PRINCIPALES
+                            col_info1, col_info2, col_info3, col_info4 = st.columns([2, 2, 2, 2])
+                            with col_info1:
+                                st.markdown(f"### 🧵 {p.get('nombre_proyecto')}")
+                            with col_info2:
+                                st.markdown(f"**ID:** `{p.get('id')}`")
+                            with col_info3:
+                                st.markdown(f"**Estado:** `{p.get('estado')}`")
+                            with col_info4:
+                                st.markdown(f"**Prod:** {p.get('producto')} | **Ubi:** {p.get('ubicacion')}")
+
                             if p.get('comentarios'):
                                 st.markdown(f"**Comentarios:** {p.get('comentarios')}")
                             
                             archivos = p.get('archivos', [])
                             if archivos:
                                 st.markdown("🖼️ **Archivos Adjuntos:**")
-                                cols_arch = st.columns(min(len(archivos), 3))
+                                cols_arch = st.columns(min(len(archivos), 4))
                                 for idx_a, arch_item in enumerate(archivos):
                                     nombre_a = arch_item.get('nombre', 'archivo')
                                     data_a = arch_item.get('data')
                                     with cols_arch[idx_a % len(cols_arch)]:
                                         if nombre_a.lower().endswith(('png', 'jpg', 'jpeg')):
                                             try:
-                                                img_bytes = base64.b64decode(data_a)
-                                                st.image(img_bytes, caption=nombre_a, width=150)
+                                                st.image(base64.b64decode(data_a), caption=nombre_a, width=120)
                                             except Exception:
                                                 st.text(nombre_a)
                                         else:
                                             st.text(f"📄 {nombre_a}")
-                                        
                                         try:
                                             st.download_button(f"📥 {nombre_a}", data=base64.b64decode(data_a), file_name=nombre_a, key=f"dl_orig_{p.get('id')}_{idx_a}")
                                         except Exception:
@@ -269,13 +274,15 @@ if st.session_state.modo_vista == "Cliente":
                             af = p.get('archivos_finales', [])
                             if af:
                                 st.success("✨ ¡Entregables listos para descargar!")
+                                cols_ent = st.columns(len(af))
                                 for idx_f, f_item in enumerate(af):
-                                    st.download_button(
-                                        f"📥 Descargar Entregable: {f_item.get('nombre')}", 
-                                        data=base64.b64decode(f_item.get('data')), 
-                                        file_name=f_item.get('nombre'), 
-                                        key=f"dl_client_{p.get('id')}_{idx_f}"
-                                    )
+                                    with cols_ent[idx_f]:
+                                        st.download_button(
+                                            f"📥 {f_item.get('nombre')}", 
+                                            data=base64.b64decode(f_item.get('data')), 
+                                            file_name=f_item.get('nombre'), 
+                                            key=f"dl_client_{p.get('id')}_{idx_f}"
+                                        )
                             st.markdown("---")
                 else:
                     st.info("No tienes pedidos pendientes o en proceso en este momento.")
@@ -326,37 +333,50 @@ else:
             else:
                 pedidos_activos.append((doc.id, p_data))
 
-        # --- MOSTRAR PEDIDOS ACTIVOS (Admin) ---
+        # --- MOSTRAR PEDIDOS ACTIVOS (Admin) EN HORIZONTAL ---
         if pedidos_activos:
             for doc_id, p in pedidos_activos:
                 nombre_cliente = p.get('cliente', 'Desconocido')
                 nombre_proyecto = p.get('nombre_proyecto', 'Sin Nombre')
                 id_pedido = p.get('id', 'Sin ID')
                 
-                st.markdown(f"### 👤 {nombre_cliente} — 🧵 {nombre_proyecto}")
-                st.markdown(f"**ID de Pedido:** `{id_pedido}` | **Estado:** `{p.get('estado')}`")
-                st.text(f"Producto: {p.get('producto')} | Ubicación: {p.get('ubicacion')} | Estilo: {p.get('estilo')}")
+                # Diseño de columnas en horizontal para los datos principales
+                col_a1, col_a2, col_a3, col_a4 = st.columns([2, 2, 2, 2])
+                with col_a1:
+                    st.markdown(f"### 👤 {nombre_cliente}")
+                    st.text(f"Proyecto: {nombre_proyecto}")
+                with col_a2:
+                    st.markdown(f"**ID:** `{id_pedido}`")
+                    st.markdown(f"**Estado:** `{p.get('estado')}`")
+                with col_a3:
+                    st.text(f"Prod: {p.get('producto')}")
+                    st.text(f"Ubi: {p.get('ubicacion')}")
+                with col_a4:
+                    st.text(f"Estilo: {p.get('estilo')}")
+
                 if p.get('comentarios'):
                     st.text(f"Comentarios: {p.get('comentarios')}")
 
                 archivos = p.get('archivos', [])
                 if archivos:
                     st.markdown("🖼️ **Archivos del Cliente:**")
-                    for arch_item in archivos:
+                    cols_arch_adm = st.columns(min(len(archivos), 4))
+                    for idx_a, arch_item in enumerate(archivos):
                         nombre_a = arch_item.get('nombre', 'archivo')
                         data_a = arch_item.get('data')
-                        if nombre_a.lower().endswith(('png', 'jpg', 'jpeg')):
-                            try:
-                                st.image(base64.b64decode(data_a), caption=nombre_a, width=120)
-                            except Exception:
-                                pass
-                        st.download_button(f"📥 Descargar {nombre_a}", data=base64.b64decode(data_a), file_name=nombre_a, key=f"dl_admin_orig_{id_pedido}_{nombre_a}")
+                        with cols_arch_adm[idx_a % len(cols_arch_adm)]:
+                            if nombre_a.lower().endswith(('png', 'jpg', 'jpeg')):
+                                try:
+                                    st.image(base64.b64decode(data_a), caption=nombre_a, width=100)
+                                except Exception:
+                                    pass
+                            st.download_button(f"📥 {nombre_a}", data=base64.b64decode(data_a), file_name=nombre_a, key=f"dl_admin_orig_{id_pedido}_{idx_a}")
 
                 st.markdown("<br>", unsafe_allow_html=True)
 
                 with st.expander("📤 Subir Entregables / Archivo Digitalizado para el Cliente", expanded=False):
                     archivos_entregables = st.file_uploader(
-                        "Selecciona los archivos finalizados (.DST, .EMB, .PES, .PNG, etc.):", 
+                        "Selecciona los archivos finalizados:", 
                         type=["dst", "emb", "pes", "png", "jpg", "jpeg", "pdf"],
                         accept_multiple_files=True, 
                         key=f"upload_final_{doc_id}"
@@ -379,53 +399,54 @@ else:
                         else:
                             st.warning("⚠️ Debes adjuntar al menos un archivo para enviar.")
 
-                af_existentes = p.get('archivos_finales', [])
-                if af_existentes:
-                    st.markdown("✅ **Entregables Ya Subidos:**")
-                    for idx_fe, fe_item in enumerate(af_existentes):
-                        st.text(f"📄 {fe_item.get('nombre')}")
+                # Controles de Estado y Acciones organizados de forma horizontal
+                col_act1, col_act2, col_act3 = st.columns([2, 2, 1])
+                with col_act1:
+                    estados = ["Pendiente", "En Proceso", "Completado"]
+                    est_actual = p.get('estado', 'Pendiente')
+                    nuevo_est = st.selectbox("Actualizar Estado", estados, index=estados.index(est_actual) if est_actual in estados else 0, key=f"st_{doc_id}")
+                    if nuevo_est != est_actual:
+                        db.collection("pedidos_bordado").document(doc_id).update({"estado": nuevo_est})
+                        st.success("¡Estado actualizado!")
+                        st.rerun()
+                with col_act2:
+                    af_existentes = p.get('archivos_finales', [])
+                    if af_existentes:
+                        st.markdown(f"✅ **Entregables:** {len(af_existentes)} archivo(s)")
+                with col_act3:
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    if st.button(f"🗑️ Eliminar", key=f"del_{doc_id}"):
+                        db.collection("pedidos_bordado").document(doc_id).delete()
+                        st.warning("Pedido eliminado.")
+                        st.rerun()
 
-                estados = ["Pendiente", "En Proceso", "Completado"]
-                est_actual = p.get('estado', 'Pendiente')
-                nuevo_est = st.selectbox("Actualizar Estado Manualmente", estados, index=estados.index(est_actual) if est_actual in estados else 0, key=f"st_{doc_id}")
-                if nuevo_est != est_actual:
-                    db.collection("pedidos_bordado").document(doc_id).update({"estado": nuevo_est})
-                    st.success("¡Estado actualizado!")
-                    st.rerun()
-                
-                if st.button(f"🗑️ Eliminar Pedido {id_pedido}", key=f"del_{doc_id}"):
-                    db.collection("pedidos_bordado").document(doc_id).delete()
-                    st.warning("Pedido eliminado.")
-                    st.rerun()
                 st.markdown("---")
         else:
             st.info("🎉 No hay pedidos pendientes o en proceso en este momento.")
 
-        # --- SECCIÓN APARTE: PEDIDOS COMPLETADOS / ENTREGADOS (Admin) ---
+        # --- PEDIDOS COMPLETADOS / ENTREGADOS ---
         if pedidos_completados:
             st.markdown("<br>", unsafe_allow_html=True)
             with st.expander(f"🗂️ Historial de Pedidos Entregados / Completados ({len(pedidos_completados)})", expanded=False):
-                st.info("Aquí se encuentran los pedidos que ya fueron completados y entregados a los clientes.")
-                
                 for doc_id, p in pedidos_completados:
-                    nombre_cliente = p.get('cliente', 'Desconocido')
-                    nombre_proyecto = p.get('nombre_proyecto', 'Sin Nombre')
-                    id_pedido = p.get('id', 'Sin ID')
-                    
-                    st.markdown(f"### 👤 {nombre_cliente} — 🧵 {nombre_proyecto}")
-                    st.markdown(f"**ID de Pedido:** `{id_pedido}` | **Estado:** `✅ Completado`")
-                    st.text(f"Producto: {p.get('producto')} | Ubicación: {p.get('ubicacion')} | Estilo: {p.get('estilo')}")
-                    
-                    col_op1, col_op2 = st.columns(2)
-                    with col_op1:
-                        if st.button(f"🔄 Volver a 'Pendiente' {id_pedido}", key=f"revert_{doc_id}"):
-                            db.collection("pedidos_bordado").document(doc_id).update({"estado": "Pendiente"})
-                            st.rerun()
-                    with col_op2:
-                        if st.button(f"🗑️ Eliminar Definitivo {id_pedido}", key=f"del_comp_{doc_id}"):
-                            db.collection("pedidos_bordado").document(doc_id).delete()
-                            st.warning("Pedido eliminado.")
-                            st.rerun()
+                    col_c1, col_c2, col_c3, col_c4 = st.columns([2, 2, 2, 2])
+                    with col_c1:
+                        st.markdown(f"**Cliente:** {p.get('cliente')} | **Proj:** {p.get('nombre_proyecto')}")
+                    with col_c2:
+                        st.markdown(f"**ID:** `{p.get('id')}`")
+                    with col_c3:
+                        st.markdown(f"**Estado:** `✅ Completado`")
+                    with col_c4:
+                        sub_c1, sub_c2 = st.columns(2)
+                        with sub_c1:
+                            if st.button(f"🔄 Revertir", key=f"revert_{doc_id}"):
+                                db.collection("pedidos_bordado").document(doc_id).update({"estado": "Pendiente"})
+                                st.rerun()
+                        with sub_c2:
+                            if st.button(f"🗑️ Borrar", key=f"del_comp_{doc_id}"):
+                                db.collection("pedidos_bordado").document(doc_id).delete()
+                                st.warning("Eliminado.")
+                                st.rerun()
                     st.markdown("---")
 
     except Exception as e:
