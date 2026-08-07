@@ -177,31 +177,34 @@ if st.session_state.modo_vista == "Cliente":
                             st.error("❌ Error: Debes adjuntar al menos un archivo para enviar la orden a producción.")
                         else:
                             lista_archivos_guardados = []
-                            for archivo in archivos_subidos:
-                                # Lectura correcta en bytes asegurando que formatos como PNG y PDF se procesen completos
-                                archivo_bytes = archivo.read()
-                                archivo_b64 = base64.b64encode(archivo_bytes).decode("utf-8")
-                                lista_archivos_guardados.append({
-                                    "nombre": archivo.name,
-                                    "data": archivo_b64
-                                })
+                            try:
+                                for archivo in archivos_subidos:
+                                    # Usar getvalue() asegura compatibilidad total con PNG, JPG y otros formatos dentro de forms
+                                    archivo_bytes = archivo.getvalue()
+                                    archivo_b64 = base64.b64encode(archivo_bytes).decode("utf-8")
+                                    lista_archivos_guardados.append({
+                                        "nombre": archivo.name,
+                                        "data": archivo_b64
+                                    })
 
-                            data_pedido = {
-                                "id": "PT-" + str(int(datetime.now().timestamp())),
-                                "cliente": st.session_state.user.strip(),
-                                "nombre_proyecto": nombre_proyecto,
-                                "producto": tipo_producto,
-                                "ubicacion": ubicacion if tipo_producto == "GORRA" else "N/A",
-                                "estilo": estilo_frente if (tipo_producto == "GORRA" and ubicacion == "FRENTE") else "N/A",
-                                "archivos": lista_archivos_guardados,
-                                "comentarios": comentarios,
-                                "estado": "Pendiente",
-                                "timestamp": datetime.now()
-                            }
-                            
-                            db.collection("pedidos_bordado").add(data_pedido)
-                            st.success("¡Pedido enviado y guardado correctamente!")
-                            st.rerun()
+                                data_pedido = {
+                                    "id": "PT-" + str(int(datetime.now().timestamp())),
+                                    "cliente": st.session_state.user.strip(),
+                                    "nombre_proyecto": nombre_proyecto,
+                                    "producto": tipo_producto,
+                                    "ubicacion": ubicacion if tipo_producto == "GORRA" else "N/A",
+                                    "estilo": estilo_frente if (tipo_producto == "GORRA" and ubicacion == "FRENTE") else "N/A",
+                                    "archivos": lista_archivos_guardados,
+                                    "comentarios": comentarios,
+                                    "estado": "Pendiente",
+                                    "timestamp": datetime.now()
+                                }
+                                
+                                db.collection("pedidos_bordado").add(data_pedido)
+                                st.success("¡Pedido enviado y guardado correctamente!")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"❌ Error al procesar y guardar los archivos: {e}")
 
             st.markdown("---")
             st.subheader("📋 Estado de Mis Pedidos y Posición en Cola")
@@ -259,7 +262,10 @@ if st.session_state.modo_vista == "Cliente":
                                     data_arch = arch.get('data', '')
                                     st.text(f"📄 {nombre_arch}")
                                     if data_arch and (nombre_arch.lower().endswith('.png') or nombre_arch.lower().endswith('.jpg') or nombre_arch.lower().endswith('.jpeg')):
-                                        st.image(base64.b64decode(data_arch), width=120)
+                                        try:
+                                            st.image(base64.b64decode(data_arch), width=120)
+                                        except Exception:
+                                            pass
 
                             st.markdown("---")
                 else:
@@ -290,7 +296,7 @@ else:
                     else:
                         l_b64 = ""
                         if logo_cliente_file is not None:
-                            l_b64 = base64.b64encode(logo_cliente_file.read()).decode("utf-8")
+                            l_b64 = base64.b64encode(logo_cliente_file.getvalue()).decode("utf-8")
                         
                         doc_ref_nuevo.set({
                             "nombre_usuario": nuevo_id_cliente.strip(),
@@ -338,16 +344,22 @@ else:
                         
                         st.text(f"• {a_nombre}")
                         if a_data and (a_nombre.lower().endswith('.png') or a_nombre.lower().endswith('.jpg') or a_nombre.lower().endswith('.jpeg')):
-                            st.image(base64.b64decode(a_data), width=80)
+                            try:
+                                st.image(base64.b64decode(a_data), width=80)
+                            except Exception:
+                                pass
 
                         if a_data:
-                            st.download_button(
-                                label=f"📥 Descargar {a_nombre}",
-                                data=base64.b64decode(a_data),
-                                file_name=a_nombre,
-                                mime="application/octet-stream",
-                                key=f"dl_{doc_id}_{idx}"
-                            )
+                            try:
+                                st.download_button(
+                                    label=f"📥 Descargar {a_nombre}",
+                                    data=base64.b64decode(a_data),
+                                    file_name=a_nombre,
+                                    mime="application/octet-stream",
+                                    key=f"dl_{doc_id}_{idx}"
+                                )
+                            except Exception as err:
+                                st.error(f"No se pudo generar el botón para {a_nombre}: {err}")
 
                 estado_actual = p.get('estado', 'Pendiente')
                 opciones_estado = ["Pendiente", "En Proceso", "Completado"]
