@@ -119,7 +119,7 @@ if st.session_state.modo_vista == "Cliente":
         
         if not user_doc.exists:
             st.title("🧵 Pixel Thread - Portal de Cliente")
-            st.error(f"❌ El usuario **{st.session_state.user}** não está registrado en el sistema. Por favor, contacta al administrador para que cree tu cuenta.")
+            st.error(f"❌ El usuario **{st.session_state.user}** no está registrado en el sistema. Por favor, contacta al administrador para que cree tu cuenta.")
         else:
             datos_usuario = user_doc.to_dict()
             logo_perfil_b64 = datos_usuario.get("logo_usuario", "")
@@ -151,6 +151,7 @@ if st.session_state.modo_vista == "Cliente":
                     ubicacion = "N/A"
                     estilo_frente = "N/A"
                     
+                    # CONDICIONALES ESTRICTAS SEGÚN TU SOLICITUD
                     if tipo_producto == "GORRA":
                         st.markdown("📍 **Ubicación en la Gorra:**")
                         ubicacion = st.radio("Ubicación:", ["FRENTE", "TRASERO", "LATERAL"], horizontal=True, label_visibility="collapsed")
@@ -228,7 +229,7 @@ if st.session_state.modo_vista == "Cliente":
                             else:
                                 st.success("🎉 ¡Tu pedido ha sido completado con éxito por el taller!")
 
-                            st.markdown(f"*Producto:* {pedido.get('producto')} | *Ubicación:* {pedido.get('ubicacion')}")
+                            st.markdown(f"*Producto:* {pedido.get('producto')} | *Ubicación:* {pedido.get('ubicacion')} | *Estilo:* {pedido.get('estilo')}")
                             
                             archivo_nombre = pedido.get('archivo_nombre', '').lower()
                             archivo_data = pedido.get('archivo_data', '')
