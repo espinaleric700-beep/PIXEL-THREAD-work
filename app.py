@@ -261,12 +261,12 @@ if st.session_state.modo_vista == "Cliente":
                     for p in pedidos_activos:
                         col_p1, col_p2 = st.columns([2, 1])
                         with col_p1:
-                            st.markdown(f"**🧵 {p.get('nombre_proyecto')}**")
+                            st.markdown(f"**🧵 Proyecto:** {p.get('nombre_proyecto', 'N/A')}")
+                            st.markdown(f"**📦 Producto:** {p.get('producto', 'N/A')} | **📍 Ubicación:** {p.get('ubicacion', 'N/A')} | **🎨 Estilo:** {p.get('estilo', 'N/A')}")
                             if p.get('comentarios'):
                                 st.caption(f"📝 Nota: {p.get('comentarios')}")
                         with col_p2:
                             render_estado_badge(p.get('estado', 'Pendiente'))
-                            st.text(f"{p.get('producto')} / {p.get('ubicacion')}")
 
                         archivos = p.get('archivos', [])
                         if archivos:
@@ -292,10 +292,10 @@ if st.session_state.modo_vista == "Cliente":
                     for p in pedidos_terminados:
                         col_t1, col_t2 = st.columns([2, 1])
                         with col_t1:
-                            st.markdown(f"**🧵 {p.get('nombre_proyecto')}**")
+                            st.markdown(f"**🧵 Proyecto:** {p.get('nombre_proyecto', 'N/A')}")
+                            st.markdown(f"**📦 Producto:** {p.get('producto', 'N/A')} | **📍 Ubicación:** {p.get('ubicacion', 'N/A')} | **🎨 Estilo:** {p.get('estilo', 'N/A')}")
                         with col_t2:
                             render_estado_badge("Completado")
-                            st.text(f"{p.get('producto')}")
 
                         archivos_finales = p.get('archivos_finales', [])
                         if archivos_finales:
@@ -342,7 +342,8 @@ else:
                     col_a1, col_a2 = st.columns([2, 1])
                     with col_a1:
                         st.markdown(f"**👤 Cliente:** `{p.get('cliente')}`")
-                        st.markdown(f"**🧵 Proyecto:** `{p.get('nombre_proyecto')}`")
+                        st.markdown(f"**🧵 Proyecto:** `{p.get('nombre_proyecto', 'N/A')}`")
+                        st.markdown(f"**📦 Producto:** {p.get('producto', 'N/A')} | **📍 Ubicación:** {p.get('ubicacion', 'N/A')} | **🎨 Estilo:** {p.get('estilo', 'N/A')}")
                         if p.get('comentarios'):
                             st.caption(f"📝 Comentarios: {p.get('comentarios')}")
                     with col_a2:
@@ -412,7 +413,8 @@ else:
                 for doc_id, p in pedidos_completados_admin:
                     col_ac1, col_ac2 = st.columns([2, 1])
                     with col_ac1:
-                        st.markdown(f"**👤 {p.get('cliente')}** — 🧵 {p.get('nombre_proyecto')}")
+                        st.markdown(f"**👤 {p.get('cliente')}** — 🧵 {p.get('nombre_proyecto', 'N/A')}")
+                        st.markdown(f"**📦 Producto:** {p.get('producto', 'N/A')} | **📍 Ubicación:** {p.get('ubicacion', 'N/A')} | **🎨 Estilo:** {p.get('estilo', 'N/A')}")
                     with col_ac2:
                         render_estado_badge("Completado")
                         if st.button("🗑️ Eliminar Historial", key=f"admin_del_comp_{doc_id}"):
