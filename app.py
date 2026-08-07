@@ -67,7 +67,7 @@ if "modo_vista" not in st.session_state:
 if "user" not in st.session_state:
     st.session_state.user = params.get("user", "")
 
-# Control para mantener el expander minimizado por defecto
+# Control de estado del expander
 if "expandir_nuevo_pedido" not in st.session_state:
     st.session_state.expandir_nuevo_pedido = False
 
@@ -114,85 +114,89 @@ if st.session_state.modo_vista == "Cliente":
 
         with st.expander("➕ Enviar Nuevo Pedido", expanded=st.session_state.expandir_nuevo_pedido):
             st.markdown("📦 **Tipo de Producto:**")
-            tipo_producto = st.radio("Producto:", ["GORRA", "TELA", "VARIOS"], horizontal=True, label_visibility="collapsed")
+            tipo_producto = st.radio("Producto:", ["GORRA", "TELA", "VARIOS"], horizontal=True, label_visibility="collapsed", key="input_tipo_prod")
 
             ubicacion = "N/A"
             estilo_frente = "N/A"
 
             if tipo_producto == "GORRA":
                 st.markdown("📍 **Ubicación en la Gorra:**")
-                ubicacion = st.radio("Ubicación:", ["FRENTE", "TRASERO", "LATERAL"], horizontal=True, label_visibility="collapsed")
+                ubicacion = st.radio("Ubicación:", ["FRENTE", "TRASERO", "LATERAL"], horizontal=True, label_visibility="collapsed", key="input_ubicacion")
                 if ubicacion == "FRENTE":
                     st.markdown("✨ **Estilo de Bordado (Frente):**")
-                    estilo_frente = st.radio("Estilo:", ["3D (Relieve)", "PLANO / FLAT"], horizontal=True, label_visibility="collapsed")
+                    estilo_frente = st.radio("Estilo:", ["3D (Relieve)", "PLANO / FLAT"], horizontal=True, label_visibility="collapsed", key="input_estilo")
 
             st.markdown("---")
 
-            with st.form("form_pedido_streamlit", clear_on_submit=True):
-                nombre_proyecto = st.text_input("1. Nombre o Referencia del Proyecto")
-                archivos_subidos = st.file_uploader(
-                    "2. Sube tus Archivos del Pedido (PNG, JPG, DST, PES, PDF, EMB)", 
-                    type=["png", "jpg", "jpeg", "dst", "pes", "pdf", "emb"],
-                    accept_multiple_files=True
-                )
-                comentarios = st.text_area("3. Comentarios o Instrucciones Adicionales (Opcional)")
-                submit_pedido = st.form_submit_button("🚀 ENVIAR PEDIDO A PRODUCCIÓN")
+            # Campos fuera de st.form para permitir el control absoluto del expander
+            nombre_proyecto = st.text_input("1. Nombre o Referencia del Proyecto", key="input_nombre_proyecto")
+            archivos_subidos = st.file_uploader(
+                "2. Sube tus Archivos del Pedido (PNG, JPG, DST, PES, PDF, EMB)", 
+                type=["png", "jpg", "jpeg", "dst", "pes", "pdf", "emb"],
+                accept_multiple_files=True,
+                key="input_archivos"
+            )
+            comentarios = st.text_area("3. Comentarios o Instrucciones Adicionales (Opcional)", key="input_comentarios")
+            
+            status_placeholder = st.empty()
+            
+            if st.button("🚀 ENVIAR PEDIDO A PRODUCCIÓN", key="btn_enviar_pedido_prod"):
+                # Cierra el panel de inmediato al hacer clic
+                st.session_state.expandir_nuevo_pedido = False
                 
-                if submit_pedido:
-                    # Forzamos de inmediato que el panel se cierre al presionar el botón
-                    st.session_state.expandir_nuevo_pedido = False
-                    
-                    status_placeholder = st.empty()
-                    
-                    if not nombre_proyecto:
-                        st.warning("⚠️ Debes ingresar el nombre o referencia del proyecto.")
-                    elif not archivos_subidos:
-                        st.error("❌ Error: Debes adjuntar al menos un archivo.")
-                    else:
-                        try:
-                            status_placeholder.info("⏳ Enviando pedido, por favor espera...")
+                if not nombre_proyecto:
+                    status_placeholder.warning("⚠️ Debes ingresar el nombre o referencia del proyecto.")
+                    st.session_state.expandir_nuevo_pedido = True
+                elif not archivos_subidos:
+                    status_placeholder.error("❌ Error: Debes adjuntar al menos un archivo.")
+                    st.session_state.expandir_nuevo_pedido = True
+                else:
+                    try:
+                        status_placeholder.info("⏳ Enviando pedido, por favor espera...")
+                        
+                        lista_archivos_guardados = []
+                        for archivo in archivos_subidos:
+                            bytes_contenido = archivo.getvalue()
                             
-                            lista_archivos_guardados = []
-                            for archivo in archivos_subidos:
-                                bytes_contenido = archivo.getvalue()
-                                
-                                if archivo.name.lower().endswith(('.png', '.jpg', '.jpeg', '.webp')):
-                                    img = Image.open(io.BytesIO(bytes_contenido))
-                                    if img.mode in ("CMYK", "P"): img = img.convert("RGB")
-                                    img.thumbnail((1200, 1200))
-                                    buffered = io.BytesIO()
-                                    img.save(buffered, format="JPEG" if img.mode != "RGBA" else "PNG", quality=85)
-                                    bytes_contenido = buffered.getvalue()
+                            if archivo.name.lower().endswith(('.png', '.jpg', '.jpeg', '.webp')):
+                                img = Image.open(io.BytesIO(bytes_contenido))
+                                if img.mode in ("CMYK", "P"): img = img.convert("RGB")
+                                img.thumbnail((1200, 1200))
+                                buffered = io.BytesIO()
+                                img.save(buffered, format="JPEG" if img.mode != "RGBA" else "PNG", quality=85)
+                                bytes_contenido = buffered.getvalue()
 
-                                lista_archivos_guardados.append({
-                                    "nombre": str(archivo.name.strip()),
-                                    "data": str(base64.b64encode(bytes_contenido).decode("utf-8"))
-                                })
+                            lista_archivos_guardados.append({
+                                "nombre": str(archivo.name.strip()),
+                                "data": str(base64.b64encode(bytes_contenido).decode("utf-8"))
+                            })
 
-                            data_pedido = {
-                                "id": f"PT-{int(datetime.now().timestamp())}",
-                                "cliente": str(st.session_state.user.strip()),
-                                "nombre_proyecto": str(nombre_proyecto),
-                                "producto": str(tipo_producto),
-                                "ubicacion": str(ubicacion),
-                                "estilo": str(estilo_frente),
-                                "archivos": lista_archivos_guardados,
-                                "comentarios": str(comentarios),
-                                "estado": "Pendiente",
-                                "timestamp": datetime.now()
-                            }
-                            
-                            ref = db.collection("pedidos_bordado").document()
-                            ref.set(data_pedido)
-                            
-                            if ref.get().exists:
-                                st.success("🎉 ¡Tu orden se envió y guardó correctamente!")
-                                st.rerun() 
-                            else:
-                                st.error("❌ El pedido no pudo ser verificado en la base de datos. Inténtalo de nuevo.")
-                            
-                        except Exception as e:
-                            st.error(f"❌ Error al enviar el pedido: {str(e)}")
+                        data_pedido = {
+                            "id": f"PT-{int(datetime.now().timestamp())}",
+                            "cliente": str(st.session_state.user.strip()),
+                            "nombre_proyecto": str(nombre_proyecto),
+                            "producto": str(tipo_producto),
+                            "ubicacion": str(ubicacion),
+                            "estilo": str(estilo_frente),
+                            "archivos": lista_archivos_guardados,
+                            "comentarios": str(comentarios),
+                            "estado": "Pendiente",
+                            "timestamp": datetime.now()
+                        }
+                        
+                        ref = db.collection("pedidos_bordado").document()
+                        ref.set(data_pedido)
+                        
+                        if ref.get().exists:
+                            status_placeholder.success("🎉 ¡Tu orden se envió y guardó correctamente!")
+                            st.rerun() 
+                        else:
+                            status_placeholder.error("❌ El pedido no pudo ser verificado en la base de datos. Inténtalo de nuevo.")
+                            st.session_state.expandir_nuevo_pedido = True
+                        
+                    except Exception as e:
+                        status_placeholder.error(f"❌ Error al enviar el pedido: {str(e)}")
+                        st.session_state.expandir_nuevo_pedido = True
 
         st.markdown("---")
         st.subheader("📋 Estado de Mis Pedidos y Posición en Cola")
