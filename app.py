@@ -147,7 +147,7 @@ if st.session_state.modo_vista == "Cliente":
                             for archivo in archivos_subidos:
                                 bytes_contenido = archivo.getvalue()
                                 
-                                # Procesamiento seguro con Pillow para imágenes pesadas (como el oso)
+                                # Procesamiento seguro con Pillow para reducir peso y evitar errores de formato
                                 try:
                                     if archivo.name.lower().endswith(('.png', '.jpg', '.jpeg', '.webp')):
                                         img = Image.open(io.BytesIO(bytes_contenido))
@@ -160,20 +160,22 @@ if st.session_state.modo_vista == "Cliente":
                                 except Exception as img_err:
                                     raise Exception(f"Error procesando imagen {archivo.name}: {str(img_err)}")
 
-                                lista_archivos_guardados.append({
-                                    "nombre": archivo.name.strip(),
-                                    "data": base64.b64encode(bytes_contenido).decode("utf-8")
-                                })
+                                # Aseguramos que sea un diccionario plano simple (clave-valor)
+                                archivo_dict = {
+                                    "nombre": str(archivo.name.strip()),
+                                    "data": str(base64.b64encode(bytes_contenido).decode("utf-8"))
+                                }
+                                lista_archivos_guardados.append(archivo_dict)
 
                             data_pedido = {
                                 "id": "PT-" + str(int(datetime.now().timestamp())),
-                                "cliente": st.session_state.user.strip(),
-                                "nombre_proyecto": nombre_proyecto,
-                                "producto": tipo_producto,
-                                "ubicacion": ubicacion if tipo_producto == "GORRA" else "N/A",
-                                "estilo": estilo_frente if (tipo_producto == "GORRA" and ubicacion == "FRENTE") else "N/A",
-                                "archivos": lista_archivos_guardados,
-                                "comentarios": comentarios,
+                                "cliente": str(st.session_state.user.strip()),
+                                "nombre_proyecto": str(nombre_proyecto),
+                                "producto": str(tipo_producto),
+                                "ubicacion": str(ubicacion),
+                                "estilo": str(estilo_frente),
+                                "archivos": lista_archivos_guardados,  # Arreglo plano de diccionarios puros
+                                "comentarios": str(comentarios),
                                 "estado": "Pendiente",
                                 "timestamp": datetime.now()
                             }
