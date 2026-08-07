@@ -48,8 +48,8 @@ st.markdown("""
         transition: all 0.3s ease !important;
         text-transform: uppercase;
         font-weight: bold;
-        font-size: 15px !important;
-        padding: 8px 16px;
+        font-size: 14px !important;
+        padding: 6px 12px;
     }
     div.stButton > button:hover {
         background: var(--primary) !important;
@@ -258,29 +258,28 @@ if st.session_state.modo_vista == "Cliente":
                 pedidos_activos = [p for p in mis_pedidos if p.get('estado') != "Completado"]
                 
                 if pedidos_activos:
-                    cols = st.columns(2)
+                    cols = st.columns(4)
                     for i, p in enumerate(pedidos_activos):
-                        with cols[i % 2]:
+                        with cols[i % 4]:
                             with st.container(border=True):
-                                col_p1, col_p2 = st.columns([2, 1])
-                                with col_p1:
-                                    st.markdown(f"**🧵 Proyecto:** {p.get('nombre_proyecto', 'N/A')}")
-                                    st.markdown(f"**📦 Producto:** {p.get('producto', 'N/A')} | **📍 Ubicación:** {p.get('ubicacion', 'N/A')} | **🎨 Estilo:** {p.get('estilo', 'N/A')}")
-                                    if p.get('comentarios'):
-                                        st.caption(f"📝 Nota: {p.get('comentarios')}")
-                                with col_p2:
-                                    render_estado_badge(p.get('estado', 'Pendiente'))
+                                st.markdown(f"**🧵 Proyecto:** {p.get('nombre_proyecto', 'N/A')}")
+                                st.markdown(f"**📦 Producto:** {p.get('producto', 'N/A')}")
+                                st.markdown(f"**📍 Ubicación:** {p.get('ubicacion', 'N/A')}")
+                                st.markdown(f"**🎨 Estilo:** {p.get('estilo', 'N/A')}")
+                                render_estado_badge(p.get('estado', 'Pendiente'))
+                                if p.get('comentarios'):
+                                    st.caption(f"📝 Nota: {p.get('comentarios')}")
 
                                 archivos = p.get('archivos', [])
                                 if archivos:
-                                    st.markdown("📁 **Archivos adjuntos:**")
+                                    st.markdown("📁 **Archivos:**")
                                     for idx_a, arch_item in enumerate(archivos):
                                         nombre_a = arch_item.get('nombre', 'archivo')
                                         try:
                                             raw_bytes = base64.b64decode(arch_item.get('data'))
                                             if nombre_a.lower().endswith(('png', 'jpg', 'jpeg')):
-                                                st.image(raw_bytes, width=150, caption=nombre_a)
-                                            st.download_button(f"📥 Descargar {nombre_a}", data=raw_bytes, file_name=nombre_a, key=f"dl_cli_{p.get('id')}_{idx_a}")
+                                                st.image(raw_bytes, width=120, caption=nombre_a)
+                                            st.download_button(f"📥 {nombre_a}", data=raw_bytes, file_name=nombre_a, key=f"dl_cli_{p.get('id')}_{idx_a}")
                                         except Exception:
                                             pass
                 else:
@@ -291,27 +290,26 @@ if st.session_state.modo_vista == "Cliente":
                 pedidos_terminados = [p for p in mis_pedidos if p.get('estado') == "Completado"]
 
                 if pedidos_terminados:
-                    cols = st.columns(2)
+                    cols = st.columns(4)
                     for i, p in enumerate(pedidos_terminados):
-                        with cols[i % 2]:
+                        with cols[i % 4]:
                             with st.container(border=True):
-                                col_t1, col_t2 = st.columns([2, 1])
-                                with col_t1:
-                                    st.markdown(f"**🧵 Proyecto:** {p.get('nombre_proyecto', 'N/A')}")
-                                    st.markdown(f"**📦 Producto:** {p.get('producto', 'N/A')} | **📍 Ubicación:** {p.get('ubicacion', 'N/A')} | **🎨 Estilo:** {p.get('estilo', 'N/A')}")
-                                with col_t2:
-                                    render_estado_badge("Completado")
+                                st.markdown(f"**🧵 Proyecto:** {p.get('nombre_proyecto', 'N/A')}")
+                                st.markdown(f"**📦 Producto:** {p.get('producto', 'N/A')}")
+                                st.markdown(f"**📍 Ubicación:** {p.get('ubicacion', 'N/A')}")
+                                st.markdown(f"**🎨 Estilo:** {p.get('estilo', 'N/A')}")
+                                render_estado_badge("Completado")
 
                                 archivos_finales = p.get('archivos_finales', [])
                                 if archivos_finales:
-                                    st.markdown("✨ **Archivos Listos para Descargar:**")
+                                    st.markdown("✨ **Archivos Listos:**")
                                     for idx_f, af in enumerate(archivos_finales):
                                         nom_f = af.get('nombre', 'resultado')
                                         try:
                                             raw_f_bytes = base64.b64decode(af.get('data'))
                                             if nom_f.lower().endswith(('png', 'jpg', 'jpeg')):
-                                                st.image(raw_f_bytes, width=150, caption=nom_f)
-                                            st.download_button(f"📥 Descargar {nom_f}", data=raw_f_bytes, file_name=nom_f, key=f"dl_fin_{p.get('id')}_{idx_f}")
+                                                st.image(raw_f_bytes, width=120, caption=nom_f)
+                                            st.download_button(f"📥 {nom_f}", data=raw_f_bytes, file_name=nom_f, key=f"dl_fin_{p.get('id')}_{idx_f}")
                                         except Exception:
                                             pass
                 else:
@@ -342,72 +340,71 @@ else:
             pedidos_activos = [(doc.id, doc.to_dict()) for doc in docs if doc.to_dict().get('estado') != "Completado"]
 
             if pedidos_activos:
-                cols = st.columns(2)
+                cols = st.columns(4)
                 for i, (doc_id, p) in enumerate(pedidos_activos):
-                    with cols[i % 2]:
+                    with cols[i % 4]:
                         with st.container(border=True):
-                            col_a1, col_a2 = st.columns([2, 1])
-                            with col_a1:
-                                st.markdown(f"**👤 Cliente:** `{p.get('cliente')}`")
-                                st.markdown(f"**🧵 Proyecto:** `{p.get('nombre_proyecto', 'N/A')}`")
-                                st.markdown(f"**📦 Producto:** {p.get('producto', 'N/A')} | **📍 Ubicación:** {p.get('ubicacion', 'N/A')} | **🎨 Estilo:** {p.get('estilo', 'N/A')}")
-                                if p.get('comentarios'):
-                                    st.caption(f"📝 Comentarios: {p.get('comentarios')}")
-                            with col_a2:
-                                estado_actual = p.get('estado', 'Pendiente')
-                                render_estado_badge(estado_actual)
-                                
-                                if estado_actual == "Pendiente":
-                                    if st.button("🔄 Cambiar a En Proceso", key=f"btn_proceso_{doc_id}"):
-                                        db.collection("pedidos_bordado").document(doc_id).update({"estado": "En Proceso"})
-                                        st.rerun()
-                                else:
-                                    if st.button("🔄 Cambiar a Pendiente", key=f"btn_pendiente_{doc_id}"):
-                                        db.collection("pedidos_bordado").document(doc_id).update({"estado": "Pendiente"})
-                                        st.rerun()
+                            st.markdown(f"**👤 Cliente:** `{p.get('cliente')}`")
+                            st.markdown(f"**🧵 Proyecto:** `{p.get('nombre_proyecto', 'N/A')}`")
+                            st.markdown(f"**📦 Producto:** {p.get('producto', 'N/A')}")
+                            st.markdown(f"**📍 Ubicación:** {p.get('ubicacion', 'N/A')}")
+                            st.markdown(f"**🎨 Estilo:** {p.get('estilo', 'N/A')}")
+                            
+                            estado_actual = p.get('estado', 'Pendiente')
+                            render_estado_badge(estado_actual)
+                            
+                            if p.get('comentarios'):
+                                st.caption(f"📝 Comentarios: {p.get('comentarios')}")
+                            
+                            if estado_actual == "Pendiente":
+                                if st.button("🔄 En Proceso", key=f"btn_proceso_{doc_id}", use_container_width=True):
+                                    db.collection("pedidos_bordado").document(doc_id).update({"estado": "En Proceso"})
+                                    st.rerun()
+                            else:
+                                if st.button("🔄 Pendiente", key=f"btn_pendiente_{doc_id}", use_container_width=True):
+                                    db.collection("pedidos_bordado").document(doc_id).update({"estado": "Pendiente"})
+                                    st.rerun()
 
                             archivos_cliente = p.get('archivos', [])
                             if archivos_cliente:
-                                st.markdown("📁 **Archivos del Cliente:**")
+                                st.markdown("📁 **Archivos:**")
                                 for idx_ac, ac in enumerate(archivos_cliente):
                                     nom_ac = ac.get('nombre', 'archivo')
                                     try:
                                         raw_ac = base64.b64decode(ac.get('data'))
                                         if nom_ac.lower().endswith(('png', 'jpg', 'jpeg')):
-                                            st.image(raw_ac, width=120, caption=nom_ac)
-                                        st.download_button(f"📥 {nom_ac}", data=raw_ac, file_name=nom_ac, key=f"dl_admin_cli_{doc_id}_{idx_ac}")
+                                            st.image(raw_ac, width=100, caption=nom_ac)
+                                        st.download_button(f"📥 {nom_ac}", data=raw_ac, file_name=nom_ac, key=f"dl_admin_cli_{doc_id}_{idx_ac}", use_container_width=True)
                                     except Exception:
                                         pass
 
-                            col_acc1, col_acc2 = st.columns(2)
-                            with col_acc1:
-                                with st.expander("📤 Subir Resultado y Completar"):
-                                    archivos_entregables = st.file_uploader(
-                                        "Archivos finales:", 
-                                        type=["dst", "emb", "pes", "png", "jpg", "pdf"],
-                                        accept_multiple_files=True, 
-                                        key=f"up_admin_{doc_id}"
-                                    )
-                                    if st.button("🚀 MARCAR COMO COMPLETADO", key=f"btn_comp_{doc_id}"):
-                                        if archivos_entregables:
-                                            lista_finales = p.get('archivos_finales', [])
-                                            for af in archivos_entregables:
-                                                lista_finales.append({
-                                                    "nombre": af.name,
-                                                    "data": base64.b64encode(af.getvalue()).decode("utf-8")
-                                                })
-                                            db.collection("pedidos_bordado").document(doc_id).update({
-                                                "archivos_finales": lista_finales,
-                                                "estado": "Completado"
+                            with st.expander("📤 Subir Resultado"):
+                                archivos_entregables = st.file_uploader(
+                                    "Archivos finales:", 
+                                    type=["dst", "emb", "pes", "png", "jpg", "pdf"],
+                                    accept_multiple_files=True, 
+                                    key=f"up_admin_{doc_id}"
+                                )
+                                if st.button("🚀 COMPLETAR", key=f"btn_comp_{doc_id}", use_container_width=True):
+                                    if archivos_entregables:
+                                        lista_finales = p.get('archivos_finales', [])
+                                        for af in archivos_entregables:
+                                            lista_finales.append({
+                                                "nombre": af.name,
+                                                "data": base64.b64encode(af.getvalue()).decode("utf-8")
                                             })
-                                            st.success("¡Pedido marcado como completado!")
-                                            st.rerun()
-                                        else:
-                                            st.warning("Adjunta al menos un archivo final.")
-                            with col_acc2:
-                                if st.button("🗑️ Eliminar Pedido", key=f"mob_del_{doc_id}"):
-                                    db.collection("pedidos_bordado").document(doc_id).delete()
-                                    st.rerun()
+                                        db.collection("pedidos_bordado").document(doc_id).update({
+                                            "archivos_finales": lista_finales,
+                                            "estado": "Completado"
+                                        })
+                                        st.success("¡Completado!")
+                                        st.rerun()
+                                    else:
+                                        st.warning("Adjunta al menos un archivo.")
+
+                            if st.button("🗑️ Eliminar", key=f"mob_del_{doc_id}", use_container_width=True):
+                                db.collection("pedidos_bordado").document(doc_id).delete()
+                                st.rerun()
             else:
                 st.info("🎉 No hay pedidos pendientes de revisión.")
 
@@ -415,19 +412,20 @@ else:
             pedidos_completados_admin = [(doc.id, doc.to_dict()) for doc in docs if doc.to_dict().get('estado') == "Completado"]
 
             if pedidos_completados_admin:
-                cols = st.columns(2)
+                cols = st.columns(4)
                 for i, (doc_id, p) in enumerate(pedidos_completados_admin):
-                    with cols[i % 2]:
+                    with cols[i % 4]:
                         with st.container(border=True):
-                            col_ac1, col_ac2 = st.columns([2, 1])
-                            with col_ac1:
-                                st.markdown(f"**👤 {p.get('cliente')}** — 🧵 {p.get('nombre_proyecto', 'N/A')}")
-                                st.markdown(f"**📦 Producto:** {p.get('producto', 'N/A')} | **📍 Ubicación:** {p.get('ubicacion', 'N/A')} | **🎨 Estilo:** {p.get('estilo', 'N/A')}")
-                            with col_ac2:
-                                render_estado_badge("Completado")
-                                if st.button("🗑️ Eliminar Historial", key=f"admin_del_comp_{doc_id}"):
-                                    db.collection("pedidos_bordado").document(doc_id).delete()
-                                    st.rerun()
+                            st.markdown(f"**👤 {p.get('cliente')}**")
+                            st.markdown(f"**🧵 {p.get('nombre_proyecto', 'N/A')}**")
+                            st.markdown(f"**📦 Producto:** {p.get('producto', 'N/A')}")
+                            st.markdown(f"**📍 Ubicación:** {p.get('ubicacion', 'N/A')}")
+                            st.markdown(f"**🎨 Estilo:** {p.get('estilo', 'N/A')}")
+                            render_estado_badge("Completado")
+                            
+                            if st.button("🗑️ Eliminar Historial", key=f"admin_del_comp_{doc_id}", use_container_width=True):
+                                db.collection("pedidos_bordado").document(doc_id).delete()
+                                st.rerun()
             else:
                 st.info("No hay pedidos completados en el historial.")
 
@@ -467,29 +465,29 @@ else:
             try:
                 clientes_docs = list(db.collection("usuarios_perfil").stream())
                 if clientes_docs:
-                    for c_doc in clientes_docs:
+                    cols_cli = st.columns(4)
+                    for i, c_doc in enumerate(clientes_docs):
                         c_data = c_doc.to_dict()
                         c_key = c_doc.id
                         
-                        col_cli1, col_cli2, col_cli3 = st.columns([1, 2, 1])
-                        with col_cli1:
-                            logo_b64 = c_data.get("logo_b64")
-                            if logo_b64:
-                                try:
-                                    st.image(base64.b64decode(logo_b64), width=50)
-                                except:
+                        with cols_cli[i % 4]:
+                            with st.container(border=True):
+                                logo_b64 = c_data.get("logo_b64")
+                                if logo_b64:
+                                    try:
+                                        st.image(base64.b64decode(logo_b64), width=50)
+                                    except:
+                                        st.markdown("👤", unsafe_allow_html=True)
+                                else:
                                     st.markdown("👤", unsafe_allow_html=True)
-                            else:
-                                st.markdown("👤", unsafe_allow_html=True)
-                        with col_cli2:
-                            st.markdown(f"**Usuario ID:** `{c_key}`")
-                            st.markdown(f"**Nombre:** {c_data.get('nombre_usuario', 'N/A')}")
-                        with col_cli3:
-                            if st.button("🗑️ Eliminar", key=f"del_cli_{c_key}"):
-                                db.collection("usuarios_perfil").document(c_key).delete()
-                                st.success(f"Cliente {c_key} eliminado.")
-                                st.rerun()
-                        st.markdown("---")
+                                
+                                st.markdown(f"**ID:** `{c_key}`")
+                                st.markdown(f"**Nombre:** {c_data.get('nombre_usuario', 'N/A')}")
+                                
+                                if st.button("🗑️ Eliminar", key=f"del_cli_{c_key}", use_container_width=True):
+                                    db.collection("usuarios_perfil").document(c_key).delete()
+                                    st.success(f"Cliente {c_key} eliminado.")
+                                    st.rerun()
                 else:
                     st.info("No hay clientes registrados en la base de datos.")
             except Exception as e:
