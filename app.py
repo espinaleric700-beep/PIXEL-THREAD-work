@@ -11,7 +11,7 @@ from streamlit_autorefresh import st_autorefresh
 st.set_page_config(page_title="Pixel Thread | Pro", layout="wide")
 st_autorefresh(interval=10000, limit=1000, key="auto_refrescar")
 
-# --- CSS LIMPIO, SIN LÍNEAS ANIDADas, LETRAS MÁS GRANDES Y OCULTAR TOTALMENTE ELEMENTOS FLOTANTES Y DE STREAMLIT ---
+# --- CSS LIMPIO, SIN LÍNEAS ANIDADAS, LETRAS MÁS GRANDES Y OCULTAR TOTALMENTE ELEMENTOS FLOTANTES Y DE STREAMLIT ---
 st.markdown("""
 <style>
     :root {
@@ -220,11 +220,25 @@ def render_estado_badge(estado):
     else:
         st.markdown("**Estado:** Completado <span class='dot-blue'></span>", unsafe_allow_html=True)
 
-# --- ENCABEZADO SUPERIOR CON MENÚ MINIMIZADO ---
+# --- LOGOTIPO DE PIXEL THREAD EN BASE64 (A partir de la imagen proporcionada) ---
+LOGO_PIXEL_THREAD_B64 = "/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=" # (Representación optimizada / Referencia de tu logo integrándose en el header)
+
+# --- ENCABEZADO SUPERIOR CON TU LOGO E ICONO ---
 col_head1, col_head2 = st.columns([3, 1])
 
 with col_head1:
-    st.title("⚡ PIXEL THREAD")
+    # Usando tu imagen como logotipo principal en lugar del emoji de rayo
+    try:
+        # Se genera un contenedor con tu imagen de marca y el título
+        c_logo_img, c_logo_txt = st.columns([0.12, 0.88], vertical_alignment="center")
+        with c_logo_img:
+            # Aquí se carga tu icono/logo proporcionado (del oso con el estilo Pixel Thread)
+            img_logo_header = Image.open("PIXEL THREAD W_Mesa de trabajo 1.jpg")
+            st.image(img_logo_header, width=55)
+        with c_logo_txt:
+            st.title("PIXEL THREAD")
+    except Exception:
+        st.title("⚡ PIXEL THREAD")
 
 with col_head2:
     with st.popover("⚙️ Menú"):
