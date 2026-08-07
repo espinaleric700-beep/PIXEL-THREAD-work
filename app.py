@@ -8,7 +8,7 @@ from streamlit_autorefresh import st_autorefresh
 # Configuración de página optimizada para móvil
 st.set_page_config(page_title="Pixel Thread - Portal Interactivo", layout="centered")
 
-# Auto-refresco de la página cada 5 segundos (5000 ms) para actualizar el estado en tiempo real
+# Auto-refresco de la página cada 5 segundos (5000 ms)
 count = st_autorefresh(interval=5000, limit=1000, key="auto_refrescar_cliente")
 
 # --- ESTILOS FUTURISTAS Y COMPONENTES VISUALES ---
@@ -65,22 +65,35 @@ def init_fb():
 
 db = init_fb()
 
-# --- GESTIÓN DE ESTADOS (SESSION STATE) ---
+# --- GESTIÓN DE ESTADOS Y PERSISTENCIA DE VISTA POR URL ---
 if "user" not in st.session_state:
     st.session_state.user = "Cliente General"
+
+# Obtenemos la vista actual desde los parámetros de la URL (si existe), si no por defecto es "Cliente"
+params = st.query_params
+vista_en_url = params.get("seccion", "Cliente")
+
 if "modo_vista" not in st.session_state:
-    st.session_state.modo_vista = "Cliente"
+    st.session_state.modo_vista = vista_en_url
+else:
+    # Si la URL fue modificada externamente o sincronizada, la respetamos
+    if vista_en_url in ["Cliente", "Admin"]:
+        st.session_state.modo_vista = vista_en_url
+
+# Función para cambiar de vista actualizando la URL de forma limpia
+def cambiar_seccion(nueva_vista):
+    st.session_state.modo_vista = nueva_vista
+    st.query_params["seccion"] = nueva_vista
+    st.rerun()
 
 # Barra superior de navegación entre paneles
 col_nav1, col_nav2 = st.columns(2)
 with col_nav1:
     if st.button("👤 Panel de Cliente"):
-        st.session_state.modo_vista = "Cliente"
-        st.rerun()
+        cambiar_seccion("Cliente")
 with col_nav2:
     if st.button("🛠️ Panel Admin"):
-        st.session_state.modo_vista = "Admin"
-        st.rerun()
+        cambiar_seccion("Admin")
 
 st.markdown("---")
 
@@ -106,12 +119,10 @@ if st.session_state.modo_vista == "Cliente":
             ubicacion = "N/A"
             estilo_frente = "N/A"
             
-            # Lógica condicional interactiva si selecciona GORRA
             if tipo_producto == "GORRA":
                 st.markdown("📍 **Ubicación en la Gorra:**")
                 ubicacion = st.radio("Ubicación:", ["FRENTE", "TRASERO", "LATERAL"], horizontal=True, label_visibility="collapsed")
                 
-                # Sub-lógica condicional si selecciona FRENTE
                 if ubicacion == "FRENTE":
                     st.markdown("✨ **Estilo de Bordado (Frente):**")
                     estilo_frente = st.radio("Estilo:", ["3D (Relieve)", "PLANO / FLAT"], horizontal=True, label_visibility="collapsed")
