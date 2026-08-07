@@ -75,6 +75,10 @@ if "expandir_nuevo_pedido" not in st.session_state:
 if "mensaje_exito" not in st.session_state:
     st.session_state.mensaje_exito = ""
 
+# Contador para limpiar los inputs del formulario dinámicamente
+if "form_version" not in st.session_state:
+    st.session_state.form_version = 0
+
 def actualizar_url_y_estado(nueva_vista, nuevo_usuario):
     st.session_state.modo_vista = nueva_vista
     st.session_state.user = nuevo_usuario
@@ -122,34 +126,36 @@ if st.session_state.modo_vista == "Cliente":
 
         st.markdown("---")
 
+        fv = st.session_state.form_version
+
         with st.expander("➕ Enviar Nuevo Pedido", expanded=st.session_state.expandir_nuevo_pedido):
             st.markdown("📦 **Tipo de Producto:**")
-            tipo_producto = st.radio("Producto:", ["GORRA", "TELA", "VARIOS"], horizontal=True, label_visibility="collapsed", key="input_tipo_prod")
+            tipo_producto = st.radio("Producto:", ["GORRA", "TELA", "VARIOS"], horizontal=True, label_visibility="collapsed", key=f"input_tipo_prod_{fv}")
 
             ubicacion = "N/A"
             estilo_frente = "N/A"
 
             if tipo_producto == "GORRA":
                 st.markdown("📍 **Ubicación en la Gorra:**")
-                ubicacion = st.radio("Ubicación:", ["FRENTE", "TRASERO", "LATERAL"], horizontal=True, label_visibility="collapsed", key="input_ubicacion")
+                ubicacion = st.radio("Ubicación:", ["FRENTE", "TRASERO", "LATERAL"], horizontal=True, label_visibility="collapsed", key=f"input_ubicacion_{fv}")
                 if ubicacion == "FRENTE":
                     st.markdown("✨ **Estilo de Bordado (Frente):**")
-                    estilo_frente = st.radio("Estilo:", ["3D (Relieve)", "PLANO / FLAT"], horizontal=True, label_visibility="collapsed", key="input_estilo")
+                    estilo_frente = st.radio("Estilo:", ["3D (Relieve)", "PLANO / FLAT"], horizontal=True, label_visibility="collapsed", key=f"input_estilo_{fv}")
 
             st.markdown("---")
 
-            nombre_proyecto = st.text_input("1. Nombre o Referencia del Proyecto", key="input_nombre_proyecto")
+            nombre_proyecto = st.text_input("1. Nombre o Referencia del Proyecto", key=f"input_nombre_proyecto_{fv}")
             archivos_subidos = st.file_uploader(
                 "2. Sube tus Archivos del Pedido (PNG, JPG, DST, PES, PDF, EMB)", 
                 type=["png", "jpg", "jpeg", "dst", "pes", "pdf", "emb"],
                 accept_multiple_files=True,
-                key="input_archivos"
+                key=f"input_archivos_{fv}"
             )
-            comentarios = st.text_area("3. Comentarios o Instrucciones Adicionales (Opcional)", key="input_comentarios")
+            comentarios = st.text_area("3. Comentarios o Instrucciones Adicionales (Opcional)", key=f"input_comentarios_{fv}")
             
             status_placeholder = st.empty()
             
-            if st.button("🚀 ENVIAR PEDIDO A PRODUCCIÓN", key="btn_enviar_pedido_prod"):
+            if st.button("🚀 ENVIAR PEDIDO A PRODUCCIÓN", key=f"btn_enviar_pedido_prod_{fv}"):
                 st.session_state.expandir_nuevo_pedido = False
                 
                 if not nombre_proyecto:
@@ -197,6 +203,8 @@ if st.session_state.modo_vista == "Cliente":
                         
                         if ref.get().exists:
                             st.session_state.mensaje_exito = "🎉 ¡Pedido enviado con éxito a producción!"
+                            # Incrementamos la versión para limpiar automáticamente los campos de entrada
+                            st.session_state.form_version += 1
                             st.rerun() 
                         else:
                             status_placeholder.error("❌ El pedido no pudo ser verificado en la base de datos. Inténtalo de nuevo.")
