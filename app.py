@@ -469,7 +469,7 @@ else:
         # PESTAÑA: COMPLETADOS / ENTREGADOS
         # =========================================================
         with tab_admin_comp:
-            pedidos_completados_admin = [(doc.id, doc.to_dict()) for doc in docs if doc.to_dict().get('estado') == "Completado"]
+            pedidos_completados_admin = [(doc.id, doc.to_dict()) for doc in docs if doc.to_dict().get('estado'] == "Completado"]
 
             if pedidos_completados_admin:
                 cols = st.columns(4)
@@ -554,6 +554,8 @@ else:
                     if guardar_cliente:
                         if not c_id:
                             st.warning("⚠️ Debes ingresar un ID o nombre de usuario.")
+                        elif not c_id.isalnum() and "_" not in c_id and "-" not in c_id:
+                            st.error("❌ **Usuario inválido:** El ID de usuario solo debe contener letras, números, guiones bajos o guiones medios (sin espacios ni caracteres especiales).")
                         else:
                             try:
                                 doc_ref = db.collection("usuarios_perfil").document(c_id)
