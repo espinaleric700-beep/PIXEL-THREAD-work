@@ -1,4 +1,4 @@
-import streamlit as st
+el panel de cliente y adminimport streamlit as st
 import firebase_admin
 from firebase_admin import credentials, firestore
 from datetime import datetime
@@ -9,7 +9,7 @@ from streamlit_autorefresh import st_autorefresh
 st.set_page_config(page_title="Pixel Thread | Pro", layout="wide")
 st_autorefresh(interval=10000, limit=1000, key="auto_refrescar")
 
-# --- CSS AVANZADO PARA DISEÑO HORIZONTAL Y COMPACTO ---
+# --- CSS AVANZADO PARA INTERFAZ LIMPIA Y MINIMIZADA ---
 st.markdown("""
 <style>
     :root {
@@ -22,9 +22,9 @@ st.markdown("""
     }
     .block-container {
         max-width: 100% !important;
-        padding-left: 1rem;
-        padding-right: 1rem;
-        padding-top: 1rem;
+        padding-left: 1.5rem;
+        padding-right: 1.5rem;
+        padding-top: 1.5rem;
     }
     div[data-testid="stExpander"], div[data-testid="stVerticalBlock"] > div {
         background: rgba(10, 10, 15, 0.6) !important;
@@ -41,9 +41,6 @@ st.markdown("""
         transition: all 0.3s ease !important;
         text-transform: uppercase;
         font-weight: bold;
-        width: 100%;
-        font-size: 12px !important;
-        padding: 6px 2px !important;
     }
     div.stButton > button:hover {
         background: var(--primary) !important;
@@ -51,22 +48,8 @@ st.markdown("""
         box-shadow: 0 0 15px var(--primary) !important;
         transform: translateY(-2px);
     }
-    h1 { font-size: 1.5rem !important; margin: 0 !important; color: var(--primary) !important; letter-spacing: 1px; }
+    h1 { color: var(--primary) !important; text-transform: uppercase; letter-spacing: 2px; }
     h2, h3 { color: var(--primary) !important; text-transform: uppercase; letter-spacing: 1px; }
-
-    /* Forzar que la barra superior quede perfectamente alineada y horizontal en móviles */
-    @media (max-width: 768px) {
-        .row-widget.stHorizontal {
-            display: flex !important;
-            flex-direction: row !important;
-            align-items: center !important;
-        }
-        div[data-testid="column"] {
-            flex: 1 !important;
-            min-width: unset !important;
-            padding: 0px 3px !important;
-        }
-    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -102,25 +85,26 @@ def actualizar_url(vista, user):
 
 ADMINS_AUTORIZADOS = ["Pixel2580", "eric"]
 
-# --- BARRA SUPERIOR UNIFICADA (TÍTULO Y BOTONES EN LA MISMA LÍNEA) ---
-col_t, col_b1, col_b2 = st.columns([1.6, 1.2, 1.2], gap="small")
+# --- ENCABEZADO SUPERIOR CON MENÚ MINIMIZADO ---
+col_head1, col_head2 = st.columns([3, 1])
 
-with col_t:
-    st.markdown("<h1>⚡ PIXEL</h1>", unsafe_allow_html=True)
+with col_head1:
+    st.title("⚡ PIXEL THREAD")
 
-with col_b1:
-    if st.button("👤 CLIENTE"): 
-        actualizar_url("Cliente", st.session_state.user)
+with col_head2:
+    # Menú minimizado tipo Popover para ahorrar espacio en móviles y PC
+    with st.popover("⚙️ Menú"):
+        st.markdown("### Navegación")
+        if st.button("👤 Panel Cliente", use_container_width=True): 
+            actualizar_url("Cliente", st.session_state.user)
+        if st.button("🛠️ Panel Admin", use_container_width=True): 
+            usuario_actual = st.session_state.user.strip()
+            if usuario_actual in ADMINS_AUTORIZADOS:
+                actualizar_url("Admin", st.session_state.user)
+            else:
+                st.error("❌ Sin permisos.")
 
-with col_b2:
-    if st.button("🛠️ ADMIN"): 
-        usuario_actual = st.session_state.user.strip()
-        if usuario_actual in ADMINS_AUTORIZADOS:
-            actualizar_url("Admin", st.session_state.user)
-        else:
-            st.error("❌ Sin permisos.")
-
-st.markdown("<hr style='margin: 10px 0px; border-color: rgba(0,255,204,0.2);'>", unsafe_allow_html=True)
+st.markdown("<br>", unsafe_allow_html=True)
 
 # =========================================================
 # 1. PANEL DE CLIENTE
@@ -148,7 +132,7 @@ if st.session_state.modo_vista == "Cliente":
             with col_c1:
                 if logo_cliente_b64:
                     try:
-                        st.image(base64.b64decode(logo_cliente_b64), width=40)
+                        st.image(base64.b64decode(logo_cliente_b64), width=45)
                     except Exception:
                         st.markdown("👤", unsafe_allow_html=True)
                 else:
@@ -164,13 +148,13 @@ if st.session_state.modo_vista == "Cliente":
             fv = st.session_state.form_version
 
             with st.expander("➕ Enviar Nuevo Pedido", expanded=st.session_state.expandir_nuevo_pedido):
-                tipo_producto = st.radio("Tipo:", ["GORRA", "TELA", "VARIOS"], horizontal=True, key=f"prod_{fv}")
+                tipo_producto = st.radio("Tipo de Producto:", ["GORRA", "TELA", "VARIOS"], horizontal=True, key=f"prod_{fv}")
                 ubicacion, estilo_frente = "N/A", "N/A"
 
                 if tipo_producto == "GORRA":
                     ubicacion = st.radio("Ubicación:", ["FRENTE", "TRASERO", "LATERAL"], horizontal=True, key=f"ubi_{fv}")
                     if ubicacion == "FRENTE":
-                        estilo_frente = st.radio("Estilo:", ["3D", "PLANO"], horizontal=True, key=f"est_{fv}")
+                        estilo_frente = st.radio("Estilo:", ["3D (Relieve)", "PLANO"], horizontal=True, key=f"est_{fv}")
 
                 nombre_proyecto = st.text_input("Nombre del Proyecto", key=f"nom_{fv}")
                 archivos_subidos = st.file_uploader("Archivos", type=["png", "jpg", "jpeg", "dst", "pes", "pdf", "emb"], accept_multiple_files=True, key=f"arch_{fv}")
