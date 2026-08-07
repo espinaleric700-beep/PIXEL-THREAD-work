@@ -219,10 +219,16 @@ col_head_logo, col_head_title, col_head_menu = st.columns([0.08, 2.92, 1], verti
 
 with col_head_logo:
     try:
+        # Se intenta abrir el archivo ico o png del logo
         img_logo_header = Image.open("PIXEL-THREAD-W_Mesa-de-trabajo-1-_1_.ico")
         st.image(img_logo_header, width=48)
     except Exception:
-        st.markdown("🧵")
+        try:
+            # Alternativa por si se guarda como png
+            img_logo_header = Image.open("logo.png")
+            st.image(img_logo_header, width=48)
+        except Exception:
+            st.markdown("🧵")
 
 with col_head_title:
     st.title("PIXEL THREAD")
