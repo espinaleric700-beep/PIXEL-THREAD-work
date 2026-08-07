@@ -51,7 +51,7 @@ st.markdown("""
     h1 { color: var(--primary) !important; text-transform: uppercase; letter-spacing: 2px; }
     h2, h3 { color: var(--primary) !important; text-transform: uppercase; letter-spacing: 1px; }
 
-    /* --- CÍRCULOS CON RESPLANDOR ESTABLE (SIN PARPADEO MOLESTO) --- */
+    /* --- CÍRCULOS CON RESPLANDOR ESTABLE --- */
     .dot-red {
         height: 10px;
         width: 10px;
@@ -319,12 +319,17 @@ if st.session_state.modo_vista == "Cliente":
 # 2. PANEL DE ADMINISTRADOR
 # =========================================================
 else:
-    st.subheader("🛠️ Administración de Pedidos")
+    st.subheader("🛠️ Administración General")
 
     try:
+        # Se crean tres pestañas principales en el Admin
+        tab_admin_pend, tab_admin_comp, tab_admin_clientes = st.tabs([
+            "⏳ Pendientes y En Proceso", 
+            "✅ Completados / Entregados", 
+            "👥 Gestión de Clientes"
+        ])
+
         docs = list(db.collection("pedidos_bordado").order_by("timestamp").stream())
-        
-        tab_admin_pend, tab_admin_comp = st.tabs(["⏳ Pendientes y En Proceso", "✅ Completados / Entregados"])
 
         with tab_admin_pend:
             pedidos_activos = [(doc.id, doc.to_dict()) for doc in docs if doc.to_dict().get('estado') != "Completado"]
@@ -402,7 +407,7 @@ else:
                 st.info("🎉 No hay pedidos pendientes de revisión.")
 
         with tab_admin_comp:
-            pedidos_completados_admin = [(doc.id, doc.to_dict()) for doc in docs if doc.to_dict().get('estado') == "Completado"]
+            pedidos_completados_admin = [(doc.id, doc.to_dict()) for doc in docs if doc.to_dict().get('estado'] == "Completado"]
 
             if pedidos_completados_admin:
                 for doc_id, p in pedidos_completados_admin:
@@ -419,6 +424,72 @@ else:
                         st.markdown("---")
             else:
                 st.info("No hay pedidos completados en el historial.")
+
+        with tab_admin_clientes:
+            st.subheader("👥 Registro y Control de Clientes")
+            
+            # Formulario para Crear / Modificar Cliente
+            with st.expander("➕ Agregar o Modificar Cliente"):
+                with st.form("form_cliente"):
+                    c_id = st.text_input("ID o Usuario del Cliente (ej. juan123):").strip().lower()
+                    c_nombre = st.text_input("Nombre Completo / Nombre Comercial:").strip()
+                    c_logo = st.file_uploader("Logotipo del Cliente (Opcional)", type=["png", "jpg", "jpeg"])
+                    
+                    guardar_cliente = st.form_submit_button("💾 Guardar / Actualizar Cliente")
+                    
+                    if guardar_cliente:
+                        if not c_id:
+                            st.warning("⚠️ Debes ingresar un ID o nombre de usuario.")
+                        else:
+                            try:
+                                doc_ref = db.collection("usuarios_perfil").document(c_id)
+                                data_cliente = {
+                                    "id_usuario": c_id,
+                                    "nombre_usuario": c_nombre if c_nombre else c_id
+                                }
+                                if c_logo:
+                                    data_cliente["logo_b64"] = base64.b64encode(c_logo.getvalue()).decode("utf-8")
+                                
+                                doc_ref.set(data_cliente, merge=True)
+                                st.success(f"✅ Cliente '{c_id}' guardado correctamente.")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Error al guardar cliente: {e}")
+
+            st.markdown("---")
+            st.markdown("### 📋 Lista de Clientes Registrados")
+            
+            try:
+                clientes_docs = list(db.collection("usuarios_perfil").stream())
+                if clientes_docs:
+                    for c_doc in clientes_docs:
+                        c_data = c_doc.to_dict()
+                        c_key = c_doc.id
+                        
+                        with st.container():
+                            col_cli1, col_cli2, col_cli3 = st.columns([1, 2, 1])
+                            with col_cli1:
+                                logo_b64 = c_data.get("logo_b64")
+                                if logo_b64:
+                                    try:
+                                        st.image(base64.b64decode(logo_b64), width=50)
+                                    except:
+                                        st.markdown("👤", unsafe_allow_html=True)
+                                else:
+                                    st.markdown("👤", unsafe_allow_html=True)
+                            with col_cli2:
+                                st.markdown(f"**Usuario ID:** `{c_key}`")
+                                st.markdown(f"**Nombre:** {c_data.get('nombre_usuario', 'N/A')}")
+                            with col_cli3:
+                                if st.button("🗑️ Eliminar", key=f"del_cli_{c_key}"):
+                                    db.collection("usuarios_perfil").document(c_key).delete()
+                                    st.success(f"Cliente {c_key} eliminado.")
+                                    st.rerun()
+                            st.markdown("---")
+                else:
+                    st.info("No hay clientes registrados en la base de datos.")
+            except Exception as e:
+                st.error(f"Error al listar clientes: {e}")
 
     except Exception as e:
         st.error(f"Error al cargar administración: {e}")
