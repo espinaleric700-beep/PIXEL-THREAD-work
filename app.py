@@ -468,7 +468,6 @@ else:
         # PESTAÑA: COMPLETADOS / ENTREGADOS
         # =========================================================
         with tab_admin_comp:
-            # Corrección aplicada aquí: .get('estado') en lugar de .get('estado']
             pedidos_completados_admin = [(doc.id, doc.to_dict()) for doc in docs if doc.to_dict().get('estado') == "Completado"]
 
             if pedidos_completados_admin:
@@ -603,6 +602,30 @@ else:
                     st.info("No hay clientes registrados en la base de datos.")
             except Exception as e:
                 st.error(f"Error al listar clientes: {e}")
+
+        # =========================================================
+        # 🧹 SECCIÓN GLOBAL: ELIMINAR TODO EL HISTORIAL DE FIREBASE
+        # =========================================================
+        st.markdown("---")
+        with st.expander("🚨 Zona de Peligro: Limpieza Masiva de Historial"):
+            st.warning("⚠️ Esta acción eliminará **todos** los pedidos de la base de datos de Firebase de forma permanente.")
+            
+            confirmar_borrado_total = st.checkbox("Confirmo que deseo vaciar todo el historial de pedidos de la base de datos")
+            
+            if st.button("🔥 ELIMINAR TODO EL HISTORIAL DE FIREBASE", use_container_width=True):
+                if confirmar_borrado_total:
+                    try:
+                        todos_docs_borrar = db.collection("pedidos_bordado").stream()
+                        contador = 0
+                        for d in todos_docs_borrar:
+                            db.collection("pedidos_bordado").document(d.id).delete()
+                            contador += 1
+                        st.success(f"✅ Se han eliminado {contador} registros del historial con éxito.")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Error al vaciar el historial: {e}")
+                else:
+                    st.error("❌ Debes marcar la casilla de confirmación para ejecutar esta acción.")
 
     except Exception as e:
         st.error(f"Error al cargar administración: {e}")
