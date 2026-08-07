@@ -10,7 +10,7 @@ from streamlit_autorefresh import st_autorefresh
 # --- CONFIGURACIÓN ---
 st.set_page_config(
     page_title="Pixel Thread | Pro", 
-    page_icon="PIXEL-THREAD-W_Mesa-de-trabajo-1-_1_.ico",
+    page_icon="🧵",
     layout="wide"
 )
 st_autorefresh(interval=10000, limit=1000, key="auto_refrescar")
@@ -129,6 +129,19 @@ def init_fb():
 
 db = init_fb()
 
+# --- CARGAR CONFIGURACIÓN GLOBAL DESDE FIREBASE (ICONO) ---
+@st.cache_data(ttl=60)
+def obtener_icono_global():
+    try:
+        doc = db.collection("configuracion").document("sitio").get()
+        if doc.exists:
+            return doc.to_dict().get("icono_b64")
+    except Exception:
+        pass
+    return None
+
+icono_global_b64 = obtener_icono_global()
+
 def recalcular_turnos():
     try:
         docs = list(db.collection("pedidos_bordado").order_by("timestamp").stream())
@@ -148,7 +161,8 @@ def obtener_uso_firebase():
     try:
         pedidos = list(db.collection("pedidos_bordado").stream())
         clientes = list(db.collection("usuarios_perfil").stream())
-        total_docs = len(pedidos) + len(clientes)
+        config_docs = list(db.collection("configuracion").stream())
+        total_docs = len(pedidos) + len(clientes) + len(config_docs)
         limite_docs = 50000
         porcentaje_docs = min(float(total_docs) / limite_docs * 100, 100.0)
         return {
@@ -214,21 +228,18 @@ def render_estado_badge(estado):
     else:
         st.markdown("**Estado:** Completado <span class='dot-blue'></span>", unsafe_allow_html=True)
 
-# --- ENCABEZADO SUPERIOR: TU LOGO Y DESPUÉS EL TEXTO PIXEL THREAD ---
+# --- ENCABEZADO SUPERIOR: LOGO DESDE FIREBASE Y TEXTO PIXEL THREAD ---
 col_head_logo, col_head_title, col_head_menu = st.columns([0.08, 2.92, 1], vertical_alignment="center")
 
 with col_head_logo:
-    try:
-        # Se intenta abrir el archivo ico o png del logo
-        img_logo_header = Image.open("PIXEL-THREAD-W_Mesa-de-trabajo-1-_1_.ico")
-        st.image(img_logo_header, width=48)
-    except Exception:
+    if icono_global_b64:
         try:
-            # Alternativa por si se guarda como png
-            img_logo_header = Image.open("logo.png")
-            st.image(img_logo_header, width=48)
+            img_bytes = base64.b64decode(icono_global_b64)
+            st.image(Image.open(BytesIO(img_bytes)), width=48)
         except Exception:
             st.markdown("🧵")
+    else:
+        st.markdown("🧵")
 
 with col_head_title:
     st.title("PIXEL THREAD")
@@ -474,10 +485,11 @@ else:
     st.markdown("---")
 
     try:
-        tab_admin_pend, tab_admin_comp, tab_admin_clientes = st.tabs([
+        tab_admin_pend, tab_admin_comp, tab_admin_clientes, tab_admin_config = st.tabs([
             "⏳ Pendientes y En Proceso", 
             "✅ Completados / Entregados", 
-            "👥 Gestión de Clientes"
+            "👥 Gestión de Clientes",
+            "⚙️ Configurar Icono"
         ])
 
         recalcular_turnos()
@@ -728,6 +740,35 @@ else:
                     st.info("No hay clientes registrados en la base de datos.")
             except Exception as e:
                 st.error(f"Error al listar clientes: {e}")
+
+        with tab_admin_config:
+            st.subheader("⚙️ Configuración del Icono / Logotipo Global")
+            st.markdown("Sube aquí el icono de tu negocio para guardarlo directamente en Firebase. Se actualizará en la página principal y en el encabezado.")
+
+            with st.form("form_config_icono"):
+                nuevo_icono_subido = st.file_uploader("Seleccionar archivo de icono (PNG, JPG, ICO)", type=["png", "jpg", "jpeg", "ico"])
+                guardar_icono_btn = st.form_submit_button("💾 Guardar Icono en Firebase")
+
+                if guardar_icono_btn:
+                    if nuevo_icono_subido:
+                        try:
+                            b64_icono = procesar_archivo_subido(nuevo_icono_subido)
+                            db.collection("configuracion").document("sitio").set({
+                                "icono_b64": b64_icono
+                            }, merge=True)
+                            st.success("✅ ¡Icono guardado en Firebase exitosamente! Recargando...")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Error al guardar el icono: {e}")
+                    else:
+                        st.warning("⚠️ Selecciona un archivo primero.")
+
+            if icono_global_b64:
+                st.markdown("### 🖼️ Icono Actual en Firebase:")
+                try:
+                    st.image(base64.b64decode(icono_global_b64), width=100)
+                except Exception:
+                    pass
 
         st.markdown("---")
         with st.expander("🚨 Zona de Peligro: Limpieza Masiva de Historial"):
