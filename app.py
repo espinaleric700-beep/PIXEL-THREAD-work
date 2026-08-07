@@ -33,6 +33,7 @@ st.markdown("""
     }
     h1, h2, h3 {
         color: #00ffcc !important;
+        text-align: center;
     }
     .stTextInput input, .stSelectbox select {
         background-color: #0b0f19;
@@ -125,14 +126,11 @@ if st.session_state.modo_vista == "Cliente":
             logo_perfil_b64 = datos_usuario.get("logo_usuario", "")
             nombre_cliente = datos_usuario.get('nombre_usuario', st.session_state.user)
 
-            # TÍTULO DINÁMICO CON EL LOGO DEL CLIENTE COMO ICONO Y SU NOMBRE AL LADO
-            if logo_perfil_b64:
-                col_img, col_txt = st.columns([1, 6])
-                with col_img:
-                    st.image(base64.b64decode(logo_perfil_b64), width=50)
-                with col_txt:
-                    st.title(f"{nombre_cliente}")
-            else:
+            # ENCABEZADO: LOGO GRANDE Y CENTRADO ARRIBA DEL NOMBRE
+            col_esp1, col_centro, col_esp2 = st.columns([1, 2, 1])
+            with col_centro:
+                if logo_perfil_b64:
+                    st.image(base64.b64decode(logo_perfil_b64), width=150)
                 st.title(f"{nombre_cliente}")
 
             st.markdown("---")
