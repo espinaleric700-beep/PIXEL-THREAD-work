@@ -188,27 +188,35 @@ if st.session_state.modo_vista == "Cliente":
                                     nombre_archivo_lower = archivo.name.lower()
                                     bytes_contenido = archivo.getvalue()
 
-                                    # Procesamiento especial y seguro para archivos de imagen (.png, .jpg, .jpeg) usando Pillow
-                                    if nombre_archivo_lower.endswith(('.png', '.jpg', '.jpeg')):
+                                    # Procesamiento avanzado y seguro para imágenes pesadas o complejas usando Pillow
+                                    if nombre_archivo_lower.endswith(('.png', '.jpg', '.jpeg', '.webp')):
                                         try:
                                             img = Image.open(io.BytesIO(bytes_contenido))
-                                            # Si es PNG con transparencia RGBA y se guarda a formato estándar, evitamos conflictos convirtiendo si es necesario
-                                            if img.mode in ("RGBA", "P") and nombre_archivo_lower.endswith('.png'):
-                                                buffered = io.BytesIO()
-                                                img.save(buffered, format="PNG")
-                                                bytes_contenido = buffered.getvalue()
-                                            elif img.mode not in ("RGB", "RGBA"):
+                                            
+                                            # Normalizar canales de color incompatibles con base64/firestore
+                                            if img.mode in ("CMYK", "P"):
                                                 img = img.convert("RGB")
-                                                buffered = io.BytesIO()
-                                                img.save(buffered, format="JPEG")
-                                                bytes_contenido = buffered.getvalue()
+                                            
+                                            # Redimensionar si excede los 1200px para evitar saturar el límite de Firebase
+                                            max_size = 1200
+                                            if img.width > max_size or img.height > max_size:
+                                                img.thumbnail((max_size, max_size))
+
+                                            buffered = io.BytesIO()
+                                            if img.mode == "RGBA" and nombre_archivo_lower.endswith('.png'):
+                                                img.save(buffered, format="PNG", optimize=True)
+                                            else:
+                                                if img.mode == "RGBA":
+                                                    img = img.convert("RGB")
+                                                img.save(buffered, format="JPEG", quality=85, optimize=True)
+                                                
+                                            bytes_contenido = buffered.getvalue()
                                         except Exception as img_err:
-                                            # Si falla Pillow, mantenemos los bytes originales del uploader
                                             pass
 
                                     archivo_b64 = base64.b64encode(bytes_contenido).decode("utf-8")
                                     lista_archivos_guardados.append({
-                                        "nombre": archivo.name,
+                                        "nombre": archivo.name.strip(),
                                         "data": archivo_b64
                                     })
 
