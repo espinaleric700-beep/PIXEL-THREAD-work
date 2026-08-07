@@ -469,7 +469,11 @@ else:
         # PESTAÑA: COMPLETADOS / ENTREGADOS
         # =========================================================
         with tab_admin_comp:
-            pedidos_completados_admin = [(doc.id, doc.to_dict()) for doc in docs if doc.to_dict().get('estado'] == "Completado"]
+            pedidos_completados_admin = [
+                (doc.id, doc.to_dict()) 
+                for doc in docs 
+                if doc.to_dict().get('estado') == "Completado"
+            ]
 
             if pedidos_completados_admin:
                 cols = st.columns(4)
