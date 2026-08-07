@@ -203,7 +203,6 @@ if st.session_state.modo_vista == "Cliente":
             user_doc_ref = db.collection("usuarios_perfil").document(user_clean)
             user_doc = user_doc_ref.get()
             
-            # Validar si el usuario existe en la base de datos o si es administrador autorizado
             if not user_doc.exists and user_clean not in [adm.lower() for adm in ADMINS_AUTORIZADOS]:
                 st.error("❌ El usuario ingresado no existe o no está registrado en el sistema. Por favor, verifica tu ID.")
             else:
@@ -261,6 +260,11 @@ if st.session_state.modo_vista == "Cliente":
                                     b64_data = procesar_archivo_subido(arch)
                                     lista_archivos.append({"nombre": arch.name, "data": b64_data})
 
+                                # Calcular la posición actual en la cola (pedidos que no estén completados)
+                                todos_pedidos_cola = list(db.collection("pedidos_bordado").stream())
+                                activos_cola = [p.to_dict() for p in todos_pedidos_cola if p.to_dict().get("estado", "Pendiente") != "Completado"]
+                                siguiente_turno = len(activos_cola) + 1
+
                                 data_pedido = {
                                     "id": f"PT-{int(datetime.now().timestamp())}",
                                     "cliente": st.session_state.user.strip(),
@@ -272,10 +276,11 @@ if st.session_state.modo_vista == "Cliente":
                                     "archivos_finales": [],
                                     "comentarios": comentarios,
                                     "estado": "Pendiente",
+                                    "turno": siguiente_turno,
                                     "timestamp": datetime.now()
                                 }
                                 db.collection("pedidos_bordado").add(data_pedido)
-                                st.session_state.mensaje_exito = "🎉 ¡Enviado con éxito!"
+                                st.session_state.mensaje_exito = f"🎉 ¡Enviado con éxito! Tu turno asignado en la cola es el #{siguiente_turno}."
                                 st.session_state.form_version += 1
                                 st.session_state.expandir_nuevo_pedido = False
                                 st.rerun()
@@ -298,6 +303,8 @@ if st.session_state.modo_vista == "Cliente":
                         for i, p in enumerate(pedidos_activos):
                             with cols[i % 4]:
                                 with st.container(border=True):
+                                    turno_val = p.get('turno', 'N/A')
+                                    st.markdown(f"**🔢 Turno en Cola:** `#{turno_val}`")
                                     st.markdown(f"**🧵 Proyecto:** {p.get('nombre_proyecto', 'N/A')}")
                                     st.markdown(f"**📦 Producto:** {p.get('producto', 'N/A')}")
                                     st.markdown(f"**📍 Ubicación:** {p.get('ubicacion', 'N/A')}")
@@ -383,6 +390,8 @@ else:
                 for i, (doc_id, p) in enumerate(pedidos_activos):
                     with cols[i % 4]:
                         with st.container(border=True):
+                            turno_val = p.get('turno', 'N/A')
+                            st.markdown(f"**🔢 Turno:** `#{turno_val}`")
                             st.markdown(f"**👤 Cliente:** `{p.get('cliente')}`")
                             st.markdown(f"**🧵 Proyecto:** `{p.get('nombre_proyecto', 'N/A')}`")
                             st.markdown(f"**📦 Producto:** {p.get('producto', 'N/A')}")
@@ -513,36 +522,36 @@ else:
                                                 db.collection("pedidos_bordado").document(doc_id).update({"archivos_finales": lista_finales})
                                                 st.rerun()
                                                 
-                                    st.markdown("**➕ Agregar nuevos:**")
-                                    archivos_extra = st.file_uploader(
-                                        "Seleccionar archivos:", 
-                                        type=["dst", "emb", "pes", "png", "jpg", "pdf"],
-                                        accept_multiple_files=True, 
-                                        key=f"up_admin_comp_{doc_id}"
-                                    )
-                                    if st.button("🚀 SUBIR ARCHIVOS", key=f"btn_comp_extra_{doc_id}", use_container_width=True):
-                                        if archivos_extra:
-                                            try:
-                                                status_subida = st.empty()
-                                                total_archivos = len(archivos_extra)
+                                st.markdown("**➕ Agregar nuevos:**")
+                                archivos_extra = st.file_uploader(
+                                    "Seleccionar archivos:", 
+                                    type=["dst", "emb", "pes", "png", "jpg", "pdf"],
+                                    accept_multiple_files=True, 
+                                    key=f"up_admin_comp_{doc_id}"
+                                )
+                                if st.button("🚀 SUBIR ARCHIVOS", key=f"btn_comp_extra_{doc_id}", use_container_width=True):
+                                    if archivos_extra:
+                                        try:
+                                            status_subida = st.empty()
+                                            total_archivos = len(archivos_extra)
+                                            
+                                            db.collection("pedidos_bordado").document(doc_id).update({"archivos_finales": []})
+                                            
+                                            for idx, af in enumerate(archivos_extra, start=1):
+                                                status_subida.info(f"⏳ Subiendo archivo {idx} de {total_archivos} ({af.name})...")
+                                                b64_fin = procesar_archivo_subido(af)
+                                                lista_finales.append({"nombre": af.name, "data": b64_fin})
                                                 
-                                                db.collection("pedidos_bordado").document(doc_id).update({"archivos_finales": []})
-                                                
-                                                for idx, af in enumerate(archivos_extra, start=1):
-                                                    status_subida.info(f"⏳ Subiendo archivo {idx} de {total_archivos} ({af.name})...")
-                                                    b64_fin = procesar_archivo_subido(af)
-                                                    lista_finales.append({"nombre": af.name, "data": b64_fin})
-                                                    
-                                                    db.collection("pedidos_bordado").document(doc_id).update({
-                                                        "archivos_finales": lista_finales
-                                                    })
-                                                
-                                                status_subida.success("¡Archivos agregados con éxito!")
-                                                st.rerun()
-                                            except Exception as e:
-                                                status_subida.error(f"Error al subir: {e}")
-                                        else:
-                                            st.warning("Adjunta al menos un archivo.")
+                                                db.collection("pedidos_bordado").document(doc_id).update({
+                                                    "archivos_finales": lista_finales
+                                                })
+                                            
+                                            status_subida.success("¡Archivos agregados con éxito!")
+                                            st.rerun()
+                                        except Exception as e:
+                                            status_subida.error(f"Error al subir: {e}")
+                                    else:
+                                        st.warning("Adjunta al menos un archivo.")
 
                             if st.button("🗑️ Eliminar Historial", key=f"admin_del_comp_{doc_id}", use_container_width=True):
                                 db.collection("pedidos_bordado").document(doc_id).delete()
@@ -593,7 +602,6 @@ else:
                         c_data = c_doc.to_dict()
                         c_key = c_doc.id
                         
-                        id_col_box, del_col_box = st.columns([3, 1], vertical_alignment="center")
                         with cols_cli[i % 4]:
                             with st.container(border=True):
                                 logo_b64 = c_data.get("logo_b64")
