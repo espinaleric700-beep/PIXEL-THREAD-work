@@ -258,29 +258,32 @@ if st.session_state.modo_vista == "Cliente":
                 pedidos_activos = [p for p in mis_pedidos if p.get('estado') != "Completado"]
                 
                 if pedidos_activos:
-                    for p in pedidos_activos:
-                        col_p1, col_p2 = st.columns([2, 1])
-                        with col_p1:
-                            st.markdown(f"**🧵 Proyecto:** {p.get('nombre_proyecto', 'N/A')}")
-                            st.markdown(f"**📦 Producto:** {p.get('producto', 'N/A')} | **📍 Ubicación:** {p.get('ubicacion', 'N/A')} | **🎨 Estilo:** {p.get('estilo', 'N/A')}")
-                            if p.get('comentarios'):
-                                st.caption(f"📝 Nota: {p.get('comentarios')}")
-                        with col_p2:
-                            render_estado_badge(p.get('estado', 'Pendiente'))
+                    # Organizar en 2 columnas verticales
+                    cols = st.columns(2)
+                    for i, p in enumerate(pedidos_activos):
+                        with cols[i % 2]:
+                            with st.container(border=True):
+                                col_p1, col_p2 = st.columns([2, 1])
+                                with col_p1:
+                                    st.markdown(f"**🧵 Proyecto:** {p.get('nombre_proyecto', 'N/A')}")
+                                    st.markdown(f"**📦 Producto:** {p.get('producto', 'N/A')} | **📍 Ubicación:** {p.get('ubicacion', 'N/A')} | **🎨 Estilo:** {p.get('estilo', 'N/A')}")
+                                    if p.get('comentarios'):
+                                        st.caption(f"📝 Nota: {p.get('comentarios')}")
+                                with col_p2:
+                                    render_estado_badge(p.get('estado', 'Pendiente'))
 
-                        archivos = p.get('archivos', [])
-                        if archivos:
-                            st.markdown("📁 **Archivos adjuntos:**")
-                            for idx_a, arch_item in enumerate(archivos):
-                                nombre_a = arch_item.get('nombre', 'archivo')
-                                try:
-                                    raw_bytes = base64.b64decode(arch_item.get('data'))
-                                    if nombre_a.lower().endswith(('png', 'jpg', 'jpeg')):
-                                        st.image(raw_bytes, width=150, caption=nombre_a)
-                                    st.download_button(f"📥 Descargar {nombre_a}", data=raw_bytes, file_name=nombre_a, key=f"dl_cli_{p.get('id')}_{idx_a}")
-                                except Exception:
-                                    pass
-                        st.markdown("---")
+                                archivos = p.get('archivos', [])
+                                if archivos:
+                                    st.markdown("📁 **Archivos adjuntos:**")
+                                    for idx_a, arch_item in enumerate(archivos):
+                                        nombre_a = arch_item.get('nombre', 'archivo')
+                                        try:
+                                            raw_bytes = base64.b64decode(arch_item.get('data'))
+                                            if nombre_a.lower().endswith(('png', 'jpg', 'jpeg')):
+                                                st.image(raw_bytes, width=150, caption=nombre_a)
+                                            st.download_button(f"📥 Descargar {nombre_a}", data=raw_bytes, file_name=nombre_a, key=f"dl_cli_{p.get('id')}_{idx_a}")
+                                        except Exception:
+                                            pass
                 else:
                     st.info("No tienes pedidos pendientes activos.")
 
@@ -289,27 +292,29 @@ if st.session_state.modo_vista == "Cliente":
                 pedidos_terminados = [p for p in mis_pedidos if p.get('estado') == "Completado"]
 
                 if pedidos_terminados:
-                    for p in pedidos_terminados:
-                        col_t1, col_t2 = st.columns([2, 1])
-                        with col_t1:
-                            st.markdown(f"**🧵 Proyecto:** {p.get('nombre_proyecto', 'N/A')}")
-                            st.markdown(f"**📦 Producto:** {p.get('producto', 'N/A')} | **📍 Ubicación:** {p.get('ubicacion', 'N/A')} | **🎨 Estilo:** {p.get('estilo', 'N/A')}")
-                        with col_t2:
-                            render_estado_badge("Completado")
+                    cols = st.columns(2)
+                    for i, p in enumerate(pedidos_terminados):
+                        with cols[i % 2]:
+                            with st.container(border=True):
+                                col_t1, col_t2 = st.columns([2, 1])
+                                with col_t1:
+                                    st.markdown(f"**🧵 Proyecto:** {p.get('nombre_proyecto', 'N/A')}")
+                                    st.markdown(f"**📦 Producto:** {p.get('producto', 'N/A')} | **📍 Ubicación:** {p.get('ubicacion', 'N/A')} | **🎨 Estilo:** {p.get('estilo', 'N/A')}")
+                                with col_t2:
+                                    render_estado_badge("Completado")
 
-                        archivos_finales = p.get('archivos_finales', [])
-                        if archivos_finales:
-                            st.markdown("✨ **Archivos Listos para Descargar:**")
-                            for idx_f, af in enumerate(archivos_finales):
-                                nom_f = af.get('nombre', 'resultado')
-                                try:
-                                    raw_f_bytes = base64.b64decode(af.get('data'))
-                                    if nom_f.lower().endswith(('png', 'jpg', 'jpeg')):
-                                        st.image(raw_f_bytes, width=150, caption=nom_f)
-                                    st.download_button(f"📥 Descargar {nom_f}", data=raw_f_bytes, file_name=nom_f, key=f"dl_fin_{p.get('id')}_{idx_f}")
-                                except Exception:
-                                    pass
-                        st.markdown("---")
+                                archivos_finales = p.get('archivos_finales', [])
+                                if archivos_finales:
+                                    st.markdown("✨ **Archivos Listos para Descargar:**")
+                                    for idx_f, af in enumerate(archivos_finales):
+                                        nom_f = af.get('nombre', 'resultado')
+                                        try:
+                                            raw_f_bytes = base64.b64decode(af.get('data'))
+                                            if nom_f.lower().endswith(('png', 'jpg', 'jpeg')):
+                                                st.image(raw_f_bytes, width=150, caption=nom_f)
+                                            st.download_button(f"📥 Descargar {nom_f}", data=raw_f_bytes, file_name=nom_f, key=f"dl_fin_{p.get('id')}_{idx_f}")
+                                        except Exception:
+                                            pass
                 else:
                     st.info("Aún no tienes pedidos completados.")
 
@@ -338,89 +343,92 @@ else:
             pedidos_activos = [(doc.id, doc.to_dict()) for doc in docs if doc.to_dict().get('estado') != "Completado"]
 
             if pedidos_activos:
-                for doc_id, p in pedidos_activos:
-                    col_a1, col_a2 = st.columns([2, 1])
-                    with col_a1:
-                        st.markdown(f"**👤 Cliente:** `{p.get('cliente')}`")
-                        st.markdown(f"**🧵 Proyecto:** `{p.get('nombre_proyecto', 'N/A')}`")
-                        st.markdown(f"**📦 Producto:** {p.get('producto', 'N/A')} | **📍 Ubicación:** {p.get('ubicacion', 'N/A')} | **🎨 Estilo:** {p.get('estilo', 'N/A')}")
-                        if p.get('comentarios'):
-                            st.caption(f"📝 Comentarios: {p.get('comentarios')}")
-                    with col_a2:
-                        estado_actual = p.get('estado', 'Pendiente')
-                        render_estado_badge(estado_actual)
-                        
-                        if estado_actual == "Pendiente":
-                            if st.button("🔄 Cambiar a En Proceso", key=f"btn_proceso_{doc_id}"):
-                                db.collection("pedidos_bordado").document(doc_id).update({"estado": "En Proceso"})
-                                st.rerun()
-                        else:
-                            if st.button("🔄 Cambiar a Pendiente", key=f"btn_pendiente_{doc_id}"):
-                                db.collection("pedidos_bordado").document(doc_id).update({"estado": "Pendiente"})
-                                st.rerun()
-
-                    archivos_cliente = p.get('archivos', [])
-                    if archivos_cliente:
-                        st.markdown("📁 **Archivos del Cliente:**")
-                        for idx_ac, ac in enumerate(archivos_cliente):
-                            nom_ac = ac.get('nombre', 'archivo')
-                            try:
-                                raw_ac = base64.b64decode(ac.get('data'))
-                                if nom_ac.lower().endswith(('png', 'jpg', 'jpeg')):
-                                    st.image(raw_ac, width=120, caption=nom_ac)
-                                st.download_button(f"📥 {nom_ac}", data=raw_ac, file_name=nom_ac, key=f"dl_admin_cli_{doc_id}_{idx_ac}")
-                            except Exception:
-                                pass
-
-                    col_acc1, col_acc2 = st.columns(2)
-                    with col_acc1:
-                        with st.expander("📤 Subir Resultado y Completar"):
-                            archivos_entregables = st.file_uploader(
-                                "Archivos finales:", 
-                                type=["dst", "emb", "pes", "png", "jpg", "pdf"],
-                                accept_multiple_files=True, 
-                                key=f"up_admin_{doc_id}"
-                            )
-                            if st.button("🚀 MARCAR COMO COMPLETADO", key=f"btn_comp_{doc_id}"):
-                                if archivos_entregables:
-                                    lista_finales = p.get('archivos_finales', [])
-                                    for af in archivos_entregables:
-                                        lista_finales.append({
-                                            "nombre": af.name,
-                                            "data": base64.b64encode(af.getvalue()).decode("utf-8")
-                                        })
-                                    db.collection("pedidos_bordado").document(doc_id).update({
-                                        "archivos_finales": lista_finales,
-                                        "estado": "Completado"
-                                    })
-                                    st.success("¡Pedido marcado como completado!")
-                                    st.rerun()
+                cols = st.columns(2)
+                for i, (doc_id, p) in enumerate(pedidos_activos):
+                    with cols[i % 2]:
+                        with st.container(border=True):
+                            col_a1, col_a2 = st.columns([2, 1])
+                            with col_a1:
+                                st.markdown(f"**👤 Cliente:** `{p.get('cliente')}`")
+                                st.markdown(f"**🧵 Proyecto:** `{p.get('nombre_proyecto', 'N/A')}`")
+                                st.markdown(f"**📦 Producto:** {p.get('producto', 'N/A')} | **📍 Ubicación:** {p.get('ubicacion', 'N/A')} | **🎨 Estilo:** {p.get('estilo', 'N/A')}")
+                                if p.get('comentarios'):
+                                    st.caption(f"📝 Comentarios: {p.get('comentarios')}")
+                            with col_a2:
+                                estado_actual = p.get('estado', 'Pendiente')
+                                render_estado_badge(estado_actual)
+                                
+                                if estado_actual == "Pendiente":
+                                    if st.button("🔄 Cambiar a En Proceso", key=f"btn_proceso_{doc_id}"):
+                                        db.collection("pedidos_bordado").document(doc_id).update({"estado": "En Proceso"})
+                                        st.rerun()
                                 else:
-                                    st.warning("Adjunta al menos un archivo final.")
-                    with col_acc2:
-                        if st.button("🗑️ Eliminar Pedido", key=f"mob_del_{doc_id}"):
-                            db.collection("pedidos_bordado").document(doc_id).delete()
-                            st.rerun()
+                                    if st.button("🔄 Cambiar a Pendiente", key=f"btn_pendiente_{doc_id}"):
+                                        db.collection("pedidos_bordado").document(doc_id).update({"estado": "Pendiente"})
+                                        st.rerun()
 
-                    st.markdown("---")
+                            archivos_cliente = p.get('archivos', [])
+                            if archivos_cliente:
+                                st.markdown("📁 **Archivos del Cliente:**")
+                                for idx_ac, ac in enumerate(archivos_cliente):
+                                    nom_ac = ac.get('nombre', 'archivo')
+                                    try:
+                                        raw_ac = base64.b64decode(ac.get('data'))
+                                        if nom_ac.lower().endswith(('png', 'jpg', 'jpeg')):
+                                            st.image(raw_ac, width=120, caption=nom_ac)
+                                        st.download_button(f"📥 {nom_ac}", data=raw_ac, file_name=nom_ac, key=f"dl_admin_cli_{doc_id}_{idx_ac}")
+                                    except Exception:
+                                        pass
+
+                            col_acc1, col_acc2 = st.columns(2)
+                            with col_acc1:
+                                with st.expander("📤 Subir Resultado y Completar"):
+                                    archivos_entregables = st.file_uploader(
+                                        "Archivos finales:", 
+                                        type=["dst", "emb", "pes", "png", "jpg", "pdf"],
+                                        accept_multiple_files=True, 
+                                        key=f"up_admin_{doc_id}"
+                                    )
+                                    if st.button("🚀 MARCAR COMO COMPLETADO", key=f"btn_comp_{doc_id}"):
+                                        if archivos_entregables:
+                                            lista_finales = p.get('archivos_finales', [])
+                                            for af in archivos_entregables:
+                                                lista_finales.append({
+                                                    "nombre": af.name,
+                                                    "data": base64.b64encode(af.getvalue()).decode("utf-8")
+                                                })
+                                            db.collection("pedidos_bordado").document(doc_id).update({
+                                                "archivos_finales": lista_finales,
+                                                "estado": "Completado"
+                                            })
+                                            st.success("¡Pedido marcado como completado!")
+                                            st.rerun()
+                                        else:
+                                            st.warning("Adjunta al menos un archivo final.")
+                            with col_acc2:
+                                if st.button("🗑️ Eliminar Pedido", key=f"mob_del_{doc_id}"):
+                                    db.collection("pedidos_bordado").document(doc_id).delete()
+                                    st.rerun()
             else:
                 st.info("🎉 No hay pedidos pendientes de revisión.")
 
         with tab_admin_comp:
-            pedidos_completados_admin = [(doc.id, doc.to_dict()) for doc in docs if doc.to_dict().get('estado') == "Completado"]
+            pedidos_completados_admin = [(doc.id, doc.to_dict()) for doc in docs if doc.to_dict().get('estado'] == "Completado"]
 
             if pedidos_completados_admin:
-                for doc_id, p in pedidos_completados_admin:
-                    col_ac1, col_ac2 = st.columns([2, 1])
-                    with col_ac1:
-                        st.markdown(f"**👤 {p.get('cliente')}** — 🧵 {p.get('nombre_proyecto', 'N/A')}")
-                        st.markdown(f"**📦 Producto:** {p.get('producto', 'N/A')} | **📍 Ubicación:** {p.get('ubicacion', 'N/A')} | **🎨 Estilo:** {p.get('estilo', 'N/A')}")
-                    with col_ac2:
-                        render_estado_badge("Completado")
-                        if st.button("🗑️ Eliminar Historial", key=f"admin_del_comp_{doc_id}"):
-                            db.collection("pedidos_bordado").document(doc_id).delete()
-                            st.rerun()
-                    st.markdown("---")
+                cols = st.columns(2)
+                for i, (doc_id, p) in enumerate(pedidos_completados_admin):
+                    with cols[i % 2]:
+                        with st.container(border=True):
+                            col_ac1, col_ac2 = st.columns([2, 1])
+                            with col_ac1:
+                                st.markdown(f"**👤 {p.get('cliente')}** — 🧵 {p.get('nombre_proyecto', 'N/A')}")
+                                st.markdown(f"**📦 Producto:** {p.get('producto', 'N/A')} | **📍 Ubicación:** {p.get('ubicacion', 'N/A')} | **🎨 Estilo:** {p.get('estilo', 'N/A')}")
+                            with col_ac2:
+                                render_estado_badge("Completado")
+                                if st.button("🗑️ Eliminar Historial", key=f"admin_del_comp_{doc_id}"):
+                                    db.collection("pedidos_bordado").document(doc_id).delete()
+                                    st.rerun()
             else:
                 st.info("No hay pedidos completados en el historial.")
 
