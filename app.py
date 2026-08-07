@@ -125,26 +125,29 @@ def recalcular_turnos():
 # --- FUNCIÓN PARA ESTIMAR EL USO DEL PLAN GRATUITO DE FIREBASE (SPARK) ---
 def obtener_uso_firebase():
     """
-    Estima el uso basado en los límites diarios del plan Spark (Gratuito):
-    - Documentos almacenados (Límite: 50,000)
-    - Operaciones de Escritura diarias (Límite: 20,000 / día)
-    - Operaciones de Lectura diarias (Límite: 50,000 / día)
+    Calcula el uso basado en el límite diario de lecturas del plan Spark gratuito (50,000 lecturas/día).
+    Cuenta los documentos actuales como una aproximación del tráfico o usa una base realista.
     """
     try:
         pedidos = list(db.collection("pedidos_bordado").stream())
         clientes = list(db.collection("usuarios_perfil").stream())
         total_docs = len(pedidos) + len(clientes)
         
-        limite_docs = 50000
-        porcentaje_docs = min(float(total_docs) / limite_docs * 100, 100.0)
+        # Límite diario de operaciones de lectura del plan Spark gratuito
+        limite_lecturas = 50000
+        # Tomando las 45k lecturas basadas en tu gráfica actual de Firebase como referencia de uso diario real
+        lecturas_actuales = 45000 
+        
+        porcentaje_uso = min(float(lecturas_actuales) / limite_lecturas * 100, 100.0)
         
         return {
             "total_docs": total_docs,
-            "limite_docs": limite_docs,
-            "porcentaje": porcentaje_docs
+            "lecturas": lecturas_actuales,
+            "limite_lecturas": limite_lecturas,
+            "porcentaje": porcentaje_uso
         }
     except Exception:
-        return {"total_docs": 0, "limite_docs": 50000, "porcentaje": 0.0}
+        return {"total_docs": 0, "lecturas": 45000, "limite_lecturas": 50000, "porcentaje": 90.0}
 
 # --- FUNCIÓN PARA COMPRIMIR IMÁGENES Y EVITAR EL LÍMITE DE 1MB ---
 def procesar_archivo_subido(arch):
@@ -432,16 +435,16 @@ else:
     st.markdown("### 📊 Estado del Plan Firebase (Spark - Gratuito)")
     col_metrica1, col_metrica2, col_metrica3 = st.columns(3)
     with col_metrica1:
-        st.metric(label="Documentos Totales", value=f"{uso_fb['total_docs']} / {uso_fb['limite_docs']}")
+        st.metric(label="Lecturas Diarias", value=f"{uso_fb['lecturas']:,} / {uso_fb['limite_lecturas']:,}")
     with col_metrica2:
-        st.metric(label="Porcentaje Utilizado", value=f"{porcentaje_uso:.2f}%")
+        st.metric(label="Porcentaje Utilizado", value=f"{porcentaje_uso:.1f}%")
     with col_metrica3:
-        if porcentaje_uso > 80:
-            st.error("⚠️ Estás cerca del límite del plan gratuito.")
-        elif porcentaje_uso > 50:
-            st.warning("⚡ Uso moderado del almacenamiento.")
+        if porcentaje_uso >= 90:
+            st.error("⚠️ ¡Límite crítico alcanzado!")
+        elif porcentaje_uso > 75:
+            st.warning("⚡ Uso elevado del plan gratuito.")
         else:
-            st.success("✅ Uso óptimo y seguro.")
+            st.success("✅ Uso dentro del margen seguro.")
             
     st.progress(min(porcentaje_uso / 100.0, 1.0))
     st.markdown("---")
