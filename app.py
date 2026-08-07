@@ -11,7 +11,7 @@ from streamlit_autorefresh import st_autorefresh
 st.set_page_config(page_title="Pixel Thread | Pro", layout="wide")
 st_autorefresh(interval=10000, limit=1000, key="auto_refrescar")
 
-# --- CSS LIMPIO, SIN LÍNEAS ANIDADAS, LETRAS MÁS GRANDES Y OCULTAR TOTALMENTE ELEMENTOS FLOTANTES Y DE STREAMLIT ---
+# --- CSS LIMPIO, SIN LÍNEAS ANIDADas, LETRAS MÁS GRANDES Y OCULTAR TOTALMENTE ELEMENTOS FLOTANTES Y DE STREAMLIT ---
 st.markdown("""
 <style>
     :root {
@@ -246,8 +246,10 @@ st.markdown("<br>", unsafe_allow_html=True)
 if st.session_state.modo_vista == "Cliente":
     user_clean_inicial = st.session_state.user.strip()
 
-    # Si ya hay un usuario cargado, mostramos un desplegable/expander contraído para cambiarlo (así se minimiza automáticamente)
-    with st.expander("👤 Cambiar / Ver Usuario Actual", expanded=not bool(user_clean_inicial)):
+    # Si hay un usuario válido ingresado, expandido=False (minimizado); si no hay usuario, expandido=True para que se vea
+    user_valido_inicial = bool(user_clean_inicial)
+    
+    with st.expander("👤 Cambiar / Ver Usuario Actual", expanded=not user_valido_inicial):
         def cambiar_usuario():
             st.session_state.user = st.session_state.input_usuario_key
 
