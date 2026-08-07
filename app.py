@@ -4,13 +4,12 @@ from firebase_admin import credentials, firestore
 import json
 from datetime import datetime
 
-# --- CONFIGURACIÓN DE PÁGINA (MODIFICADO PARA ANCHO COMPLETO) ---
+# --- CONFIGURACIÓN DE PÁGINA EN ANCHO COMPLETO ---
 st.set_page_config(page_title="Pixel Nexus", layout="wide")
 
-# --- ESTILOS FUTURISTAS (INCLUYENDO AJUSTE DE ANCHO CSS) ---
+# --- ESTILOS FUTURISTAS Y ANCHO EXPANDIDO ---
 st.markdown("""
 <style>
-    /* Ajuste para forzar ancho completo en contenedores */
     .block-container {
         max-width: 100% !important;
         padding-left: 2rem;
@@ -42,28 +41,55 @@ def init_fb():
 db = init_fb()
 
 # --- LÓGICA DE PERSISTENCIA ---
-if "user" not in st.session_state: st.session_state.user = "Usuario"
+if "user" not in st.session_state: 
+    st.session_state.user = "Usuario"
 
-st.title("🧵 Pixel Nexus")
-user = st.text_input("Tu ID", value=st.session_state.user)
+st.title("🧵 Pixel Thread / Pixel Nexus")
+
+# --- INTERFAZ PRINCIPAL ---
+user = st.text_input("Tu ID / Cliente", value=st.session_state.user)
 if st.button("Conectar"):
     st.session_state.user = user
     st.rerun()
 
-# --- FORMULARIO OPTIMIZADO ---
-with st.form("nuevo_pedido", clear_on_submit=True):
-    nombre = st.text_input("Nombre del Proyecto")
-    tipo = st.selectbox("Tipo", ["Tela", "Gorra"])
-    submit = st.form_submit_button("ENVIAR A NEXUS")
+st.markdown("---")
 
-if submit and nombre:
-    data = {"cliente": user, "nombre": nombre, "tipo": tipo, "fecha": datetime.now().isoformat()}
-    db.collection("logos").add(data)
-    st.success("Guardado en la red.")
+# --- PANELES Y GESTIÓN DE PEDIDOS ---
+col1, col2 = st.columns(2)
 
-# --- HISTORIAL ---
-st.subheader("Historial")
-docs = db.collection("logos").where("cliente", "==", user).stream()
+with col1:
+    st.subheader("⚡ Panel de Clientes")
+    with st.form("nuevo_pedido", clear_on_submit=True):
+        nombre = st.text_input("Nombre del Proyecto / Pedido")
+        tipo = st.selectbox("Tipo de Diseño", ["Tela", "Gorra", "VARIOS"])
+        submit = st.form_submit_button("Registrar Nuevo Cliente / Pedido")
+       
+    if submit and nombre:
+        data = {
+            "cliente": user, 
+            "nombre": nombre, 
+            "tipo": tipo, 
+            "estado": "Pendiente",
+            "fecha": datetime.now().isoformat()
+        }
+        db.collection("logos").add(data)
+        st.success("¡Pedido guardado en la red con éxito!")
+
+with col2:
+    st.subheader("🛠️ Panel de Administración")
+    st.info("Herramientas de control y supervisión activas.")
+
+st.markdown("---")
+
+# --- GESTIÓN DE PEDIDOS ENTRANTES E HISTORIAL ---
+st.subheader("📋 Gestión de Pedidos Entrantes")
+
+docs = db.collection("logos").stream()
 for d in docs:
     p = d.to_dict()
-    st.info(f"{p['nombre']} - {p['tipo']}")
+    # Mostramos los pedidos registrados
+    with st.container():
+        st.markdown(f"**Usuario / Cliente:** {p.get('cliente', 'N/A')} — ⏳ **{p.get('tipo', 'N/A')}**")
+        st.caption(f"ID de Pedido: {d.id} | Estado: {p.get('estado', 'Pendiente')}")
+        st.text(f"Producto: {p.get('nombre', 'N/A')} | Ubicación: N/A | Estilo: N/A")
+        st.markdown("---")
