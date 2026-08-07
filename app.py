@@ -9,7 +9,7 @@ from streamlit_autorefresh import st_autorefresh
 st.set_page_config(page_title="Pixel Thread | Pro", layout="wide")
 st_autorefresh(interval=10000, limit=1000, key="auto_refrescar")
 
-# --- CSS AVANZADO PARA INTERFAZ LIMPIA Y MINIMIZADA ---
+# --- CSS AVANZADO PARA INTERFAZ Y CÍRCULOS PARPADEANTES ---
 st.markdown("""
 <style>
     :root {
@@ -50,6 +50,51 @@ st.markdown("""
     }
     h1 { color: var(--primary) !important; text-transform: uppercase; letter-spacing: 2px; }
     h2, h3 { color: var(--primary) !important; text-transform: uppercase; letter-spacing: 1px; }
+
+    /* --- ANIMACIÓN DE CÍRCULOS PARPADEANTES --- */
+    @keyframes parpadeo-rojo {
+        0% { opacity: 1; transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 75, 75, 0.7); }
+        70% { opacity: 0.4; transform: scale(1.1); box-shadow: 0 0 0 6px rgba(255, 75, 75, 0); }
+        100% { opacity: 1; transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 75, 75, 0); }
+    }
+
+    @keyframes parpadeo-verde {
+        0% { opacity: 1; transform: scale(1); box-shadow: 0 0 0 0 rgba(0, 255, 128, 0.7); }
+        70% { opacity: 0.4; transform: scale(1.1); box-shadow: 0 0 0 6px rgba(0, 255, 128, 0); }
+        100% { opacity: 1; transform: scale(1); box-shadow: 0 0 0 0 rgba(0, 255, 128, 0); }
+    }
+
+    .dot-red {
+        height: 10px;
+        width: 10px;
+        background-color: #ff4b4b;
+        border-radius: 50%;
+        display: inline-block;
+        margin-left: 6px;
+        animation: parpadeo-rojo 1.5s infinite;
+        vertical-align: middle;
+    }
+
+    .dot-green {
+        height: 10px;
+        width: 10px;
+        background-color: #00ff80;
+        border-radius: 50%;
+        display: inline-block;
+        margin-left: 6px;
+        animation: parpadeo-verde 1.5s infinite;
+        vertical-align: middle;
+    }
+
+    .dot-blue {
+        height: 10px;
+        width: 10px;
+        background-color: #00bfff;
+        border-radius: 50%;
+        display: inline-block;
+        margin-left: 6px;
+        vertical-align: middle;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -84,6 +129,15 @@ def actualizar_url(vista, user):
     st.rerun()
 
 ADMINS_AUTORIZADOS = ["Pixel2580", "eric"]
+
+# --- FUNCIÓN AUXILIAR PARA RENDERIZAR ESTADO CON CÍRCULO ---
+def render_estado_badge(estado):
+    if estado == "Pendiente":
+        st.markdown("**Estado:** Pendiente <span class='dot-red'></span>", unsafe_allow_html=True)
+    elif estado == "En Proceso":
+        st.markdown("**Estado:** En Proceso <span class='dot-green'></span>", unsafe_allow_html=True)
+    else:
+        st.markdown("**Estado:** Completado <span class='dot-blue'></span>", unsafe_allow_html=True)
 
 # --- ENCABEZADO SUPERIOR CON MENÚ MINIMIZADO ---
 col_head1, col_head2 = st.columns([3, 1])
@@ -216,7 +270,7 @@ if st.session_state.modo_vista == "Cliente":
                                 if p.get('comentarios'):
                                     st.caption(f"📝 Nota: {p.get('comentarios')}")
                             with col_p2:
-                                st.markdown(f"**Estado:** `{p.get('estado')}`")
+                                render_estado_badge(p.get('estado', 'Pendiente'))
                                 st.text(f"{p.get('producto')} / {p.get('ubicacion')}")
 
                             archivos = p.get('archivos', [])
@@ -247,7 +301,7 @@ if st.session_state.modo_vista == "Cliente":
                                 st.markdown(f"**🧵 {p.get('nombre_proyecto')}**")
                                 st.text(f"ID: {p.get('id')}")
                             with col_t2:
-                                st.markdown(f"**Estado:** `Completado`")
+                                render_estado_badge("Completado")
                                 st.text(f"{p.get('producto')}")
 
                             archivos_finales = p.get('archivos_finales', [])
@@ -297,7 +351,7 @@ else:
                                 st.caption(f"📝 Comentarios: {p.get('comentarios')}")
                         with col_a2:
                             estado_actual = p.get('estado', 'Pendiente')
-                            st.markdown(f"**Estado:** `{estado_actual}`")
+                            render_estado_badge(estado_actual)
                             
                             # Botón rápido para alternar entre Pendiente y En Proceso
                             if estado_actual == "Pendiente":
@@ -369,7 +423,7 @@ else:
                             st.markdown(f"**👤 {p.get('cliente')}** — 🧵 {p.get('nombre_proyecto')}")
                             st.text(f"ID: {p.get('id')}")
                         with col_ac2:
-                            st.markdown(f"**Estado:** `Completado`")
+                            render_estado_badge("Completado")
                             if st.button("🗑️ Eliminar Historial", key=f"admin_del_comp_{doc_id}"):
                                 db.collection("pedidos_bordado").document(doc_id).delete()
                                 st.rerun()
