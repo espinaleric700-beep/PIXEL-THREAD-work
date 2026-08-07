@@ -3,9 +3,13 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 from datetime import datetime
 import base64
+from streamlit_autorefresh import st_autorefresh
 
 # Configuración de página optimizada para móvil
 st.set_page_config(page_title="Pixel Thread - Portal Interactivo", layout="centered")
+
+# Auto-refresco de la página cada 5 segundos (5000 ms) para actualizar el estado en tiempo real
+count = st_autorefresh(interval=5000, limit=1000, key="auto_refrescar_cliente")
 
 # --- ESTILOS FUTURISTAS Y COMPONENTES VISUALES ---
 st.markdown("""
@@ -134,7 +138,7 @@ if st.session_state.modo_vista == "Cliente":
                         "archivo_nombre": file_name,
                         "archivo_data": img_base64,
                         "estado": "Pendiente",
-                        "timestamp": datetime.now() # Usado para calcular la cola cronológicamente
+                        "timestamp": datetime.now()
                     }
                     
                     db.collection("pedidos_bordado").add(data_pedido)
@@ -145,7 +149,6 @@ if st.session_state.modo_vista == "Cliente":
     st.subheader("📋 Estado de Mis Pedidos y Posición en Cola")
 
     try:
-        # Traemos todos los pedidos para calcular la posición real en la cola general de pendientes
         todos_los_pedidos_ref = db.collection("pedidos_bordado").order_by("timestamp").stream()
         
         lista_cola = []
@@ -155,7 +158,6 @@ if st.session_state.modo_vista == "Cliente":
             p = doc.to_dict()
             p["doc_id"] = doc.id
             lista_cola.append(p)
-            # Filtramos los que pertenecen al usuario activo (ignorando mayúsculas/minúsculas)
             if p.get("cliente", "").strip().lower() == st.session_state.user.strip().lower():
                 pedidos_del_cliente.append(p)
 
@@ -163,17 +165,14 @@ if st.session_state.modo_vista == "Cliente":
             for pedido in pedidos_del_cliente:
                 estado = pedido.get("estado", "Pendiente")
                 
-                # Calcular la posición en la cola global si el pedido aún no está completado
                 posicion_cola = "N/A (Finalizado o En Proceso)"
                 if estado != "Completado":
-                    # Filtramos cuántos pedidos anteriores (o iguales) en la cola están pendientes/en proceso
                     pendientes_antes = [
                         item for item in lista_cola 
                         if item.get("estado") != "Completado" and item["timestamp"] <= pedido["timestamp"]
                     ]
                     posicion_cola = len(pendientes_antes)
 
-                # Estilizar visualmente según el estado actual sincronizado con el admin
                 color_estado = "⏳" if estado == "Pendiente" else ("⚙️" if estado == "En Proceso" else "✅")
 
                 with st.container():
@@ -232,7 +231,6 @@ else:
                             key=f"dl_{doc_id}"
                         )
 
-                # Selector de Estado en tiempo real sincronizado con el cliente
                 estado_actual = p.get('estado', 'Pendiente')
                 opciones_estado = ["Pendiente", "En Proceso", "Completado"]
                 nuevo_estado = st.selectbox(
@@ -247,7 +245,6 @@ else:
                     st.success("¡Estado actualizado para el cliente!")
                     st.rerun()
 
-                # Botón para eliminar pedido completado
                 if st.button(f"🗑️ Eliminar Pedido {p.get('id')}", key=f"del_{doc_id}"):
                     db.collection("pedidos_bordado").document(doc_id).delete()
                     st.warning("Pedido eliminado permanentemente.")
