@@ -200,7 +200,7 @@ if st.session_state.modo_vista == "Cliente":
                 for p in mis_pedidos:
                     with st.container():
                         st.markdown(f"### 🧵 Proyecto: {p.get('nombre_proyecto')}")
-                        st.markdown(f"**ID:** `{p.get('id')}` | **Estado:** `{p.get('estado')}`")
+                        st.markdown(f"**ID de Pedido:** `{p.get('id')}` | **Estado:** `{p.get('estado')}`")
                         st.markdown(f"**Producto:** {p.get('producto')} | **Ubicación:** {p.get('ubicacion')} | **Estilo:** {p.get('estilo')}")
                         if p.get('comentarios'):
                             st.markdown(f"**Comentarios:** {p.get('comentarios')}")
@@ -266,11 +266,12 @@ else:
             p = doc.to_dict()
             doc_id = doc.id
             
-            # --- ENCABEZADO CON ID Y NOMBRE DEL CLIENTE ---
-            nombre_cliente_display = p.get('cliente', 'Desconocido')
-            st.markdown(f"### 🆔 {p.get('id')} | 👤 {nombre_cliente_display}")
-            st.markdown(f"**Proyecto:** {p.get('nombre_proyecto')} | **Estado:** `{p.get('estado')}`")
+            # --- ENCABEZADO CON ID DE PEDIDO + NOMBRE DEL CLIENTE ---
+            id_pedido = p.get('id', 'Sin ID')
+            nombre_cliente = p.get('cliente', 'Desconocido')
+            st.markdown(f"### 🆔 {id_pedido} — 👤 Cliente: {nombre_cliente}")
             
+            st.markdown(f"**Proyecto:** {p.get('nombre_proyecto')} | **Estado:** `{p.get('estado')}`")
             st.text(f"Producto: {p.get('producto')} | Ubicación: {p.get('ubicacion')} | Estilo: {p.get('estilo')}")
             if p.get('comentarios'):
                 st.text(f"Comentarios: {p.get('comentarios')}")
@@ -286,7 +287,7 @@ else:
                             st.image(base64.b64decode(data_a), caption=nombre_a, width=120)
                         except Exception:
                             pass
-                    st.download_button(f"📥 Descargar {nombre_a}", data=base64.b64decode(data_a), file_name=nombre_a, key=f"dl_admin_orig_{p.get('id')}_{nombre_a}")
+                    st.download_button(f"📥 Descargar {nombre_a}", data=base64.b64decode(data_a), file_name=nombre_a, key=f"dl_admin_orig_{id_pedido}_{nombre_a}")
 
             estados = ["Pendiente", "En Proceso", "Completado"]
             est_actual = p.get('estado', 'Pendiente')
@@ -296,7 +297,7 @@ else:
                 st.success("¡Estado actualizado!")
                 st.rerun()
             
-            if st.button(f"🗑️ Eliminar Pedido {p.get('id')}", key=f"del_{doc_id}"):
+            if st.button(f"🗑️ Eliminar Pedido {id_pedido}", key=f"del_{doc_id}"):
                 db.collection("pedidos_bordado").document(doc_id).delete()
                 st.warning("Pedido eliminado.")
                 st.rerun()
