@@ -125,7 +125,7 @@ if st.session_state.modo_vista == "Cliente":
             logo_perfil_b64 = datos_usuario.get("logo_usuario", "")
             nombre_cliente = datos_usuario.get('nombre_usuario', st.session_state.user)
 
-            # ENCABEZADO CENTRADO CON HTML PURO (LOGOTIPO Y NOMBRE JUNTOS Y CENTRADOS)
+            # ENCABEZADO CENTRADO CON HTML PURO
             if logo_perfil_b64:
                 img_html = f'<img src="data:image/png;base64,{logo_perfil_b64}" style="width: 50px; vertical-align: middle; margin-right: 12px; border-radius: 4px;">'
             else:
@@ -146,20 +146,19 @@ if st.session_state.modo_vista == "Cliente":
                     archivo_subido = st.file_uploader("2. Sube tu Logo del Pedido (PNG, JPG, DST, PES)", type=["png", "jpg", "jpeg", "dst", "pes"])
                     
                     st.markdown("3. **Selecciona el Tipo de Producto:**")
-                    tipo_producto = st.radio("Producto:", ["GORRA", "TELA"], horizontal=True, label_visibility="collapsed")
+                    tipo_producto = st.radio("Producto:", ["GORRA", "TELA"], horizontal=True, label_visibility="collapsed", key="tipo_prod_radio")
                     
-                    # Variables de control
-                    ubicacion = None
-                    estilo_frente = None
+                    ubicacion = "N/A"
+                    estilo_frente = "N/A"
                     
-                    # Lógica condicional visual limpia
+                    # AQUÍ ESTÁ LA CLAVE: Si es TELA, se omiten por completo los bloques de radio siguientes
                     if tipo_producto == "GORRA":
                         st.markdown("📍 **Ubicación en la Gorra:**")
-                        ubicacion = st.radio("Ubicación:", ["FRENTE", "TRASERO", "LATERAL"], horizontal=True, label_visibility="collapsed")
+                        ubicacion = st.radio("Ubicación:", ["FRENTE", "TRASERO", "LATERAL"], horizontal=True, label_visibility="collapsed", key="ubicacion_gorra_radio")
                         
                         if ubicacion == "FRENTE":
                             st.markdown("✨ **Estilo de Bordado (Frente):**")
-                            estilo_frente = st.radio("Estilo:", ["3D (Relieve)", "PLANO / FLAT"], horizontal=True, label_visibility="collapsed")
+                            estilo_frente = st.radio("Estilo:", ["3D (Relieve)", "PLANO / FLAT"], horizontal=True, label_visibility="collapsed", key="estilo_frente_radio")
 
                     submit_pedido = st.form_submit_button("🚀 ENVIAR PEDIDO A PRODUCCIÓN")
                     
@@ -178,21 +177,13 @@ if st.session_state.modo_vista == "Cliente":
                                 "cliente": st.session_state.user.strip(),
                                 "nombre_proyecto": nombre_proyecto,
                                 "producto": tipo_producto,
+                                "ubicacion": ubicacion if tipo_producto == "GORRA" else "N/A",
+                                "estilo": estilo_frente if (tipo_producto == "GORRA" and ubicacion == "FRENTE") else "N/A",
                                 "archivo_nombre": file_name,
                                 "archivo_data": img_base64,
                                 "estado": "Pendiente",
                                 "timestamp": datetime.now()
                             }
-                            
-                            if tipo_producto == "GORRA":
-                                data_pedido["ubicacion"] = ubicacion
-                                if ubicacion == "FRENTE":
-                                    data_pedido["estilo"] = estilo_frente
-                                else:
-                                    data_pedido["estilo"] = "N/A"
-                            else:
-                                data_pedido["ubicacion"] = "N/A"
-                                data_pedido["estilo"] = "N/A"
                             
                             db.collection("pedidos_bordado").add(data_pedido)
                             st.success("¡Pedido enviado y guardado correctamente!")
