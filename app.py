@@ -11,7 +11,7 @@ from streamlit_autorefresh import st_autorefresh
 st.set_page_config(page_title="Pixel Thread | Pro", layout="wide")
 st_autorefresh(interval=10000, limit=1000, key="auto_refrescar")
 
-# --- CSS LIMPIO, SIN LÍNEAS ANIDADas, LETRAS MÁS GRANDES Y OCULTAR MARCAS DE STREAMLIT, GITHUB Y BADGE INFERIOR ---
+# --- CSS LIMPIO, SIN LÍNEAS ANIDADas, LETRAS MÁS GRANDES Y OCULTAR TOTALMENTE ELEMENTOS FLOTANTES Y DE STREAMLIT ---
 st.markdown("""
 <style>
     :root {
@@ -62,23 +62,27 @@ st.markdown("""
     h2 { color: var(--primary) !important; font-size: 1.8rem !important; }
     h3 { color: var(--primary) !important; font-size: 1.3rem !important; }
 
-    /* --- OCULTAR ELEMENTOS DE STREAMLIT, GITHUB Y BADGE INFERIOR DERECHO --- */
+    /* --- OCULTAR ELEMENTOS DE STREAMLIT, GITHUB Y TODOS LOS BADGES/BOTONES FLOTANTES INFERIORES --- */
     header { visibility: hidden !important; display: none !important; }
     footer { visibility: hidden !important; display: none !important; }
     #MainMenu { visibility: hidden !important; display: none !important; }
     .stDeployButton { display: none !important; }
     header[data-testid="stHeader"] { display: none !important; }
     
-    /* Ocultar insignia flotante inferior derecha de Streamlit (Made with Streamlit / Branding badge) */
     [data-testid="stDecoration"] { display: none !important; }
     footer[data-testid="stFooter"] { display: none !important; }
-    div.viewerBadge_container__1QSob { display: none !important; }
-    .viewerBadge_link__1S137 { display: none !important; }
     #stDecoration { display: none !important; }
     
-    /* Selector general para cualquier elemento flotante en la esquina inferior derecha por si acaso */
-    div:has(> a[href*="streamlit.io"]) { display: none !important; }
+    /* Ocultar cualquier contenedor flotante o insignias en las esquinas inferiores (como el botón de Streamlit / menú flotante) */
     div[class*="viewerBadge"] { display: none !important; }
+    div[class*="streamlitLogo"] { display: none !important; }
+    div:has(> a[href*="streamlit.io"]) { display: none !important; }
+    div:has(> button[kind="header"]) { display: none !important; }
+    
+    /* Selector específico para la insignia de la esquina inferior derecha */
+    div.fixed-container, div[style*="position: fixed"] {
+        display: none !important;
+    }
 
     .dot-red {
         height: 10px;
