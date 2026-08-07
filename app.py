@@ -125,6 +125,18 @@ def procesar_archivo_subido(arch):
             
     return base64.b64encode(b_cont).decode("utf-8")
 
+# --- FUNCIÓN RECURSIVA PARA APLANAR LISTAS ANIDADAS ---
+def limpiar_lista_archivos(raw_data):
+    lista_limpia = []
+    if not isinstance(raw_data, list):
+        return []
+    for item in raw_data:
+        if isinstance(item, list):
+            lista_limpia.extend(limpiar_lista_archivos(item))
+        elif isinstance(item, dict) and "nombre" in item and "data" in item:
+            lista_limpia.append({"nombre": item["nombre"], "data": item["data"]})
+    return lista_limpia
+
 # --- GESTIÓN DE ESTADOS Y URL ---
 params = st.query_params
 if "modo_vista" not in st.session_state: 
@@ -317,7 +329,7 @@ if st.session_state.modo_vista == "Cliente":
                                 st.markdown(f"**🎨 Estilo:** {p.get('estilo', 'N/A')}")
                                 render_estado_badge("Completado")
 
-                                archivos_finales = p.get('archivos_finales', [])
+                                archivos_finales = limpiar_lista_archivos(p.get('archivos_finales', []))
                                 if archivos_finales:
                                     st.markdown("✨ **Archivos Listos:**")
                                     for idx_f, af in enumerate(archivos_finales):
@@ -400,14 +412,8 @@ else:
 
                             # --- GESTIÓN DE ARCHIVOS ---
                             with st.expander("📤 Gestionar Archivos al Cliente"):
-                                # Nos aseguramos de limpiar/aplanar la lista para evitar arrays anidados
-                                raw_lista = p.get('archivos_finales', [])
-                                lista_finales = []
-                                for item in raw_lista:
-                                    if isinstance(item, list):
-                                        lista_finales.extend(item)
-                                    elif isinstance(item, dict):
-                                        lista_finales.append(item)
+                                # Limpiamos los datos anteriores de forma segura
+                                lista_finales = limpiar_lista_archivos(p.get('archivos_finales', []))
                                 
                                 if lista_finales:
                                     st.markdown("**✨ Ya enviados:**")
@@ -433,6 +439,9 @@ else:
                                         try:
                                             status_subida = st.empty()
                                             total_archivos = len(archivos_entregables)
+                                            
+                                            # Blanqueamos el campo primero para evitar conflictos de Firestore
+                                            db.collection("pedidos_bordado").document(doc_id).update({"archivos_finales": []})
                                             
                                             for idx, af in enumerate(archivos_entregables, start=1):
                                                 status_subida.info(f"⏳ Subiendo archivo {idx} de {total_archivos} ({af.name})...")
@@ -461,7 +470,7 @@ else:
         # PESTAÑA: COMPLETADOS / ENTREGADOS
         # =========================================================
         with tab_admin_comp:
-            pedidos_completados_admin = [(doc.id, doc.to_dict()) for doc in docs if doc.to_dict().get('estado') == "Completado"]
+            pedidos_completados_admin = [(doc.id, doc.to_dict()) for doc in docs if doc.to_dict().get('estado'] == "Completado"]
 
             if pedidos_completados_admin:
                 cols = st.columns(4)
@@ -481,13 +490,7 @@ else:
                             
                             # --- GESTIÓN DE ARCHIVOS EN COMPLETADOS ---
                             with st.expander("📤 Gestionar Archivos al Cliente"):
-                                raw_lista = p.get('archivos_finales', [])
-                                lista_finales = []
-                                for item in raw_lista:
-                                    if isinstance(item, list):
-                                        lista_finales.extend(item)
-                                    elif isinstance(item, dict):
-                                        lista_finales.append(item)
+                                lista_finales = limpiar_lista_archivos(p.get('archivos_finales', []))
                                 
                                 if lista_finales:
                                     st.markdown("**✨ Ya enviados:**")
@@ -513,6 +516,8 @@ else:
                                         try:
                                             status_subida = st.empty()
                                             total_archivos = len(archivos_extra)
+                                            
+                                            db.collection("pedidos_bordado").document(doc_id).update({"archivos_finales": []})
                                             
                                             for idx, af in enumerate(archivos_extra, start=1):
                                                 status_subida.info(f"⏳ Subiendo archivo {idx} de {total_archivos} ({af.name})...")
