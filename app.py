@@ -129,7 +129,7 @@ def init_fb():
 
 db = init_fb()
 
-# --- CARGAR CONFIGURACIÓN GLOBAL DESDE FIREBASE (ICONO) ---
+# --- CARGAR ICONO GLOBAL DESDE FIREBASE ---
 @st.cache_data(ttl=60)
 def obtener_icono_global():
     try:
@@ -228,8 +228,8 @@ def render_estado_badge(estado):
     else:
         st.markdown("**Estado:** Completado <span class='dot-blue'></span>", unsafe_allow_html=True)
 
-# --- ENCABEZADO SUPERIOR: LOGO DESDE FIREBASE Y TEXTO PIXEL THREAD ---
-col_head_logo, col_head_title, col_head_menu = st.columns([0.08, 2.92, 1], vertical_alignment="center")
+# --- ENCABEZADO SUPERIOR: LOGO, TÍTULO Y BOTONES DE NAVEGACIÓN DIRECTOS ---
+col_head_logo, col_head_title, col_btn_cli, col_btn_adm = st.columns([0.08, 2.12, 0.9, 0.9], vertical_alignment="center")
 
 with col_head_logo:
     if icono_global_b64:
@@ -244,17 +244,17 @@ with col_head_logo:
 with col_head_title:
     st.title("PIXEL THREAD")
 
-with col_head_menu:
-    with st.popover("⚙️ Menú"):
-        st.markdown("### Navegación")
-        if st.button("👤 Panel Cliente", use_container_width=True): 
-            actualizar_url("Cliente", st.session_state.user)
-        if st.button("🛠️ Panel Admin", use_container_width=True): 
-            usuario_actual = st.session_state.user.strip()
-            if usuario_actual in ADMINS_AUTORIZADOS:
-                actualizar_url("Admin", st.session_state.user)
-            else:
-                st.error("❌ Sin permisos.")
+with col_btn_cli:
+    if st.button("👤 Panel Cliente", use_container_width=True):
+        actualizar_url("Cliente", st.session_state.user)
+
+with col_btn_adm:
+    if st.button("🛠️ Panel Admin", use_container_width=True):
+        usuario_actual = st.session_state.user.strip()
+        if usuario_actual in ADMINS_AUTORIZADOS:
+            actualizar_url("Admin", st.session_state.user)
+        else:
+            st.error("❌ Sin permisos.")
 
 st.markdown("<br>", unsafe_allow_html=True)
 
