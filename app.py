@@ -113,7 +113,6 @@ if st.session_state.modo_vista == "Cliente":
     if not st.session_state.user.strip():
         st.info("👆 Por favor, ingresa tu nombre o ID de usuario arriba para acceder a tus pedidos.")
     else:
-        # Recuperación correcta desde la colección original "usuarios_perfil"
         user_doc_ref = db.collection("usuarios_perfil").document(st.session_state.user.strip().lower())
         user_doc = user_doc_ref.get()
         
@@ -200,14 +199,43 @@ if st.session_state.modo_vista == "Cliente":
             if mis_pedidos:
                 for p in mis_pedidos:
                     with st.container():
-                        st.markdown(f"### Proyecto: {p.get('nombre_proyecto')}")
-                        st.text(f"ID: {p.get('id')} | Estado: {p.get('estado')}")
+                        st.markdown(f"### 🧵 Proyecto: {p.get('nombre_proyecto')}")
+                        st.markdown(f"**ID:** `{p.get('id')}` | **Estado:** `{p.get('estado')}`")
+                        st.markdown(f"**Producto:** {p.get('producto')} | **Ubicación:** {p.get('ubicacion')} | **Estilo:** {p.get('estilo')}")
+                        if p.get('comentarios'):
+                            st.markdown(f"**Comentarios:** {p.get('comentarios')}")
                         
+                        # Mostrar miniaturas de los archivos subidos por el cliente
+                        archivos = p.get('archivos', [])
+                        if archivos:
+                            st.markdown("🖼️ **Archivos Adjuntos:**")
+                            cols_arch = st.columns(min(len(archivos), 3))
+                            for idx_a, arch_item in enumerate(archivos):
+                                nombre_a = arch_item.get('nombre', 'archivo')
+                                data_a = arch_item.get('data')
+                                with cols_arch[idx_a % len(cols_arch)]:
+                                    if nombre_a.lower().endswith(('png', 'jpg', 'jpeg')):
+                                        try:
+                                            img_bytes = base64.b64decode(data_a)
+                                            st.image(img_bytes, caption=nombre_a, width=150)
+                                        except Exception:
+                                            st.text(nombre_a)
+                                    else:
+                                        st.text(f"📄 {nombre_a}")
+                                    
+                                    # Botón para descargar el archivo original
+                                    try:
+                                        st.download_button(f"📥 {nombre_a}", data=base64.b64decode(data_a), file_name=nombre_a, key=f"dl_orig_{p.get('id')}_{idx_a}")
+                                    except Exception:
+                                        pass
+
+                        # Mostrar entregables finales si los hay
                         af = p.get('archivos_finales', [])
                         if af:
-                            st.success("¡Entregables listos para descargar!")
+                            st.success("✨ ¡Entregables listos para descargar!")
                             for idx_f, f_item in enumerate(af):
-                                st.download_button(f"📥 Descargar {f_item.get('nombre')}", data=base64.b64decode(f_item.get('data')), file_name=f_item.get('nombre'), key=f"dl_client_{p.get('id')}_{idx_f}")
+                                st.download_button(f"📥 Descargar Entregable: {f_item.get('nombre')}", data=base64.b64decode(f_item.get('data')), file_name=f_item.get('nombre'), key=f"dl_client_{p.get('id')}_{idx_f}")
+                        st.markdown("---")
             else:
                 st.info(f"No hay pedidos registrados para: {st.session_state.user}")
         except Exception as e:
@@ -243,7 +271,24 @@ else:
             with st.container():
                 st.markdown(f"### 🆔 {p.get('id')} - {p.get('nombre_proyecto')}")
                 st.text(f"Cliente: {p.get('cliente')} | Estado: {p.get('estado')}")
-                
+                st.text(f"Producto: {p.get('producto')} | Ubicación: {p.get('ubicacion')} | Estilo: {p.get('estilo')}")
+                if p.get('comentarios'):
+                    st.text(f"Comentarios: {p.get('comentarios')}")
+
+                # Vista previa de archivos en el panel admin también
+                archivos = p.get('archivos', [])
+                if archivos:
+                    st.markdown("🖼️ **Archivos del Cliente:**")
+                    for arch_item in archivos:
+                        nombre_a = arch_item.get('nombre', 'archivo')
+                        data_a = arch_item.get('data')
+                        if nombre_a.lower().endswith(('png', 'jpg', 'jpeg')):
+                            try:
+                                st.image(base64.b64decode(data_a), caption=nombre_a, width=120)
+                            except Exception:
+                                pass
+                        st.download_button(f"📥 Descargar {nombre_a}", data=base64.b64decode(data_a), file_name=nombre_a, key=f"dl_admin_orig_{p.get('id')}_{nombre_a}")
+
                 # Selector de estado rápido
                 estados = ["Pendiente", "En Proceso", "Completado"]
                 est_actual = p.get('estado', 'Pendiente')
