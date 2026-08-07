@@ -125,7 +125,7 @@ if st.session_state.modo_vista == "Cliente":
             logo_perfil_b64 = datos_usuario.get("logo_usuario", "")
             nombre_cliente = datos_usuario.get('nombre_usuario', st.session_state.user)
 
-            # ENCABEZADO CENTRADO CON HTML PURO (ELIMINA ESPACIOS VACÍOS DE COLUMNAS DE STREAMLIT)
+            # ENCABEZADO CENTRADO CON HTML PURO (LOGOTIPO Y NOMBRE JUNTOS Y CENTRADOS)
             if logo_perfil_b64:
                 img_html = f'<img src="data:image/png;base64,{logo_perfil_b64}" style="width: 50px; vertical-align: middle; margin-right: 12px; border-radius: 4px;">'
             else:
@@ -177,7 +177,7 @@ if st.session_state.modo_vista == "Cliente":
                                 "nombre_proyecto": nombre_proyecto,
                                 "producto": tipo_producto,
                                 "ubicacion": ubicacion,
-                                "estilo": estilo_frente if ubicacion == "FRENTE" else "N/A",
+                                "estilo": estilo_frente if (tipo_producto == "GORRA" and ubicacion == "FRENTE") else "N/A",
                                 "archivo_nombre": file_name,
                                 "archivo_data": img_base64,
                                 "estado": "Pendiente",
