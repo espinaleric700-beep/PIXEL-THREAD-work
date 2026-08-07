@@ -277,10 +277,10 @@ if st.session_state.modo_vista == "Cliente":
 else:
     st.title("🛠️ Panel de Administración")
     
+    # --- REGISTRO Y GESTIÓN DE CLIENTES ---
     with st.expander("➕ Registrar Nuevo Cliente", expanded=False):
         with st.form("form_nuevo_cliente_admin", clear_on_submit=True):
             nuevo_id_cliente = st.text_input("ID o Nombre del Nuevo Cliente")
-            logo_cliente_file = st.file_uploader("Logo del Cliente (Opcional)", type=["png", "jpg", "jpeg"])
             submit_registro = st.form_submit_button("✨ Crear Cliente")
             
             if submit_registro:
@@ -291,20 +291,52 @@ else:
                     if doc_ref_nuevo.get().exists:
                         st.error("⚠️ Este cliente ya existe.")
                     else:
-                        l_b64 = ""
-                        if logo_cliente_file is not None:
-                            try:
-                                l_b64 = base64.b64encode(logo_cliente_file.getvalue()).decode("utf-8")
-                            except Exception:
-                                pass
-                        
                         doc_ref_nuevo.set({
                             "nombre_usuario": nuevo_id_cliente.strip(),
-                            "logo_usuario": l_b64,
                             "creado": datetime.now()
                         })
                         st.success(f"¡Cliente '{nuevo_id_cliente.strip()}' registrado exitosamente!")
                         st.rerun()
+
+    st.markdown("---")
+    st.subheader("👥 Gestión de Clientes Existentes")
+
+    try:
+        clientes_docs = list(db.collection("usuarios_perfil").stream())
+        if not clientes_docs:
+            st.info("No hay clientes registrados.")
+        
+        for c_doc in clientes_docs:
+            c_data = c_doc.to_dict()
+            c_id = c_doc.id
+            
+            with st.container():
+                col_c1, col_c2, col_c3 = st.columns([3, 1, 1])
+                with col_c1:
+                    st.write(f"👤 **{c_data.get('nombre_usuario')}** (ID: `{c_id}`)")
+                
+                with col_c2:
+                    if st.button("✏️ Editar", key=f"edit_{c_id}"):
+                        st.session_state[f"edit_mode_{c_id}"] = not st.session_state.get(f"edit_mode_{c_id}", False)
+                
+                with col_c3:
+                    if st.button("🗑️ Borrar", key=f"del_client_{c_id}"):
+                        db.collection("usuarios_perfil").document(c_id).delete()
+                        st.warning(f"Cliente {c_id} eliminado.")
+                        st.rerun()
+
+                # Formulario de Edición inline para el cliente
+                if st.session_state.get(f"edit_mode_{c_id}", False):
+                    with st.form(key=f"form_edit_client_{c_id}"):
+                        nuevo_nombre_cliente = st.text_input("Modificar Nombre/ID de Visualización:", value=c_data.get('nombre_usuario', ''))
+                        if st.form_submit_button("💾 Guardar Cambios"):
+                            db.collection("usuarios_perfil").document(c_id).update({"nombre_usuario": nuevo_nombre_cliente.strip()})
+                            st.session_state[f"edit_mode_{c_id}"] = False
+                            st.success("¡Cliente actualizado con éxito!")
+                            st.rerun()
+                st.markdown("---")
+    except Exception as e:
+        st.error(f"Error al cargar clientes: {e}")
 
     st.markdown("---")
     st.subheader("📋 Gestión de Pedidos Entrantes")
@@ -360,7 +392,6 @@ else:
                 st.markdown("---")
                 st.markdown("📤 **Subir Archivos Finales / Entregables (Múltiples archivos permitidos):**")
                 
-                # Selector de archivos múltiples para los entregables finales
                 archivos_finales_subidos = st.file_uploader(
                     f"Subir entregables para {p.get('nombre_proyecto')}", 
                     accept_multiple_files=True,
