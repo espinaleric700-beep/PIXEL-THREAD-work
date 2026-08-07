@@ -111,11 +111,10 @@ def procesar_archivo_subido(arch):
     b_cont = arch.getvalue()
     nombre_lower = arch.name.lower()
     
-    # Si es imagen, la redimensionamos y comprimimos para que pese muy poco
     if nombre_lower.endswith(('png', 'jpg', 'jpeg')):
         try:
             img = Image.open(BytesIO(b_cont))
-            img.thumbnail((1000, 1000)) # Reducir dimensiones máximas
+            img.thumbnail((1000, 1000))
             buffered = BytesIO()
             formato = "JPEG" if nombre_lower.endswith(('jpg', 'jpeg')) else "PNG"
             img.save(buffered, format=formato, quality=80)
@@ -427,7 +426,7 @@ else:
                 st.info("🎉 No hay pedidos pendientes de revisión.")
 
         with tab_admin_comp:
-            pedidos_completados_admin = [(doc.id, doc.to_dict()) for doc in docs if doc.to_dict().get('estado'] == "Completado"]
+            pedidos_completados_admin = [(doc.id, doc.to_dict()) for doc in docs if doc.to_dict().get('estado') == "Completado"]
 
             if pedidos_completados_admin:
                 cols = st.columns(4)
