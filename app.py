@@ -443,4 +443,51 @@ else:
                             lista_finales = p.get("archivos_finales", [])
                             
                             for archivo_final in archivos_finales_subidos:
-    ```
+                                bytes_final = archivo_final.getvalue()
+                                b64_final = base64.b64encode(bytes_final).decode("utf-8")
+                                
+                                lista_finales.append({
+                                    "nombre": str(archivo_final.name.strip()),
+                                    "data": b64_final
+                                })
+                            
+                            db.collection("pedidos_bordado").document(doc_id).update({
+                                "archivos_finales": lista_finales,
+                                "estado": "Completado"
+                            })
+                            st.success("¡Archivos finales guardados y orden marcada como completada con éxito!")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Error al subir los archivos finales: {e}")
+
+                archivos_finales_actuales = p.get("archivos_finales", [])
+                if archivos_finales_actuales:
+                    st.markdown("✔️ **Entregables actuales en la nube:**")
+                    for idx_af_admin, af_item in enumerate(archivos_finales_actuales):
+                        st.text(f"• {af_item.get('nombre')}")
+
+                st.markdown("---")
+                
+                estado_actual = p.get('estado', 'Pendiente')
+                opciones_estado = ["Pendiente", "En Proceso", "Completado"]
+                nuevo_estado = st.selectbox(
+                    "Estado del Pedido",
+                    opciones_estado,
+                    index=opciones_estado.index(estado_actual) if estado_actual in opciones_estado else 0,
+                    key=f"status_{doc_id}"
+                )
+
+                if nuevo_estado != estado_actual:
+                    db.collection("pedidos_bordado").document(doc_id).update({"estado": nuevo_estado})
+                    st.success("¡Estado actualizado!")
+                    st.rerun()
+
+                if st.button(f"🗑️ Eliminar Pedido {p.get('id')}", key=f"del_{doc_id}"):
+                    db.collection("pedidos_bordado").document(doc_id).delete()
+                    st.warning("Pedido eliminado.")
+                    st.rerun()
+
+                st.markdown("==================================================")
+
+    except Exception as e:
+        st.error(f"Error al conectar con Firebase: {e}")
