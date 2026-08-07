@@ -13,119 +13,24 @@ st.set_page_config(page_title="Pixel Thread - Portal Interactivo", layout="cente
 # Auto-refresco de la página cada 5 segundos
 st_autorefresh(interval=5000, limit=1000, key="auto_refrescar_cliente")
 
-# --- ESTILOS VISUALES FUTURISTAS Y AVANZADOS (CYBERPUNK / GLASSMORPHISM) ---
+# --- ESTILOS VISUALES ---
 st.markdown("""
 <style>
-    /* Fondo con gradiente animado y malla cibernética sutil (Efecto Loop) */
-    @keyframes gradientBG {
-        0% { background-position: 0% 50%; }
-        50% { background-position: 100% 50%; }
-        100% { background-position: 0% 50%; }
-    }
-
-    @keyframes gridMove {
-        0% { background-position: 0 0; }
-        100% { background-position: 40px 40px; }
-    }
-
     .stApp {
-        background: linear-gradient(135deg, #0d0221, #1a0033, #050505, #0a001a);
-        background-size: 400% 400%;
-        animation: gradientBG 15s ease infinite;
+        background: radial-gradient(circle at center, #1a0033 0%, #000000 100%);
         color: #00ffcc;
-        position: relative;
     }
-
-    /* Patrón de malla de luz cibernética superpuesta */
-    .stApp::before {
-        content: "";
-        position: fixed;
-        top: 0; left: 0; width: 100%; height: 100%;
-        background-image: 
-            linear-gradient(rgba(0, 255, 204, 0.03) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(0, 255, 204, 0.03) 1px, transparent 1px);
-        background-size: 40px 40px;
-        animation: gridMove 20s linear infinite;
-        pointer-events: none;
-        z-index: 0;
-    }
-
-    /* Contenedores con efecto Glassmorphism Avanzado */
-    div.stExpander, div[data-testid="stVerticalBlock"] > div {
-        position: relative;
-        z-index: 1;
-    }
-
-    /* Animación de pulso elegante para CTAs Principales / Botones de Acción */
-    @keyframes ctaPulse {
-        0% {
-            box-shadow: 0 0 0 0 rgba(0, 255, 204, 0.6);
-            transform: scale(1);
-        }
-        70% {
-            box-shadow: 0 0 0 12px rgba(0, 255, 204, 0);
-            transform: scale(1.01);
-        }
-        100% {
-            box-shadow: 0 0 0 0 rgba(0, 255, 204, 0);
-            transform: scale(1);
-        }
-    }
-
-    /* Botones Interactivos con Micro-interacciones y Efectos Neon Hover Avanzados */
     div.stButton > button {
         width: 100%;
-        background: linear-gradient(135deg, #00ffcc, #00b399);
-        color: #050505;
-        font-weight: 800;
-        letter-spacing: 0.5px;
+        background-color: #00ffcc;
+        color: black;
+        font-weight: bold;
         border: none;
-        border-radius: 8px;
-        padding: 0.7rem 1rem;
-        box-shadow: 0 4px 15px rgba(0, 255, 204, 0.3);
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        position: relative;
-        overflow: hidden;
+        border-radius: 6px;
+        padding: 0.6rem;
     }
-
-    /* Efecto Hover dinámico avanzado */
-    div.stButton > button:hover {
-        background: linear-gradient(135deg, #33ffd6, #00ffcc);
-        color: #000000;
-        box-shadow: 0 0 25px rgba(0, 255, 204, 0.8), 0 0 10px rgba(0, 255, 204, 0.5);
-        transform: translateY(-2px) scale(1.02);
-    }
-
-    /* Active / Click micro-interacción */
-    div.stButton > button:active {
-        transform: translateY(1px) scale(0.98);
-        box-shadow: 0 2px 10px rgba(0, 255, 204, 0.4);
-    }
-
-    /* Destacar Botón clave de Envío a Producción con pulso constante */
-    button[kind="secondary"], button[data-baseweb="button"]:has(div:contains("ENVIAR PEDIDO")) {
-        animation: ctaPulse 2.5s infinite;
-    }
-
-    /* Estética general de títulos y textos */
     h1, h2, h3 {
         color: #00ffcc !important;
-        text-shadow: 0 0 10px rgba(0, 255, 204, 0.3);
-        font-family: 'Segoe UI', Roboto, Helvetica, sans-serif;
-    }
-
-    /* Tarjetas y Inputs con estilo Glassmorphism Limpio */
-    input, textarea, select {
-        background-color: rgba(15, 5, 30, 0.7) !important;
-        color: #00ffcc !important;
-        border: 1px solid rgba(0, 255, 204, 0.3) !important;
-        border-radius: 6px !important;
-        transition: all 0.3s ease !important;
-    }
-
-    input:focus, textarea:focus {
-        border-color: #00ffcc !important;
-        box-shadow: 0 0 12px rgba(0, 255, 204, 0.4) !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -222,7 +127,7 @@ if st.session_state.modo_vista == "Cliente":
             nombre_cliente = data_u.get('nombre_usuario', st.session_state.user)
             logo_cliente_b64 = data_u.get('logo_b64', None)
 
-        # Cabecera centralizada con alineación vertical mediante Flexbox (Icono optimizado y ajustado al contenedor exacto)
+        # Cabecera centralizada con alineación vertical mediante Flexbox
         col_esp_izq, col_contenido, col_esp_der = st.columns([1, 4, 1])
         with col_contenido:
             st.markdown("""
