@@ -125,15 +125,18 @@ if st.session_state.modo_vista == "Cliente":
             logo_perfil_b64 = datos_usuario.get("logo_usuario", "")
             nombre_cliente = datos_usuario.get('nombre_usuario', st.session_state.user)
 
-            # ENCABEZADO HORIZONTAL: LOGO PEQUEÑO Y NOMBRE CENTRADOS JUNTOS
-            col_esp1, col_centro, col_esp2 = st.columns([1, 4, 1])
-            with col_centro:
-                sub_col_img, sub_col_txt = st.columns([1, 3])
-                with sub_col_img:
-                    if logo_perfil_b64:
-                        st.image(base64.b64decode(logo_perfil_b64), width=50)
-                with sub_col_txt:
-                    st.markdown(f"<h1 style='padding-top: 5px; margin: 0;'>{nombre_cliente}</h1>", unsafe_allow_html=True)
+            # ENCABEZADO CENTRADO CON HTML PURO (ELIMINA ESPACIOS VACÍOS DE COLUMNAS DE STREAMLIT)
+            if logo_perfil_b64:
+                img_html = f'<img src="data:image/png;base64,{logo_perfil_b64}" style="width: 50px; vertical-align: middle; margin-right: 12px; border-radius: 4px;">'
+            else:
+                img_html = ""
+            
+            st.markdown(f"""
+                <div style="display: flex; justify-content: center; align-items: center; text-align: center; margin-top: 10px; margin-bottom: 10px;">
+                    {img_html}
+                    <h1 style="color: #00ffcc; margin: 0; display: inline-block; vertical-align: middle;">{nombre_cliente}</h1>
+                </div>
+            """, unsafe_allow_html=True)
 
             st.markdown("---")
 
