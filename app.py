@@ -9,7 +9,7 @@ from streamlit_autorefresh import st_autorefresh
 
 # --- CONFIGURACIÓN ---
 st.set_page_config(page_title="Pixel Thread | Pro", layout="centered")
-st_autorefresh(interval=5000, limit=1000, key="auto_refrescar")
+st_autorefresh(interval=10000, limit=1000, key="auto_refrescar") # Subido a 10 segundos para optimizar cuota
 
 # --- CSS AVANZADO ---
 st.markdown("""
@@ -113,92 +113,91 @@ if st.session_state.modo_vista == "Cliente":
     if not st.session_state.user.strip():
         st.info("👆 Por favor, ingresa tu nombre o ID de usuario arriba para acceder a tus pedidos.")
     else:
-        user_doc_ref = db.collection("usuarios_perfil").document(st.session_state.user.strip().lower())
-        user_doc = user_doc_ref.get()
-        
-        nombre_cliente = st.session_state.user
-        logo_cliente_b64 = None
-        if user_doc.exists:
-            data_u = user_doc.to_dict()
-            nombre_cliente = data_u.get('nombre_usuario', st.session_state.user)
-            logo_cliente_b64 = data_u.get('logo_b64', None)
-
-        col_c1, col_c2 = st.columns([0.2, 3.8])
-        with col_c1:
-            if logo_cliente_b64:
-                try:
-                    st.image(base64.b64decode(logo_cliente_b64), width=80)
-                except Exception:
-                    st.markdown("<h3>👤</h3>", unsafe_allow_html=True)
-            else:
-                st.markdown("<h3>👤</h3>", unsafe_allow_html=True)
-        with col_c2:
-            st.subheader(f"Bienvenido, {nombre_cliente}")
-
-        if st.session_state.mensaje_exito:
-            st.success(st.session_state.mensaje_exito)
-            st.session_state.mensaje_exito = ""
-
-        st.markdown("---")
-        fv = st.session_state.form_version
-
-        with st.expander("➕ Enviar Nuevo Pedido", expanded=st.session_state.expandir_nuevo_pedido):
-            tipo_producto = st.radio("Tipo de Producto:", ["GORRA", "TELA", "VARIOS"], horizontal=True, key=f"prod_{fv}")
-            ubicacion, estilo_frente = "N/A", "N/A"
-
-            if tipo_producto == "GORRA":
-                ubicacion = st.radio("Ubicación:", ["FRENTE", "TRASERO", "LATERAL"], horizontal=True, key=f"ubi_{fv}")
-                if ubicacion == "FRENTE":
-                    estilo_frente = st.radio("Estilo:", ["3D (Relieve)", "PLANO / FLAT"], horizontal=True, key=f"est_{fv}")
-
-            nombre_proyecto = st.text_input("Nombre o Referencia del Proyecto", key=f"nom_{fv}")
-            archivos_subidos = st.file_uploader("Sube tus Archivos", type=["png", "jpg", "jpeg", "dst", "pes", "pdf", "emb"], accept_multiple_files=True, key=f"arch_{fv}")
-            comentarios = st.text_area("Comentarios Adicionales", key=f"com_{fv}")
-            status_ph = st.empty()
-
-            if st.button("🚀 ENVIAR PEDIDO A PRODUCCIÓN", key=f"btn_env_{fv}"):
-                if not nombre_proyecto:
-                    status_ph.warning("⚠️ Debes ingresar el nombre del proyecto.")
-                elif not archivos_subidos:
-                    status_ph.error("❌ Debes adjuntar al menos un archivo.")
-                else:
-                    try:
-                        status_ph.info("⏳ Enviando pedido...")
-                        lista_archivos = []
-                        for arch in archivos_subidos:
-                            b_cont = arch.getvalue()
-                            lista_archivos.append({"nombre": arch.name, "data": base64.b64encode(b_cont).decode("utf-8")})
-
-                        data_pedido = {
-                            "id": f"PT-{int(datetime.now().timestamp())}",
-                            "cliente": st.session_state.user.strip(),
-                            "nombre_proyecto": nombre_proyecto,
-                            "producto": tipo_producto,
-                            "ubicacion": ubicacion,
-                            "estilo": estilo_frente,
-                            "archivos": lista_archivos,
-                            "archivos_finales": [],
-                            "comentarios": comentarios,
-                            "estado": "Pendiente",
-                            "timestamp": datetime.now()
-                        }
-                        db.collection("pedidos_bordado").add(data_pedido)
-                        st.session_state.mensaje_exito = "🎉 ¡Pedido enviado con éxito!"
-                        st.session_state.form_version += 1
-                        st.session_state.expandir_nuevo_pedido = False
-                        st.rerun()
-                    except Exception as e:
-                        status_ph.error(f"Error: {e}")
-
-        st.markdown("---")
-        st.subheader("📋 Estado de Mis Pedidos")
-
         try:
+            user_doc_ref = db.collection("usuarios_perfil").document(st.session_state.user.strip().lower())
+            user_doc = user_doc_ref.get()
+            
+            nombre_cliente = st.session_state.user
+            logo_cliente_b64 = None
+            if user_doc.exists:
+                data_u = user_doc.to_dict()
+                nombre_cliente = data_u.get('nombre_usuario', st.session_state.user)
+                logo_cliente_b64 = data_u.get('logo_b64', None)
+
+            col_c1, col_c2 = st.columns([0.2, 3.8])
+            with col_c1:
+                if logo_cliente_b64:
+                    try:
+                        st.image(base64.b64decode(logo_cliente_b64), width=80)
+                    except Exception:
+                        st.markdown("<h3>👤</h3>", unsafe_allow_html=True)
+                else:
+                    st.markdown("<h3>👤</h3>", unsafe_allow_html=True)
+            with col_c2:
+                st.subheader(f"Bienvenido, {nombre_cliente}")
+
+            if st.session_state.mensaje_exito:
+                st.success(st.session_state.mensaje_exito)
+                st.session_state.mensaje_exito = ""
+
+            st.markdown("---")
+            fv = st.session_state.form_version
+
+            with st.expander("➕ Enviar Nuevo Pedido", expanded=st.session_state.expandir_nuevo_pedido):
+                tipo_producto = st.radio("Tipo de Producto:", ["GORRA", "TELA", "VARIOS"], horizontal=True, key=f"prod_{fv}")
+                ubicacion, estilo_frente = "N/A", "N/A"
+
+                if tipo_producto == "GORRA":
+                    ubicacion = st.radio("Ubicación:", ["FRENTE", "TRASERO", "LATERAL"], horizontal=True, key=f"ubi_{fv}")
+                    if ubicacion == "FRENTE":
+                        estilo_frente = st.radio("Estilo:", ["3D (Relieve)", "PLANO / FLAT"], horizontal=True, key=f"est_{fv}")
+
+                nombre_proyecto = st.text_input("Nombre o Referencia del Proyecto", key=f"nom_{fv}")
+                archivos_subidos = st.file_uploader("Sube tus Archivos", type=["png", "jpg", "jpeg", "dst", "pes", "pdf", "emb"], accept_multiple_files=True, key=f"arch_{fv}")
+                comentarios = st.text_area("Comentarios Adicionales", key=f"com_{fv}")
+                status_ph = st.empty()
+
+                if st.button("🚀 ENVIAR PEDIDO A PRODUCCIÓN", key=f"btn_env_{fv}"):
+                    if not nombre_proyecto:
+                        status_ph.warning("⚠️ Debes ingresar el nombre del proyecto.")
+                    elif not archivos_subidos:
+                        status_ph.error("❌ Debes adjuntar al menos un archivo.")
+                    else:
+                        try:
+                            status_ph.info("⏳ Enviando pedido...")
+                            lista_archivos = []
+                            for arch in archivos_subidos:
+                                b_cont = arch.getvalue()
+                                lista_archivos.append({"nombre": arch.name, "data": base64.b64encode(b_cont).decode("utf-8")})
+
+                            data_pedido = {
+                                "id": f"PT-{int(datetime.now().timestamp())}",
+                                "cliente": st.session_state.user.strip(),
+                                "nombre_proyecto": nombre_proyecto,
+                                "producto": tipo_producto,
+                                "ubicacion": ubicacion,
+                                "estilo": estilo_frente,
+                                "archivos": lista_archivos,
+                                "archivos_finales": [],
+                                "comentarios": comentarios,
+                                "estado": "Pendiente",
+                                "timestamp": datetime.now()
+                            }
+                            db.collection("pedidos_bordado").add(data_pedido)
+                            st.session_state.mensaje_exito = "🎉 ¡Pedido enviado con éxito!"
+                            st.session_state.form_version += 1
+                            st.session_state.expandir_nuevo_pedido = False
+                            st.rerun()
+                        except Exception as e:
+                            status_ph.error(f"Error: {e}")
+
+            st.markdown("---")
+            st.subheader("📋 Estado de Mis Pedidos")
+
             todos = list(db.collection("pedidos_bordado").order_by("timestamp").stream())
             mis_pedidos = [p.to_dict() for p in todos if p.to_dict().get("cliente", "").strip().lower() == st.session_state.user.strip().lower()]
 
             if mis_pedidos:
-                # Separar pedidos activos y completados para el cliente
                 pedidos_cliente_activos = []
                 pedidos_cliente_completados = []
 
@@ -208,7 +207,6 @@ if st.session_state.modo_vista == "Cliente":
                     else:
                         pedidos_cliente_activos.append(p)
 
-                # --- 1. HISTORIAL DE PEDIDOS COMPLETADOS (JUSTO DEBAJO DEL TÍTULO) ---
                 if pedidos_cliente_completados:
                     with st.expander(f"📦 Historial de Mis Pedidos Completados / Entregados ({len(pedidos_cliente_completados)})", expanded=False):
                         st.info("Aquí puedes consultar y volver a descargar los entregables de tus trabajos finalizados.")
@@ -231,7 +229,6 @@ if st.session_state.modo_vista == "Cliente":
                             st.markdown("---")
                     st.markdown("<br>", unsafe_allow_html=True)
 
-                # --- 2. MOSTRAR PEDIDOS ACTIVOS EN CURSO ---
                 if pedidos_cliente_activos:
                     for p in pedidos_cliente_activos:
                         with st.container():
@@ -278,8 +275,12 @@ if st.session_state.modo_vista == "Cliente":
                     st.info("No tienes pedidos pendientes o en proceso en este momento.")
             else:
                 st.info(f"No hay pedidos registrados para: {st.session_state.user}")
+
         except Exception as e:
-            st.error(f"Error al cargar historial: {e}")
+            if "ResourceExhausted" in str(type(e).__name__) or "quota" in str(e).lower():
+                st.error("⚠️ Límite de consultas a la base de datos alcanzado temporalmente. Por favor, espera unos segundos y recarga la página.")
+            else:
+                st.error(f"Error al cargar historial: {e}")
 
 # =========================================================
 # 2. PANEL DE ADMINISTRADOR
@@ -293,11 +294,14 @@ else:
             logo_subido = st.file_uploader("Logo Opcional", type=["png", "jpg", "jpeg"])
             if st.form_submit_button("Crear Cliente"):
                 if nuevo_id.strip():
-                    ref = db.collection("usuarios_perfil").document(nuevo_id.strip().lower())
-                    logo_b64 = base64.b64encode(logo_subido.getvalue()).decode("utf-8") if logo_subido else None
-                    ref.set({"nombre_usuario": nuevo_id.strip(), "logo_b64": logo_b64, "creado": datetime.now()})
-                    st.success("¡Cliente registrado!")
-                    st.rerun()
+                    try:
+                        ref = db.collection("usuarios_perfil").document(nuevo_id.strip().lower())
+                        logo_b64 = base64.b64encode(logo_subido.getvalue()).decode("utf-8") if logo_subido else None
+                        ref.set({"nombre_usuario": nuevo_id.strip(), "logo_b64": logo_b64, "creado": datetime.now()})
+                        st.success("¡Cliente registrado!")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Error al registrar cliente: {e}")
 
     st.markdown("---")
     st.subheader("📋 Gestión de Pedidos Entrantes")
@@ -419,4 +423,7 @@ else:
                     st.markdown("---")
 
     except Exception as e:
-        st.error(f"Error al cargar panel de administración: {e}")
+        if "ResourceExhausted" in str(type(e).__name__) or "quota" in str(e).lower():
+            st.error("⚠️ Límite de consultas a la base de datos alcanzado temporalmente. Por favor, espera unos segundos y recarga la página.")
+        else:
+            st.error(f"Error al cargar panel de administración: {e}")
