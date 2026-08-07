@@ -8,11 +8,7 @@ from PIL import Image
 from streamlit_autorefresh import st_autorefresh
 
 # --- CONFIGURACIÓN ---
-st.set_page_config(
-    page_title="Pixel Thread | Pro", 
-    page_icon="🧵",
-    layout="wide"
-)
+st.set_page_config(page_title="Pixel Thread | Pro", layout="wide")
 st_autorefresh(interval=10000, limit=1000, key="auto_refrescar")
 
 # --- CSS ---
@@ -129,19 +125,6 @@ def init_fb():
 
 db = init_fb()
 
-# --- CARGAR ICONO GLOBAL DESDE FIREBASE ---
-@st.cache_data(ttl=60)
-def obtener_icono_global():
-    try:
-        doc = db.collection("configuracion").document("sitio").get()
-        if doc.exists:
-            return doc.to_dict().get("icono_b64")
-    except Exception:
-        pass
-    return None
-
-icono_global_b64 = obtener_icono_global()
-
 def recalcular_turnos():
     try:
         docs = list(db.collection("pedidos_bordado").order_by("timestamp").stream())
@@ -161,8 +144,7 @@ def obtener_uso_firebase():
     try:
         pedidos = list(db.collection("pedidos_bordado").stream())
         clientes = list(db.collection("usuarios_perfil").stream())
-        config_docs = list(db.collection("configuracion").stream())
-        total_docs = len(pedidos) + len(clientes) + len(config_docs)
+        total_docs = len(pedidos) + len(clientes)
         limite_docs = 50000
         porcentaje_docs = min(float(total_docs) / limite_docs * 100, 100.0)
         return {
@@ -176,7 +158,7 @@ def obtener_uso_firebase():
 def procesar_archivo_subido(arch):
     b_cont = arch.getvalue()
     nombre_lower = arch.name.lower()
-    if nombre_lower.endswith(('png', 'jpg', 'jpeg', 'ico')):
+    if nombre_lower.endswith(('png', 'jpg', 'jpeg')):
         try:
             img = Image.open(BytesIO(b_cont))
             img.thumbnail((700, 700))
@@ -228,33 +210,30 @@ def render_estado_badge(estado):
     else:
         st.markdown("**Estado:** Completado <span class='dot-blue'></span>", unsafe_allow_html=True)
 
-# --- ENCABEZADO SUPERIOR: LOGO, TÍTULO Y BOTONES DE NAVEGACIÓN DIRECTOS ---
-col_head_logo, col_head_title, col_btn_cli, col_btn_adm = st.columns([0.08, 2.12, 0.9, 0.9], vertical_alignment="center")
+# --- ENCABEZADO SUPERIOR: TU LOGO Y DESPUÉS EL TEXTO PIXEL THREAD ---
+col_head_logo, col_head_title, col_head_menu = st.columns([0.08, 2.92, 1], vertical_alignment="center")
 
 with col_head_logo:
-    if icono_global_b64:
-        try:
-            img_bytes = base64.b64decode(icono_global_b64)
-            st.image(Image.open(BytesIO(img_bytes)), width=48)
-        except Exception:
-            st.markdown("🧵")
-    else:
+    try:
+        img_logo_header = Image.open("PIXEL THREAD W_Mesa de trabajo 1_2.jpg")
+        st.image(img_logo_header, width=48)
+    except Exception:
         st.markdown("🧵")
 
 with col_head_title:
     st.title("PIXEL THREAD")
 
-with col_btn_cli:
-    if st.button("👤 Panel Cliente", use_container_width=True):
-        actualizar_url("Cliente", st.session_state.user)
-
-with col_btn_adm:
-    if st.button("🛠️ Panel Admin", use_container_width=True):
-        usuario_actual = st.session_state.user.strip()
-        if usuario_actual in ADMINS_AUTORIZADOS:
-            actualizar_url("Admin", st.session_state.user)
-        else:
-            st.error("❌ Sin permisos.")
+with col_head_menu:
+    with st.popover("⚙️ Menú"):
+        st.markdown("### Navegación")
+        if st.button("👤 Panel Cliente", use_container_width=True): 
+            actualizar_url("Cliente", st.session_state.user)
+        if st.button("🛠️ Panel Admin", use_container_width=True): 
+            usuario_actual = st.session_state.user.strip()
+            if usuario_actual in ADMINS_AUTORIZADOS:
+                actualizar_url("Admin", st.session_state.user)
+            else:
+                st.error("❌ Sin permisos.")
 
 st.markdown("<br>", unsafe_allow_html=True)
 
@@ -332,7 +311,7 @@ if st.session_state.modo_vista == "Cliente":
                             estilo_frente = st.radio("Estilo:", ["3D (Relieve)", "PLANO"], horizontal=True, key=f"est_{fv}")
 
                     nombre_proyecto = st.text_input("Nombre del Proyecto", key=f"nom_{fv}")
-                    archivos_subidos = st.file_uploader("Archivos", type=["png", "jpg", "jpeg", "dst", "pes", "pdf", "emb", "ico"], accept_multiple_files=True, key=f"arch_{fv}")
+                    archivos_subidos = st.file_uploader("Archivos", type=["png", "jpg", "jpeg", "dst", "pes", "pdf", "emb"], accept_multiple_files=True, key=f"arch_{fv}")
                     comentarios = st.text_area("Comentarios", key=f"com_{fv}")
                     status_ph = st.empty()
 
@@ -414,7 +393,7 @@ if st.session_state.modo_vista == "Cliente":
                                             nombre_a = arch_item.get('nombre', 'archivo')
                                             try:
                                                 raw_bytes = base64.b64decode(arch_item.get('data'))
-                                                if nombre_a.lower().endswith(('png', 'jpg', 'jpeg', 'ico')):
+                                                if nombre_a.lower().endswith(('png', 'jpg', 'jpeg')):
                                                     st.image(raw_bytes, width=120, caption=nombre_a)
                                                 st.download_button(f"📥 {nombre_a}", data=raw_bytes, file_name=nombre_a, key=f"dl_cli_{p.get('id')}_{idx_a}")
                                             except Exception:
@@ -444,7 +423,7 @@ if st.session_state.modo_vista == "Cliente":
                                             nom_f = af.get('nombre', 'resultado')
                                             try:
                                                 raw_f_bytes = base64.b64decode(af.get('data'))
-                                                if nom_f.lower().endswith(('png', 'jpg', 'jpeg', 'ico')):
+                                                if nom_f.lower().endswith(('png', 'jpg', 'jpeg')):
                                                     st.image(raw_f_bytes, width=120, caption=nom_f)
                                                 st.download_button(f"📥 {nom_f}", data=raw_f_bytes, file_name=nom_f, key=f"dl_fin_{p.get('id')}_{idx_f}")
                                             except Exception:
@@ -485,11 +464,10 @@ else:
     st.markdown("---")
 
     try:
-        tab_admin_pend, tab_admin_comp, tab_admin_clientes, tab_admin_config = st.tabs([
+        tab_admin_pend, tab_admin_comp, tab_admin_clientes = st.tabs([
             "⏳ Pendientes y En Proceso", 
             "✅ Completados / Entregados", 
-            "👥 Gestión de Clientes",
-            "⚙️ Configurar Icono"
+            "👥 Gestión de Clientes"
         ])
 
         recalcular_turnos()
@@ -535,7 +513,7 @@ else:
                                     nom_ac = ac.get('nombre', 'archivo')
                                     try:
                                         raw_ac = base64.b64decode(ac.get('data'))
-                                        if nom_ac.lower().endswith(('png', 'jpg', 'jpeg', 'ico')):
+                                        if nom_ac.lower().endswith(('png', 'jpg', 'jpeg')):
                                             st.image(raw_ac, width=100, caption=nom_ac)
                                         st.download_button(f"📥 {nom_ac}", data=raw_ac, file_name=nom_ac, key=f"dl_admin_cli_{doc_id}_{idx_ac}", use_container_width=True)
                                     except Exception:
@@ -559,7 +537,7 @@ else:
                                 st.markdown("**➕ Agregar nuevos:**")
                                 archivos_entregables = st.file_uploader(
                                     "Seleccionar archivos:", 
-                                    type=["dst", "emb", "pes", "png", "jpg", "pdf", "ico"],
+                                    type=["dst", "emb", "pes", "png", "jpg", "pdf"],
                                     accept_multiple_files=True, 
                                     key=f"up_admin_{doc_id}"
                                 )
@@ -639,7 +617,7 @@ else:
                                 st.markdown("**➕ Agregar nuevos:**")
                                 archivos_extra = st.file_uploader(
                                     "Seleccionar archivos:", 
-                                    type=["dst", "emb", "pes", "png", "jpg", "pdf", "ico"],
+                                    type=["dst", "emb", "pes", "png", "jpg", "pdf"],
                                     accept_multiple_files=True, 
                                     key=f"up_admin_comp_{doc_id}"
                                 )
@@ -681,7 +659,7 @@ else:
                 with st.form("form_cliente"):
                     c_id = st.text_input("ID o Usuario del Cliente (ej. juan123):").strip().lower()
                     c_nombre = st.text_input("Nombre Completo / Nombre Comercial:").strip()
-                    c_logo = st.file_uploader("Logotipo del Cliente (Opcional)", type=["png", "jpg", "jpeg", "ico"])
+                    c_logo = st.file_uploader("Logotipo del Cliente (Opcional)", type=["png", "jpg", "jpeg"])
                     
                     guardar_cliente = st.form_submit_button("💾 Guardar / Actualizar Cliente")
                     
@@ -741,38 +719,9 @@ else:
             except Exception as e:
                 st.error(f"Error al listar clientes: {e}")
 
-        with tab_admin_config:
-            st.subheader("⚙️ Configuración del Icono / Logotipo Global")
-            st.markdown("Sube aquí el icono de tu negocio para guardarlo directamente en Firebase. Se actualizará en la página principal y en el encabezado.")
-
-            with st.form("form_config_icono"):
-                nuevo_icono_subido = st.file_uploader("Seleccionar archivo de icono (PNG, JPG, ICO)", type=["png", "jpg", "jpeg", "ico"])
-                guardar_icono_btn = st.form_submit_button("💾 Guardar Icono en Firebase")
-
-                if guardar_icono_btn:
-                    if nuevo_icono_subido:
-                        try:
-                            b64_icono = procesar_archivo_subido(nuevo_icono_subido)
-                            db.collection("configuracion").document("sitio").set({
-                                "icono_b64": b64_icono
-                            }, merge=True)
-                            st.success("✅ ¡Icono guardado en Firebase exitosamente! Recargando...")
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Error al guardar el icono: {e}")
-                    else:
-                        st.warning("⚠️ Selecciona un archivo primero.")
-
-            if icono_global_b64:
-                st.markdown("### 🖼️ Icono Actual en Firebase:")
-                try:
-                    st.image(base64.b64decode(icono_global_b64), width=100)
-                except Exception:
-                    pass
-
         st.markdown("---")
         with st.expander("🚨 Zona de Peligro: Limpieza Masiva de Historial"):
-            st.warning("⚠️ Esta acción eliminará todos los registros de pedidos en la base de datos de manera permanente.")
+            st.warning("⚠️ Esta acciónදේශ Esta acción eliminará todos los registros de pedidos en la base de datos de manera permanente.")
             if st.button("⚠️ BORRAR TODO EL HISTORIAL DE PEDIDOS", use_container_width=True):
                 try:
                     for doc in docs:
