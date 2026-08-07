@@ -262,7 +262,6 @@ if st.session_state.modo_vista == "Cliente":
                         col_p1, col_p2 = st.columns([2, 1])
                         with col_p1:
                             st.markdown(f"**🧵 {p.get('nombre_proyecto')}**")
-                            st.text(f"ID: {p.get('id')}")
                             if p.get('comentarios'):
                                 st.caption(f"📝 Nota: {p.get('comentarios')}")
                         with col_p2:
@@ -287,14 +286,13 @@ if st.session_state.modo_vista == "Cliente":
 
             with tab_completados:
                 st.subheader("🎉 Historial de Pedidos Listos")
-                pedidos_terminados = [p for p in mis_pedidos if p.get('estado') == "Completado"]
+                pedidos_terminados = [p for p in mis_pedidos if p.get('estado'] == "Completado"]
 
                 if pedidos_terminados:
                     for p in pedidos_terminados:
                         col_t1, col_t2 = st.columns([2, 1])
                         with col_t1:
                             st.markdown(f"**🧵 {p.get('nombre_proyecto')}**")
-                            st.text(f"ID: {p.get('id')}")
                         with col_t2:
                             render_estado_badge("Completado")
                             st.text(f"{p.get('producto')}")
@@ -344,7 +342,7 @@ else:
                     col_a1, col_a2 = st.columns([2, 1])
                     with col_a1:
                         st.markdown(f"**👤 Cliente:** `{p.get('cliente')}`")
-                        st.markdown(f"**🧵 Proyecto:** `{p.get('nombre_proyecto')}` (ID: `{p.get('id')}`)")
+                        st.markdown(f"**🧵 Proyecto:** `{p.get('nombre_proyecto')}`")
                         if p.get('comentarios'):
                             st.caption(f"📝 Comentarios: {p.get('comentarios')}")
                     with col_a2:
@@ -415,7 +413,6 @@ else:
                     col_ac1, col_ac2 = st.columns([2, 1])
                     with col_ac1:
                         st.markdown(f"**👤 {p.get('cliente')}** — 🧵 {p.get('nombre_proyecto')}")
-                        st.text(f"ID: {p.get('id')}")
                     with col_ac2:
                         render_estado_badge("Completado")
                         if st.button("🗑️ Eliminar Historial", key=f"admin_del_comp_{doc_id}"):
