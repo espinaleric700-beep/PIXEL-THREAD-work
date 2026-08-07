@@ -124,6 +124,12 @@ def recalcular_turnos():
 
 # --- FUNCIÓN PARA ESTIMAR EL USO DEL PLAN GRATUITO DE FIREBASE (SPARK) ---
 def obtener_uso_firebase():
+    """
+    Estima el uso basado en los límites diarios del plan Spark (Gratuito):
+    - Documentos almacenados (Límite: 50,000)
+    - Operaciones de Escritura diarias (Límite: 20,000 / día)
+    - Operaciones de Lectura diarias (Límite: 50,000 / día)
+    """
     try:
         pedidos = list(db.collection("pedidos_bordado").stream())
         clientes = list(db.collection("usuarios_perfil").stream())
@@ -200,17 +206,13 @@ def render_estado_badge(estado):
     else:
         st.markdown("**Estado:** Completado <span class='dot-blue'></span>", unsafe_allow_html=True)
 
-# --- ENCABEZADO SUPERIOR CON BOTÓN DE INICIO Y MENÚ MINIMIZADO ---
-col_head1, col_head2, col_head3 = st.columns([2.2, 0.8, 1])
+# --- ENCABEZADO SUPERIOR CON MENÚ MINIMIZADO ---
+col_head1, col_head2 = st.columns([3, 1])
 
 with col_head1:
     st.title("⚡ PIXEL THREAD")
 
 with col_head2:
-    if st.button("🏠 Inicio", use_container_width=True):
-        actualizar_url("Cliente", "")
-
-with col_head3:
     with st.popover("⚙️ Menú"):
         st.markdown("### Navegación")
         if st.button("👤 Panel Cliente", use_container_width=True): 
@@ -251,6 +253,7 @@ if st.session_state.modo_vista == "Cliente":
                     nombre_cliente = data_u.get('nombre_usuario', st.session_state.user)
                     logo_cliente_b64 = data_u.get('logo_b64', None)
 
+                # ENCABEZADO GRANDE PARA EL CLIENTE Y SU LOGO
                 col_c1, col_c2 = st.columns([0.1, 3.9], vertical_alignment="center")
                 with col_c1:
                     if logo_cliente_b64:
@@ -413,6 +416,7 @@ if st.session_state.modo_vista == "Cliente":
 else:
     st.subheader("🛠️ Administración General")
 
+    # --- AVISO DE USO DEL PLAN DE FIREBASE ---
     uso_fb = obtener_uso_firebase()
     porcentaje_uso = uso_fb["porcentaje"]
     
@@ -443,6 +447,9 @@ else:
         recalcular_turnos()
         docs = list(db.collection("pedidos_bordado").order_by("timestamp").stream())
 
+        # =========================================================
+        # PESTAÑA: PENDIENTES Y EN PROCESO
+        # =========================================================
         with tab_admin_pend:
             pedidos_activos = [(doc.id, doc.to_dict()) for doc in docs if doc.to_dict().get('estado') != "Completado"]
 
@@ -503,7 +510,7 @@ else:
                                                 lista_finales.pop(idx_f)
                                                 db.collection("pedidos_bordado").document(doc_id).update({"archivos_finales": lista_finales})
                                                 st.rerun()
-                                        
+                                                
                                 st.markdown("**➕ Agregar nuevos:**")
                                 archivos_entregables = st.file_uploader(
                                     "Seleccionar archivos:", 
@@ -545,6 +552,9 @@ else:
             else:
                 st.info("🎉 No hay pedidos pendientes de revisión.")
 
+        # =========================================================
+        # PESTAÑA: COMPLETADOS / ENTREGADOS
+        # =========================================================
         with tab_admin_comp:
             pedidos_completados_admin = [
                 (doc.id, doc.to_dict()) 
@@ -583,7 +593,7 @@ else:
                                                 lista_finales.pop(idx_f)
                                                 db.collection("pedidos_bordado").document(doc_id).update({"archivos_finales": lista_finales})
                                                 st.rerun()
-                                        
+                                                
                                 st.markdown("**➕ Agregar nuevos:**")
                                 archivos_extra = st.file_uploader(
                                     "Seleccionar archivos:", 
@@ -597,14 +607,17 @@ else:
                                             status_subida = st.empty()
                                             total_archivos = len(archivos_extra)
                                             
+                                            db.collection("pedidos_bordado").document(doc_id).update({"archivos_finales": []})
+                                            
                                             for idx, af in enumerate(archivos_extra, start=1):
                                                 status_subida.info(f"⏳ Subiendo archivo {idx} de {total_archivos} ({af.name})...")
                                                 b64_fin = procesar_archivo_subido(af)
                                                 lista_finales.append({"nombre": af.name, "data": b64_fin})
+                                                
+                                                db.collection("pedidos_bordado").document(doc_id).update({
+                                                    "archivos_finales": lista_finales
+                                                })
                                             
-                                            db.collection("pedidos_bordado").document(doc_id).update({
-                                                "archivos_finales": lista_finales
-                                            })
                                             status_subida.success("¡Archivos agregados con éxito!")
                                             st.rerun()
                                         except Exception as e:
@@ -617,19 +630,76 @@ else:
                                 recalcular_turnos()
                                 st.rerun()
             else:
-                st.info("No hay pedidos completados registrados.")
+                st.info("🎉 No hay pedidos completados actualmente.")
 
+        # =========================================================
+        # PESTAÑA: GESTIÓN DE CLIENTES
+        # =========================================================
         with tab_admin_clientes:
-            st.subheader("👥 Registro de Clientes y Perfiles")
+            st.subheader("👥 Registro y Administración de Clientes")
+            
+            with st.form("form_nuevo_cliente"):
+                st.markdown("#### Registrar Nuevo Cliente o Actualizar Perfil")
+                nuevo_id = st.text_input("ID de Usuario (Único, sin espacios, ej: cliente1)").strip().lower()
+                nombre_usuario = st.text_input("Nombre Completo o Comercial del Cliente").strip()
+                logo_subido = st.file_uploader("Logo del Cliente (Opcional)", type=["png", "jpg", "jpeg"])
+                
+                submitted = st.form_submit_button("💾 Guardar Cliente")
+                if submitted:
+                    if not nuevo_id or not nombre_usuario:
+                        st.error("⚠️ El ID de usuario y el nombre son obligatorios.")
+                    else:
+                        try:
+                            logo_b64 = None
+                            if logo_subido:
+                                logo_b64 = procesar_archivo_subido(logo_subido)
+                            
+                            db.collection("usuarios_perfil").document(nuevo_id).set({
+                                "id_usuario": nuevo_id,
+                                "nombre_usuario": nombre_usuario,
+                                "logo_b64": logo_b64,
+                                "timestamp": datetime.now()
+                            }, merge=True)
+                            
+                            st.success(f"🎉 Cliente '{nombre_usuario}' guardado correctamente con ID: '{nuevo_id}'.")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Error al guardar cliente: {e}")
+
+            st.markdown("---")
+            st.markdown("#### Clientes Registrados en el Sistema")
             clientes_docs = list(db.collection("usuarios_perfil").stream())
+            
             if clientes_docs:
                 for c_doc in clientes_docs:
                     c_data = c_doc.to_dict()
+                    c_id = c_data.get("id_usuario", c_doc.id)
+                    c_nombre = c_data.get("nombre_usuario", "Sin nombre")
+                    c_logo = c_data.get("logo_b64", None)
+                    
                     with st.container(border=True):
-                        st.markdown(f"**ID / Usuario:** `{c_doc.id}`")
-                        st.markdown(f"**Nombre:** {c_data.get('nombre_usuario', 'N/A')}")
+                        col_cl1, col_cl2, col_cl3 = st.columns([1, 4, 2])
+                        with col_cl1:
+                            if c_logo:
+                                try:
+                                    st.image(base64.b64decode(c_logo), width=60)
+                                except Exception:
+                                    st.markdown("👤")
+                            else:
+                                st.markdown("👤")
+                        with col_cl2:
+                            st.markdown(f"**Nombre:** {c_nombre}")
+                            st.markdown(f"**ID de Acceso:** `{c_id}`")
+                        with col_cl3:
+                            if st.button("🗑️ Eliminar Cliente", key=f"del_cli_{c_id}", use_container_width=True):
+                                db.collection("usuarios_perfil").document(c_doc.id).delete()
+                                st.success(f"Cliente {c_id} eliminado.")
+                                st.rerun()
             else:
-                st.info("No hay perfiles de clientes registrados todavía.")
+                st.info("No hay clientes registrados en la base de datos.")
 
     except Exception as e:
-        st.error(f"Error en el panel de administración: {e}")
+        if "ResourceExhausted" in str(type(e).__name__) or "quota" in str(e).lower():
+            st.error("⚠️ Límite de base de datos alcanzado temporalmente. Espera unos segundos.")
+        else:
+            st.error(f"Error en panel de administración: {e}")
