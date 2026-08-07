@@ -258,7 +258,6 @@ if st.session_state.modo_vista == "Cliente":
                 pedidos_activos = [p for p in mis_pedidos if p.get('estado') != "Completado"]
                 
                 if pedidos_activos:
-                    # Organizar en 2 columnas verticales
                     cols = st.columns(2)
                     for i, p in enumerate(pedidos_activos):
                         with cols[i % 2]:
@@ -413,7 +412,7 @@ else:
                 st.info("🎉 No hay pedidos pendientes de revisión.")
 
         with tab_admin_comp:
-            pedidos_completados_admin = [(doc.id, doc.to_dict()) for doc in docs if doc.to_dict().get('estado'] == "Completado"]
+            pedidos_completados_admin = [(doc.id, doc.to_dict()) for doc in docs if doc.to_dict().get('estado') == "Completado"]
 
             if pedidos_completados_admin:
                 cols = st.columns(2)
