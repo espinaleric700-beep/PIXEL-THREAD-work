@@ -286,7 +286,7 @@ if st.session_state.modo_vista == "Cliente":
 
             with tab_completados:
                 st.subheader("🎉 Historial de Pedidos Listos")
-                pedidos_terminados = [p for p in mis_pedidos if p.get('estado'] == "Completado"]
+                pedidos_terminados = [p for p in mis_pedidos if p.get('estado') == "Completado"]
 
                 if pedidos_terminados:
                     for p in pedidos_terminados:
