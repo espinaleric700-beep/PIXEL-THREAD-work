@@ -73,13 +73,11 @@ st.markdown("""
     footer[data-testid="stFooter"] { display: none !important; }
     #stDecoration { display: none !important; }
     
-    /* Ocultar cualquier contenedor flotante o insignias en las esquinas inferiores (como el botón de Streamlit / menú flotante) */
     div[class*="viewerBadge"] { display: none !important; }
     div[class*="streamlitLogo"] { display: none !important; }
     div:has(> a[href*="streamlit.io"]) { display: none !important; }
     div:has(> button[kind="header"]) { display: none !important; }
     
-    /* Selector específico para la insignia de la esquina inferior derecha */
     div.fixed-container, div[style*="position: fixed"] {
         display: none !important;
     }
@@ -246,14 +244,30 @@ st.markdown("<br>", unsafe_allow_html=True)
 # 1. PANEL DE CLIENTE
 # =========================================================
 if st.session_state.modo_vista == "Cliente":
-    user_input = st.text_input("Ingresa tu Nombre o ID de Usuario:", value=st.session_state.user)
-    if user_input != st.session_state.user:
-        actualizar_url("Cliente", user_input)
+    # Callback para capturar el Enter o el cambio directo en el input sin depender de clics externos
+    def cambiar_usuario():
+        st.session_state.user = st.session_state.input_usuario_key
+
+    col_input, col_btn_buscar = st.columns([4, 1], vertical_alignment="bottom")
+    with col_input:
+        st.text_input(
+            "Ingresa tu Nombre o ID de Usuario:", 
+            value=st.session_state.user, 
+            key="input_usuario_key", 
+            on_change=cambiar_usuario
+        )
+    with col_btn_buscar:
+        if st.button("🔍 Buscar", use_container_width=True):
+            st.session_state.user = st.session_state.input_usuario_key
+
+    # Sincronizamos cambios con la URL
+    if st.session_state.user != params.get("user", ""):
+        actualizar_url("Cliente", st.session_state.user)
 
     user_clean = st.session_state.user.strip().lower()
 
     if not user_clean:
-        st.info("👆 Ingresa tu ID de usuario arriba para ver tus pedidos.")
+        st.info("👆 Ingresa tu ID de usuario arriba y presiona Enter o el botón Buscar para ver tus pedidos.")
     else:
         try:
             user_doc_ref = db.collection("usuarios_perfil").document(user_clean)
@@ -683,7 +697,8 @@ else:
                         c_data = c_doc.to_dict()
                         c_key = c_doc.id
                         
-                        with cols_cli[i % 4]:
+                        w_cols_cli = cols_cli[i % 4]
+                        with w_cols_cli:
                             with st.container(border=True):
                                 logo_b64 = c_data.get("logo_b64")
                                 if logo_b64:
