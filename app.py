@@ -315,4 +315,28 @@ else:
                         )
 
                 estado_actual = p.get('estado', 'Pendiente')
-     ```
+                opciones_estado = ["Pendiente", "En Proceso", "Completado"]
+                nuevo_estado = st.selectbox(
+                    "Estado del Pedido",
+                    opciones_estado,
+                    index=opciones_estado.index(estado_actual) if estado_actual in opciones_estado else 0,
+                    key=f"status_{doc_id}"
+                )
+
+                if nuevo_estado != estado_actual:
+                    db.collection("pedidos_bordado").document(doc_id).update({"estado": nuevo_estado})
+                    st.success("¡Estado actualizado para el cliente!")
+                    st.rerun()
+
+                if st.button(f"🗑️ Eliminar Pedido {p.get('id')}", key=f"del_{doc_id}"):
+                    db.collection("pedidos_bordado").document(doc_id).delete()
+                    st.warning("Pedido eliminado permanentemente.")
+                    st.rerun()
+
+                st.markdown("---")
+
+        if contador == 0:
+            st.info("No hay pedidos registrados en el sistema.")
+
+    except Exception as e:
+        st.error(f"Error al conectar con la base de datos de Firebase: {e}")
