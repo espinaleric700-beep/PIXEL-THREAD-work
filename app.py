@@ -119,7 +119,7 @@ if st.session_state.modo_vista == "Cliente":
         
         if not user_doc.exists:
             st.title("🧵 Pixel Thread - Portal de Cliente")
-            st.error(f"❌ El usuario **{st.session_state.user}** no está registrado en el sistema. Por favor, contacta al administrador para que cree tu cuenta.")
+            st.error(f"❌ El usuario **{st.session_state.user}** não está registrado en el sistema. Por favor, contacta al administrador para que cree tu cuenta.")
         else:
             datos_usuario = user_doc.to_dict()
             logo_perfil_b64 = datos_usuario.get("logo_usuario", "")
@@ -176,7 +176,7 @@ if st.session_state.modo_vista == "Cliente":
                                 "cliente": st.session_state.user.strip(),
                                 "nombre_proyecto": nombre_proyecto,
                                 "producto": tipo_producto,
-                                "ubicacion": ubicacion,
+                                "ubicacion": ubicacion if tipo_producto == "GORRA" else "N/A",
                                 "estilo": estilo_frente if (tipo_producto == "GORRA" and ubicacion == "FRENTE") else "N/A",
                                 "archivo_nombre": file_name,
                                 "archivo_data": img_base64,
