@@ -126,7 +126,6 @@ if st.session_state.modo_vista == "Cliente":
 
             st.markdown("---")
 
-            # clear_on_submit=True limpia los campos al enviar con éxito
             with st.form("form_pedido_streamlit", clear_on_submit=True):
                 nombre_proyecto = st.text_input("1. Nombre o Referencia del Proyecto")
                 archivos_subidos = st.file_uploader(
@@ -179,16 +178,18 @@ if st.session_state.modo_vista == "Cliente":
                                 "timestamp": datetime.now()
                             }
                             
+                            # Intento de guardado en Firestore
                             db.collection("pedidos_bordado").add(data_pedido)
                             
-                            # AQUÍ SE MINIMIZA EL EXPANDER Y SE RECARGA
+                            # Si se guarda con éxito: minimiza el expander y avisa
                             st.session_state.expandir_nuevo_pedido = False
                             st.success("🎉 ¡Tu orden se envió y guardó correctamente en producción!")
                             st.rerun()
                             
                         except Exception as e:
+                            # AVISO DE ERROR EXPLÍCITO SI FALLA AL GUARDAR O PROCESAR
                             st.session_state.expandir_nuevo_pedido = True
-                            st.error(f"❌ Error al procesar los archivos: {e}")
+                            st.error(f"❌ Error crítico al guardar la orden: {e}")
 
         st.markdown("---")
         st.subheader("📋 Estado de Mis Pedidos y Posición en Cola")
