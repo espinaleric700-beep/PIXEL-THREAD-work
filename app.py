@@ -1,4 +1,4 @@
-el panel de cliente y adminimport streamlit as st
+import streamlit as st
 import firebase_admin
 from firebase_admin import credentials, firestore
 from datetime import datetime
@@ -92,7 +92,6 @@ with col_head1:
     st.title("⚡ PIXEL THREAD")
 
 with col_head2:
-    # Menú minimizado tipo Popover para ahorrar espacio en móviles y PC
     with st.popover("⚙️ Menú"):
         st.markdown("### Navegación")
         if st.button("👤 Panel Cliente", use_container_width=True): 
