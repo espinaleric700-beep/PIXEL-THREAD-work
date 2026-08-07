@@ -11,7 +11,7 @@ from streamlit_autorefresh import st_autorefresh
 st.set_page_config(page_title="Pixel Thread | Pro", layout="wide")
 st_autorefresh(interval=10000, limit=1000, key="auto_refrescar")
 
-# --- CSS LIMPIO, SIN LÍNEAS ANIDADAS, LETRAS MÁS GRANDES Y FONDO ORIGINAL ---
+# --- CSS LIMPIO, SIN LÍNEAS ANIDADas, LETRAS MÁS GRANDES Y OCULTAR MARCAS DE STREAMLIT/GITHUB ---
 st.markdown("""
 <style>
     :root {
@@ -61,6 +61,14 @@ st.markdown("""
     h1 { color: var(--primary) !important; font-size: 2.5rem !important; letter-spacing: 2px; }
     h2 { color: var(--primary) !important; font-size: 1.8rem !important; }
     h3 { color: var(--primary) !important; font-size: 1.3rem !important; }
+
+    /* --- OCULTAR ELEMENTOS DE STREAMLIT Y GITHUB (HEADER, FOOTER Y MENÚ) ---
+       Esto oculta la barra superior predeterminada con el botón "Fork", el icono de GitHub y el menú de Streamlit. */
+    header { visibility: hidden !important; display: none !important; }
+    footer { visibility: hidden !important; display: none !important; }
+    #MainMenu { visibility: hidden !important; display: none !important; }
+    .stDeployButton { display: none !important; }
+    header[data-testid="stHeader"] { display: none !important; }
 
     .dot-red {
         height: 10px;
@@ -124,14 +132,7 @@ def recalcular_turnos():
 
 # --- FUNCIÓN PARA ESTIMAR EL USO DEL PLAN GRATUITO DE FIREBASE (SPARK) ---
 def obtener_uso_firebase():
-    """
-    Estima el uso basado en los límites diarios del plan Spark (Gratuito):
-    - Documentos almacenados (Límite: 50,000)
-    - Operaciones de Escritura diarias (Límite: 20,000 / día)
-    - Operaciones de Lectura diarias (Límite: 50,000 / día)
-    """
     try:
-        # Conteo aproximado de documentos en colecciones principales
         pedidos = list(db.collection("pedidos_bordado").stream())
         clientes = list(db.collection("usuarios_perfil").stream())
         total_docs = len(pedidos) + len(clientes)
@@ -254,7 +255,6 @@ if st.session_state.modo_vista == "Cliente":
                     nombre_cliente = data_u.get('nombre_usuario', st.session_state.user)
                     logo_cliente_b64 = data_u.get('logo_b64', None)
 
-                # ENCABEZADO GRANDE PARA EL CLIENTE Y SU LOGO
                 col_c1, col_c2 = st.columns([0.1, 3.9], vertical_alignment="center")
                 with col_c1:
                     if logo_cliente_b64:
@@ -417,7 +417,6 @@ if st.session_state.modo_vista == "Cliente":
 else:
     st.subheader("🛠️ Administración General")
 
-    # --- AVISO DE USO DEL PLAN DE FIREBASE ---
     uso_fb = obtener_uso_firebase()
     porcentaje_uso = uso_fb["porcentaje"]
     
@@ -448,9 +447,6 @@ else:
         recalcular_turnos()
         docs = list(db.collection("pedidos_bordado").order_by("timestamp").stream())
 
-        # =========================================================
-        # PESTAÑA: PENDIENTES Y EN PROCESO
-        # =========================================================
         with tab_admin_pend:
             pedidos_activos = [(doc.id, doc.to_dict()) for doc in docs if doc.to_dict().get('estado') != "Completado"]
 
@@ -553,9 +549,6 @@ else:
             else:
                 st.info("🎉 No hay pedidos pendientes de revisión.")
 
-        # =========================================================
-        # PESTAÑA: COMPLETADOS / ENTREGADOS
-        # =========================================================
         with tab_admin_comp:
             pedidos_completados_admin = [
                 (doc.id, doc.to_dict()) 
