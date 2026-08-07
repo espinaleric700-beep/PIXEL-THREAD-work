@@ -33,7 +33,6 @@ st.markdown("""
     }
     h1, h2, h3 {
         color: #00ffcc !important;
-        text-align: center;
     }
     .stTextInput input, .stSelectbox select {
         background-color: #0b0f19;
@@ -126,12 +125,15 @@ if st.session_state.modo_vista == "Cliente":
             logo_perfil_b64 = datos_usuario.get("logo_usuario", "")
             nombre_cliente = datos_usuario.get('nombre_usuario', st.session_state.user)
 
-            # ENCABEZADO: LOGO GRANDE Y CENTRADO ARRIBA DEL NOMBRE
-            col_esp1, col_centro, col_esp2 = st.columns([1, 2, 1])
+            # ENCABEZADO HORIZONTAL: LOGO PEQUEÑO Y NOMBRE CENTRADOS JUNTOS
+            col_esp1, col_centro, col_esp2 = st.columns([1, 4, 1])
             with col_centro:
-                if logo_perfil_b64:
-                    st.image(base64.b64decode(logo_perfil_b64), width=150)
-                st.title(f"{nombre_cliente}")
+                sub_col_img, sub_col_txt = st.columns([1, 3])
+                with sub_col_img:
+                    if logo_perfil_b64:
+                        st.image(base64.b64decode(logo_perfil_b64), width=50)
+                with sub_col_txt:
+                    st.markdown(f"<h1 style='padding-top: 5px; margin: 0;'>{nombre_cliente}</h1>", unsafe_allow_html=True)
 
             st.markdown("---")
 
@@ -313,28 +315,4 @@ else:
                         )
 
                 estado_actual = p.get('estado', 'Pendiente')
-                opciones_estado = ["Pendiente", "En Proceso", "Completado"]
-                nuevo_estado = st.selectbox(
-                    "Estado del Pedido",
-                    opciones_estado,
-                    index=opciones_estado.index(estado_actual) if estado_actual in opciones_estado else 0,
-                    key=f"status_{doc_id}"
-                )
-
-                if nuevo_estado != estado_actual:
-                    db.collection("pedidos_bordado").document(doc_id).update({"estado": nuevo_estado})
-                    st.success("¡Estado actualizado para el cliente!")
-                    st.rerun()
-
-                if st.button(f"🗑️ Eliminar Pedido {p.get('id')}", key=f"del_{doc_id}"):
-                    db.collection("pedidos_bordado").document(doc_id).delete()
-                    st.warning("Pedido eliminado permanentemente.")
-                    st.rerun()
-
-                st.markdown("---")
-
-        if contador == 0:
-            st.info("No hay pedidos registrados en el sistema.")
-
-    except Exception as e:
-        st.error(f"Error al conectar con la base de datos de Firebase: {e}")
+     ```
