@@ -230,8 +230,17 @@ st.markdown("<br>", unsafe_allow_html=True)
 # 1. PANEL DE CLIENTE
 # =========================================================
 if st.session_state.modo_vista == "Cliente":
-    user_input = st.text_input("Ingresa tu Nombre o ID de Usuario:", value=st.session_state.user)
-    if user_input != st.session_state.user:
+    col_user_1, col_user_2 = st.columns([3, 1], vertical_alignment="bottom")
+
+    with col_user_1:
+        user_input = st.text_input("Ingresa tu Nombre o ID de Usuario:", value=st.session_state.user)
+
+    with col_user_2:
+        if st.button("🔍 Ingresar", use_container_width=True):
+            if user_input != st.session_state.user:
+                actualizar_url("Cliente", user_input)
+
+    if user_input != st.session_state.user and user_input.strip() != "":
         actualizar_url("Cliente", user_input)
 
     user_clean = st.session_state.user.strip().lower()
