@@ -13,17 +13,33 @@ st.set_page_config(page_title="Pixel Thread | Pro", layout="centered")
 # Intervalo de auto-refresco optimizado a 60 segundos para cuidar la cuota
 st_autorefresh(interval=60000, limit=1000, key="auto_refrescar")
 
-# --- CSS ---
-st.markdown("""
+# --- CONVERSIÓN DE LA IMAGEN A BASE64 ---
+# Carga la imagen adjunta y la convierte para usarla en el CSS del fondo
+with open("Gemini_Generated_Image_3l5ydm3l5ydm3l5y (1).jpg", "rb") as image_file:
+    encoded_bg = base64.b64encode(image_file.read()).decode()
+
+# --- CSS CON FONDO PERSONALIZADO ---
+st.markdown(f"""
 <style>
-    :root { --primary: #00ffcc; --bg-dark: #050505; }
-    .stApp { background: radial-gradient(circle at 50% 50%, #1a0033 0%, #050505 100%); background-attachment: fixed; }
-    div[data-testid="stExpander"], div[data-testid="stVerticalBlock"] > div {
-        background: rgba(10, 10, 15, 0.6) !important;
-        border: 1px solid rgba(0, 255, 204, 0.2) !important;
-        border-radius: 12px !important;
+    :root {{ --primary: #00ffcc; --bg-dark: #050505; }}
+    
+    .stApp {{
+        background: linear-gradient(rgba(5, 5, 5, 0.8), rgba(5, 5, 5, 0.8)), 
+                    url("data:image/jpeg;base64,{encoded_bg}");
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+        background-attachment: fixed;
     }
-    h1, h2, h3 { color: var(--primary) !important; }
+    
+    div[data-testid="stExpander"], div[data-testid="stVerticalBlock"] > div {{
+        background: rgba(10, 10, 15, 0.75) !important;
+        border: 1px solid rgba(0, 255, 204, 0.3) !important;
+        border-radius: 12px !important;
+        backdrop-filter: blur(8px);
+    }}
+    
+    h1, h2, h3 {{ color: var(--primary) !important; text-shadow: 0 0 10px rgba(0,255,204,0.3); }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -38,7 +54,7 @@ def init_fb():
 
 db = init_fb()
 
-# --- CACHE DE CONSULTAS (Crucial para no agotar la cuota) ---
+# --- CACHE DE CONSULTAS (Protege la cuota de Firebase) ---
 @st.cache_data(ttl=60)
 def obtener_pedidos_cached():
     docs = list(db.collection("pedidos_bordado").order_by("timestamp").stream())
