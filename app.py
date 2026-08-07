@@ -195,12 +195,15 @@ if st.session_state.modo_vista == "Cliente":
                             status_ph.error(f"Error: {e}")
 
             st.markdown("---")
-            st.subheader("📋 Mis Pedidos")
+            
+            # --- PESTAÑAS PARA DIVIDIR PENDIENTES Y COMPLETADOS ---
+            tab_pendientes, tab_completados = st.tabs(["⏳ Pedidos Pendientes", "✅ Pedidos Completados"])
 
             todos = list(db.collection("pedidos_bordado").order_by("timestamp").stream())
             mis_pedidos = [p.to_dict() for p in todos if p.to_dict().get("cliente", "").strip().lower() == st.session_state.user.strip().lower()]
 
-            if mis_pedidos:
+            with tab_pendientes:
+                st.subheader("📋 Pedidos en Proceso")
                 pedidos_activos = [p for p in mis_pedidos if p.get('estado') != "Completado"]
                 
                 if pedidos_activos:
@@ -224,9 +227,36 @@ if st.session_state.modo_vista == "Cliente":
                                         pass
                             st.markdown("---")
                 else:
-                    st.info("No tienes pedidos activos.")
-            else:
-                st.info("No hay pedidos registrados.")
+                    st.info("No tienes pedidos pendientes activos.")
+
+            with tab_completados:
+                st.subheader("🎉 Historial de Pedidos Listos")
+                pedidos_terminados = [p for p in mis_pedidos if p.get('estado') == "Completado"]
+
+                if pedidos_terminados:
+                    for p in pedidos_terminados:
+                        with st.container():
+                            col_t1, col_t2 = st.columns([2, 1])
+                            with col_t1:
+                                st.markdown(f"**🧵 {p.get('nombre_proyecto')}**")
+                                st.text(f"ID: {p.get('id')}")
+                            with col_t2:
+                                st.markdown(f"**Estado:** `Completado`")
+                                st.text(f"{p.get('producto')}")
+
+                            # Mostrar archivos finales entregados si existen
+                            archivos_finales = p.get('archivos_finales', [])
+                            if archivos_finales:
+                                st.markdown("✨ **Archivos Listos para Descargar:**")
+                                for idx_f, af in enumerate(archivos_finales):
+                                    nom_f = af.get('nombre', 'resultado')
+                                    try:
+                                        st.download_button(f"📥 Descargar {nom_f}", data=base64.b64decode(af.get('data')), file_name=nom_f, key=f"dl_fin_{p.get('id')}_{idx_f}")
+                                    except Exception:
+                                        pass
+                            st.markdown("---")
+                else:
+                    st.info("Aún no tienes pedidos completados.")
 
         except Exception as e:
             if "ResourceExhausted" in str(type(e).__name__) or "quota" in str(e).lower():
@@ -238,27 +268,77 @@ if st.session_state.modo_vista == "Cliente":
 # 2. PANEL DE ADMINISTRADOR
 # =========================================================
 else:
-    st.subheader("🛠️ Administración")
+    st.subheader("🛠️ Administración de Pedidos")
 
     try:
         docs = list(db.collection("pedidos_bordado").order_by("timestamp").stream())
-        pedidos_activos = [(doc.id, doc.to_dict()) for doc in docs if doc.to_dict().get('estado') != "Completado"]
+        
+        # Pestañas también para el administrador
+        tab_admin_pend, tab_admin_comp = st.tabs(["⏳ Pendientes de Revisión", "✅ Completados / Entregados"])
 
-        if pedidos_activos:
-            for doc_id, p in pedidos_activos:
-                with st.container():
-                    col_a1, col_a2 = st.columns([2, 1])
-                    with col_a1:
-                        st.markdown(f"**👤 {p.get('cliente')}**")
-                        st.text(f"Proj: {p.get('nombre_proyecto')} | ID: {p.get('id')}")
-                    with col_a2:
-                        st.markdown(f"**{p.get('estado')}**")
-                        if st.button("🗑️ Borrar", key=f"mob_del_{doc_id}"):
-                            db.collection("pedidos_bordado").document(doc_id).delete()
-                            st.rerun()
-                    st.markdown("---")
-        else:
-            st.info("🎉 No hay pedidos pendientes.")
+        with tab_admin_pend:
+            pedidos_activos = [(doc.id, doc.to_dict()) for doc in docs if doc.to_dict().get('estado') != "Completado"]
+
+            if pedidos_activos:
+                for doc_id, p in pedidos_activos:
+                    with st.container():
+                        col_a1, col_a2 = st.columns([2, 1])
+                        with col_a1:
+                            st.markdown(f"**👤 {p.get('cliente')}**")
+                            st.text(f"Proj: {p.get('nombre_proyecto')} | ID: {p.get('id')}")
+                        with col_a2:
+                            st.markdown(f"**{p.get('estado')}**")
+                            if st.button("🗑️ Borrar", key=f"mob_del_{doc_id}"):
+                                db.collection("pedidos_bordado").document(doc_id).delete()
+                                st.rerun()
+                        
+                        # Opción para subir entregables y marcar como completado
+                        with st.expander("📤 Subir Archivo Final / Completar"):
+                            archivos_entregables = st.file_uploader(
+                                "Archivos listos:", 
+                                type=["dst", "emb", "pes", "png", "jpg", "pdf"],
+                                accept_multiple_files=True, 
+                                key=f"up_admin_{doc_id}"
+                            )
+                            if st.button("🚀 MARCAR COMO COMPLETADO", key=f"btn_comp_{doc_id}"):
+                                if archivos_entregables:
+                                    lista_finales = p.get('archivos_finales', [])
+                                    for af in archivos_entregables:
+                                        lista_finales.append({
+                                            "nombre": af.name,
+                                            "data": base64.b64encode(af.getvalue()).decode("utf-8")
+                                        })
+                                    db.collection("pedidos_bordado").document(doc_id).update({
+                                        "archivos_finales": lista_finales,
+                                        "estado": "Completado"
+                                    })
+                                    st.success("¡Pedido completado con éxito!")
+                                    st.rerun()
+                                else:
+                                    st.warning("Adjunta al menos un archivo final.")
+
+                        st.markdown("---")
+            else:
+                st.info("🎉 No hay pedidos pendientes de revisión.")
+
+        with tab_admin_comp:
+            pedidos_completados_admin = [(doc.id, doc.to_dict()) for doc in docs if doc.to_dict().get('estado') == "Completado"]
+
+            if pedidos_completados_admin:
+                for doc_id, p in pedidos_completados_admin:
+                    with st.container():
+                        col_ac1, col_ac2 = st.columns([2, 1])
+                        with col_ac1:
+                            st.markdown(f"**👤 {p.get('cliente')}** — 🧵 {p.get('nombre_proyecto')}")
+                            st.text(f"ID: {p.get('id')}")
+                        with col_ac2:
+                            st.markdown(f"**Estado:** `Completado`")
+                            if st.button("🗑️ Eliminar Historial", key=f"admin_del_comp_{doc_id}"):
+                                db.collection("pedidos_bordado").document(doc_id).delete()
+                                st.rerun()
+                        st.markdown("---")
+            else:
+                st.info("No hay pedidos completados en el historial.")
 
     except Exception as e:
         st.error(f"Error al cargar administración: {e}")
