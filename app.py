@@ -240,7 +240,6 @@ if st.session_state.modo_vista == "Cliente":
                         if pedido.get('comentarios'):
                             st.markdown(f"💬 **Comentarios:** {pedido.get('comentarios')}")
                         
-                        # Mostrar archivos subidos originalmente por el cliente
                         archivos = pedido.get('archivos', [])
                         if archivos:
                             st.markdown("**Tus Archivos Adjuntos:**")
@@ -254,7 +253,6 @@ if st.session_state.modo_vista == "Cliente":
                                     except Exception:
                                         pass
 
-                        # Mostrar Archivos Finales subidos por el Admin (Listos para descargar)
                         archivos_finales = pedido.get('archivos_finales', [])
                         if archivos_finales:
                             st.success("✅ ¡Tu pedido está completo! Descarga tus archivos finales aquí:")
@@ -360,33 +358,38 @@ else:
                                 pass
 
                 st.markdown("---")
-                st.markdown("📤 **Subir Archivo Final / Entregable (para que el cliente lo descargue):**")
+                st.markdown("📤 **Subir Archivos Finales / Entregables (Múltiples archivos permitidos):**")
                 
-                # Selector de archivo final único para este pedido
-                archivo_final_subido = st.file_uploader(f"Subir entregable para {p.get('nombre_proyecto')}", key=f"up_final_{doc_id}")
+                # Selector de archivos múltiples para los entregables finales
+                archivos_finales_subidos = st.file_uploader(
+                    f"Subir entregables para {p.get('nombre_proyecto')}", 
+                    accept_multiple_files=True,
+                    key=f"up_final_{doc_id}"
+                )
                 
-                if archivo_final_subido is not None:
-                    if st.button(f"💾 Guardar y Enviar Entregable", key=f"btn_save_final_{doc_id}"):
+                if archivos_finales_subidos:
+                    if st.button(f"💾 Guardar y Enviar Entregables", key=f"btn_save_final_{doc_id}"):
                         try:
-                            bytes_final = archivo_final_subido.getvalue()
-                            b64_final = base64.b64encode(bytes_final).decode("utf-8")
-                            
                             lista_finales = p.get("archivos_finales", [])
-                            lista_finales.append({
-                                "nombre": str(archivo_final_subido.name.strip()),
-                                "data": b64_final
-                            })
+                            
+                            for archivo_final in archivos_finales_subidos:
+                                bytes_final = archivo_final.getvalue()
+                                b64_final = base64.b64encode(bytes_final).decode("utf-8")
+                                
+                                lista_finales.append({
+                                    "nombre": str(archivo_final.name.strip()),
+                                    "data": b64_final
+                                })
                             
                             db.collection("pedidos_bordado").document(doc_id).update({
                                 "archivos_finales": lista_finales,
-                                "estado": "Completado"  # Actualiza automáticamente a completado al subir el entregable
+                                "estado": "Completado"
                             })
-                            st.success("¡Archivo final guardado y orden marcada como completada con éxito!")
+                            st.success("¡Archivos finales guardados y orden marcada como completada con éxito!")
                             st.rerun()
                         except Exception as e:
-                            st.error(f"Error al subir el archivo final: {e}")
+                            st.error(f"Error al subir los archivos finales: {e}")
 
-                # Mostrar los archivos finales ya subidos en el admin con opción de eliminarlos si se desea
                 archivos_finales_actuales = p.get("archivos_finales", [])
                 if archivos_finales_actuales:
                     st.markdown("✔️ **Entregables actuales en la nube:**")
@@ -395,7 +398,6 @@ else:
 
                 st.markdown("---")
                 
-                # Selector de Estado del Pedido
                 estado_actual = p.get('estado', 'Pendiente')
                 opciones_estado = ["Pendiente", "En Proceso", "Completado"]
                 nuevo_estado = st.selectbox(
