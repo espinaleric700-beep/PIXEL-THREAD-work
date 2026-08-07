@@ -145,12 +145,14 @@ if st.session_state.modo_vista == "Cliente":
                         status_placeholder.error("❌ Error: Debes adjuntar al menos un archivo.")
                     else:
                         try:
-                            status_placeholder.info("⏳ Procesando y enviando archivos, por favor espera...")
+                            # Indicador de proceso
+                            status_placeholder.info("⏳ Enviando pedido, por favor espera...")
                             
                             lista_archivos_guardados = []
                             for archivo in archivos_subidos:
                                 bytes_contenido = archivo.getvalue()
                                 
+                                # Procesamiento de imagen
                                 if archivo.name.lower().endswith(('.png', '.jpg', '.jpeg', '.webp')):
                                     img = Image.open(io.BytesIO(bytes_contenido))
                                     if img.mode in ("CMYK", "P"): img = img.convert("RGB")
@@ -164,6 +166,7 @@ if st.session_state.modo_vista == "Cliente":
                                     "data": str(base64.b64encode(bytes_contenido).decode("utf-8"))
                                 })
 
+                            # Guardado en Firestore
                             db.collection("pedidos_bordado").add({
                                 "id": f"PT-{int(datetime.now().timestamp())}",
                                 "cliente": str(st.session_state.user.strip()),
@@ -177,13 +180,15 @@ if st.session_state.modo_vista == "Cliente":
                                 "timestamp": datetime.now()
                             })
                             
+                            # ÉXITO: Se limpia el formulario y se avisa
                             st.session_state.expandir_nuevo_pedido = False
-                            status_placeholder.success("🎉 ¡Pedido enviado correctamente!")
-                            st.rerun()
+                            st.success("🎉 ¡Tu orden se envió y guardó correctamente!")
+                            st.rerun() 
                             
                         except Exception as e:
-                            status_placeholder.error(f"❌ Error al enviar el pedido: {e}")
-                            st.session_state.expandir_nuevo_pedido = True
+                            # AVISO DE ERROR: Se muestra el error exacto si algo falló al guardar
+                            status_placeholder.error(f"❌ Error al enviar el pedido: {str(e)}")
+                            st.session_state.expandir_nuevo_pedido = True # Mantiene el formulario abierto
 
         st.markdown("---")
         st.subheader("📋 Estado de Mis Pedidos y Posición en Cola")
