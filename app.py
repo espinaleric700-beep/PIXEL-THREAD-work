@@ -67,7 +67,7 @@ if "modo_vista" not in st.session_state:
 if "user" not in st.session_state:
     st.session_state.user = params.get("user", "")
 
-# Control explícito para abrir/cerrar el expander de nuevo pedido
+# Se mantiene siempre minimizado por defecto al iniciar o refrescar
 if "expandir_nuevo_pedido" not in st.session_state:
     st.session_state.expandir_nuevo_pedido = False
 
@@ -112,7 +112,7 @@ if st.session_state.modo_vista == "Cliente":
         st.title(f"🧵 Bienvenido, {nombre_cliente}")
         st.markdown("---")
 
-        # Sincronizamos el estado del expander con st.session_state.expandir_nuevo_pedido
+        # El expander arranca minimizado (False) por defecto
         with st.expander("➕ Enviar Nuevo Pedido", expanded=st.session_state.expandir_nuevo_pedido):
             st.markdown("📦 **Tipo de Producto:**")
             tipo_producto = st.radio("Producto:", ["GORRA", "TELA", "VARIOS"], horizontal=True, label_visibility="collapsed")
@@ -144,8 +144,10 @@ if st.session_state.modo_vista == "Cliente":
                     
                     if not nombre_proyecto:
                         status_placeholder.warning("⚠️ Debes ingresar el nombre o referencia del proyecto.")
+                        st.session_state.expandir_nuevo_pedido = True
                     elif not archivos_subidos:
                         status_placeholder.error("❌ Error: Debes adjuntar al menos un archivo.")
+                        st.session_state.expandir_nuevo_pedido = True
                     else:
                         try:
                             status_placeholder.info("⏳ Enviando pedido, por favor espera...")
@@ -184,7 +186,7 @@ if st.session_state.modo_vista == "Cliente":
                             ref.set(data_pedido)
                             
                             if ref.get().exists:
-                                # Forzamos el cierre del panel cambiando la variable de estado antes de recargar
+                                # Pedido exitoso: se minimiza el panel
                                 st.session_state.expandir_nuevo_pedido = False
                                 status_placeholder.success("🎉 ¡Tu orden se envió y guardó correctamente!")
                                 st.rerun() 
