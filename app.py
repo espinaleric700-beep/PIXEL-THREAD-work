@@ -125,7 +125,6 @@ if st.session_state.modo_vista == "Cliente":
             logo_perfil_b64 = datos_usuario.get("logo_usuario", "")
             nombre_cliente = datos_usuario.get('nombre_usuario', st.session_state.user)
 
-            # ENCABEZADO CENTRADO CON HTML PURO
             if logo_perfil_b64:
                 img_html = f'<img src="data:image/png;base64,{logo_perfil_b64}" style="width: 50px; vertical-align: middle; margin-right: 12px; border-radius: 4px;">'
             else:
@@ -141,25 +140,25 @@ if st.session_state.modo_vista == "Cliente":
             st.markdown("---")
 
             with st.expander("➕ Enviar Nuevo Pedido", expanded=False):
+                # Selector de producto fuera del formulario para permitir recarga visual inmediata
+                st.markdown("3. **Selecciona el Tipo de Producto:**")
+                tipo_producto = st.radio("Producto:", ["GORRA", "TELA"], horizontal=True, label_visibility="collapsed", key="tipo_producto_dinamico")
+
+                ubicacion = "N/A"
+                estilo_frente = "N/A"
+
+                if tipo_producto == "GORRA":
+                    st.markdown("📍 **Ubicación en la Gorra:**")
+                    ubicacion = st.radio("Ubicación:", ["FRENTE", "TRASERO", "LATERAL"], horizontal=True, label_visibility="collapsed", key="ubicacion_dinamica")
+                    
+                    if ubicacion == "FRENTE":
+                        st.markdown("✨ **Estilo de Bordado (Frente):**")
+                        estilo_frente = st.radio("Estilo:", ["3D (Relieve)", "PLANO / FLAT"], horizontal=True, label_visibility="collapsed", key="estilo_dinamico")
+
                 with st.form("form_pedido_streamlit", clear_on_submit=True):
                     nombre_proyecto = st.text_input("1. Nombre o Referencia del Proyecto")
                     archivo_subido = st.file_uploader("2. Sube tu Logo del Pedido (PNG, JPG, DST, PES)", type=["png", "jpg", "jpeg", "dst", "pes"])
                     
-                    st.markdown("3. **Selecciona el Tipo de Producto:**")
-                    tipo_producto = st.radio("Producto:", ["GORRA", "TELA"], horizontal=True, label_visibility="collapsed", key="tipo_prod_radio")
-                    
-                    ubicacion = "N/A"
-                    estilo_frente = "N/A"
-                    
-                    # AQUÍ ESTÁ LA CLAVE: Si es TELA, se omiten por completo los bloques de radio siguientes
-                    if tipo_producto == "GORRA":
-                        st.markdown("📍 **Ubicación en la Gorra:**")
-                        ubicacion = st.radio("Ubicación:", ["FRENTE", "TRASERO", "LATERAL"], horizontal=True, label_visibility="collapsed", key="ubicacion_gorra_radio")
-                        
-                        if ubicacion == "FRENTE":
-                            st.markdown("✨ **Estilo de Bordado (Frente):**")
-                            estilo_frente = st.radio("Estilo:", ["3D (Relieve)", "PLANO / FLAT"], horizontal=True, label_visibility="collapsed", key="estilo_frente_radio")
-
                     submit_pedido = st.form_submit_button("🚀 ENVIAR PEDIDO A PRODUCCIÓN")
                     
                     if submit_pedido:
