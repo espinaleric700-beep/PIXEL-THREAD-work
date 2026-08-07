@@ -65,35 +65,41 @@ def init_fb():
 
 db = init_fb()
 
-# --- GESTIÓN DE ESTADOS Y PERSISTENCIA DE VISTA POR URL ---
-if "user" not in st.session_state:
-    st.session_state.user = "Cliente General"
-
-# Obtenemos la vista actual desde los parámetros de la URL (si existe), si no por defecto es "Cliente"
+# --- PERSISTENCIA TOTAL MEDIANTE PARÁMETROS DE URL ---
 params = st.query_params
-vista_en_url = params.get("seccion", "Cliente")
 
+# Recuperar vista de la URL o usar "Cliente" por defecto
+vista_en_url = params.get("seccion", "Cliente")
 if "modo_vista" not in st.session_state:
     st.session_state.modo_vista = vista_en_url
 else:
-    # Si la URL fue modificada externamente o sincronizada, la respetamos
     if vista_en_url in ["Cliente", "Admin"]:
         st.session_state.modo_vista = vista_en_url
 
-# Función para cambiar de vista actualizando la URL de forma limpia
-def cambiar_seccion(nueva_vista):
+# Recuperar usuario de la URL o usar "Cliente General" por defecto
+usuario_en_url = params.get("user", "Cliente General")
+if "user" not in st.session_state:
+    st.session_state.user = usuario_en_url
+else:
+    if usuario_en_url and usuario_en_url != "Cliente General":
+        st.session_state.user = usuario_en_url
+
+# Función para actualizar los parámetros en la URL sin perder el estado
+def actualizar_url_y_estado(nueva_vista, nuevo_usuario):
     st.session_state.modo_vista = nueva_vista
+    st.session_state.user = nuevo_usuario
     st.query_params["seccion"] = nueva_vista
+    st.query_params["user"] = nuevo_usuario
     st.rerun()
 
 # Barra superior de navegación entre paneles
 col_nav1, col_nav2 = st.columns(2)
 with col_nav1:
     if st.button("👤 Panel de Cliente"):
-        cambiar_seccion("Cliente")
+        actualizar_url_y_estado("Cliente", st.session_state.user)
 with col_nav2:
     if st.button("🛠️ Panel Admin"):
-        cambiar_seccion("Admin")
+        actualizar_url_y_estado("Admin", st.session_state.user)
 
 st.markdown("---")
 
@@ -103,9 +109,11 @@ st.markdown("---")
 if st.session_state.modo_vista == "Cliente":
     st.title("🧵 Pixel Thread - Portal de Cliente")
     
-    # Identificador de usuario persistente
-    user = st.text_input("Tu Nombre o ID de Usuario (Para ver tus pedidos):", value=st.session_state.user)
-    st.session_state.user = user
+    # Identificador de usuario vinculado dinámicamente con la URL
+    user_input = st.text_input("Tu Nombre o ID de Usuario (Para ver tus pedidos):", value=st.session_state.user)
+    
+    if user_input != st.session_state.user:
+        actualizar_url_y_estado("Cliente", user_input)
 
     with st.expander("➕ Enviar Nuevo Pedido", expanded=False):
         with st.form("form_pedido_streamlit", clear_on_submit=True):
