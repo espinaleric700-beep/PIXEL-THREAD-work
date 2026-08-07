@@ -3,6 +3,8 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 from datetime import datetime
 import base64
+from io import BytesIO
+from PIL import Image
 from streamlit_autorefresh import st_autorefresh
 
 # --- CONFIGURACIÓN ---
@@ -27,12 +29,10 @@ st.markdown("""
         padding-top: 1.5rem;
     }
     
-    /* Aumentar tamaño de letra general y legibilidad */
     html, body, [data-testid="stMarkdownContainer"], p, span, label {
         font-size: 16px !important;
     }
     
-    /* Limpiar bordes innecesarios, dejando solo un estilo limpio */
     div[data-testid="stExpander"] {
         background: rgba(15, 15, 25, 0.7) !important;
         border: 1px solid rgba(0, 255, 204, 0.3) !important;
@@ -62,7 +62,6 @@ st.markdown("""
     h2 { color: var(--primary) !important; font-size: 1.8rem !important; }
     h3 { color: var(--primary) !important; font-size: 1.3rem !important; }
 
-    /* --- CÍRCULOS DE ESTADO --- */
     .dot-red {
         height: 10px;
         width: 10px;
@@ -107,6 +106,25 @@ def init_fb():
 
 db = init_fb()
 
+# --- FUNCIÓN PARA COMPRIMIR IMÁGENES Y EVITAR EL LÍMITE DE 1MB ---
+def procesar_archivo_subido(arch):
+    b_cont = arch.getvalue()
+    nombre_lower = arch.name.lower()
+    
+    # Si es imagen, la redimensionamos y comprimimos para que pese muy poco
+    if nombre_lower.endswith(('png', 'jpg', 'jpeg')):
+        try:
+            img = Image.open(BytesIO(b_cont))
+            img.thumbnail((1000, 1000)) # Reducir dimensiones máximas
+            buffered = BytesIO()
+            formato = "JPEG" if nombre_lower.endswith(('jpg', 'jpeg')) else "PNG"
+            img.save(buffered, format=formato, quality=80)
+            b_cont = buffered.getvalue()
+        except Exception:
+            pass
+            
+    return base64.b64encode(b_cont).decode("utf-8")
+
 # --- GESTIÓN DE ESTADOS Y URL ---
 params = st.query_params
 if "modo_vista" not in st.session_state: 
@@ -128,7 +146,6 @@ def actualizar_url(vista, user):
 
 ADMINS_AUTORIZADOS = ["Pixel2580", "eric"]
 
-# --- FUNCIÓN AUXILIAR PARA RENDERIZAR ESTADO CON CÍRCULO ---
 def render_estado_badge(estado):
     if estado == "Pendiente":
         st.markdown("**Estado:** Pendiente <span class='dot-red'></span>", unsafe_allow_html=True)
@@ -219,11 +236,11 @@ if st.session_state.modo_vista == "Cliente":
                         status_ph.error("❌ Adjunta al menos un archivo.")
                     else:
                         try:
-                            status_ph.info("⏳ Enviando...")
+                            status_ph.info("⏳ Procesando y enviando...")
                             lista_archivos = []
                             for arch in archivos_subidos:
-                                b_cont = arch.getvalue()
-                                lista_archivos.append({"nombre": arch.name, "data": base64.b64encode(b_cont).decode("utf-8")})
+                                b64_data = procesar_archivo_subido(arch)
+                                lista_archivos.append({"nombre": arch.name, "data": b64_data})
 
                             data_pedido = {
                                 "id": f"PT-{int(datetime.now().timestamp())}",
@@ -389,9 +406,10 @@ else:
                                     if archivos_entregables:
                                         lista_finales = p.get('archivos_finales', [])
                                         for af in archivos_entregables:
+                                            b64_fin = procesar_archivo_subido(af)
                                             lista_finales.append({
                                                 "nombre": af.name,
-                                                "data": base64.b64encode(af.getvalue()).decode("utf-8")
+                                                "data": b64_fin
                                             })
                                         db.collection("pedidos_bordado").document(doc_id).update({
                                             "archivos_finales": lista_finales,
@@ -409,7 +427,7 @@ else:
                 st.info("🎉 No hay pedidos pendientes de revisión.")
 
         with tab_admin_comp:
-            pedidos_completados_admin = [(doc.id, doc.to_dict()) for doc in docs if doc.to_dict().get('estado') == "Completado"]
+            pedidos_completados_admin = [(doc.id, doc.to_dict()) for doc in docs if doc.to_dict().get('estado'] == "Completado"]
 
             if pedidos_completados_admin:
                 cols = st.columns(4)
@@ -451,7 +469,7 @@ else:
                                     "nombre_usuario": c_nombre if c_nombre else c_id
                                 }
                                 if c_logo:
-                                    data_cliente["logo_b64"] = base64.b64encode(c_logo.getvalue()).decode("utf-8")
+                                    data_cliente["logo_b64"] = procesar_archivo_subido(c_logo)
                                 
                                 doc_ref.set(data_cliente, merge=True)
                                 st.success(f"✅ Cliente '{c_id}' guardado correctamente.")
