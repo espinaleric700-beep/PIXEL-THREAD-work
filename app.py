@@ -11,7 +11,7 @@ from streamlit_autorefresh import st_autorefresh
 st.set_page_config(page_title="Pixel Thread | Pro", layout="wide")
 st_autorefresh(interval=10000, limit=1000, key="auto_refrescar")
 
-# --- CSS LIMPIO, SIN LÍNEAS ANIDADas, LETRAS MÁS GRANDES Y OCULTAR TOTALMENTE ELEMENTOS FLOTANTES Y DE STREAMLIT ---
+# --- CSS LIMPIO, SIN LÍNEAS ANIDADAS, LETRAS MÁS GRANDES Y OCULTAR TOTALMENTE ELEMENTOS FLOTANTES Y DE STREAMLIT ---
 st.markdown("""
 <style>
     :root {
@@ -244,21 +244,24 @@ st.markdown("<br>", unsafe_allow_html=True)
 # 1. PANEL DE CLIENTE
 # =========================================================
 if st.session_state.modo_vista == "Cliente":
-    # Callback para capturar el Enter o el cambio directo en el input sin depender de clics externos
-    def cambiar_usuario():
-        st.session_state.user = st.session_state.input_usuario_key
+    user_clean_inicial = st.session_state.user.strip()
 
-    col_input, col_btn_buscar = st.columns([4, 1], vertical_alignment="bottom")
-    with col_input:
-        st.text_input(
-            "Ingresa tu Nombre o ID de Usuario:", 
-            value=st.session_state.user, 
-            key="input_usuario_key", 
-            on_change=cambiar_usuario
-        )
-    with col_btn_buscar:
-        if st.button("🔍 Buscar", use_container_width=True):
+    # Si ya hay un usuario cargado, mostramos un desplegable/expander contraído para cambiarlo (así se minimiza automáticamente)
+    with st.expander("👤 Cambiar / Ver Usuario Actual", expanded=not bool(user_clean_inicial)):
+        def cambiar_usuario():
             st.session_state.user = st.session_state.input_usuario_key
+
+        col_input, col_btn_buscar = st.columns([4, 1], vertical_alignment="bottom")
+        with col_input:
+            st.text_input(
+                "Ingresa tu Nombre o ID de Usuario:", 
+                value=st.session_state.user, 
+                key="input_usuario_key", 
+                on_change=cambiar_usuario
+            )
+        with col_btn_buscar:
+            if st.button("🔍 Buscar", use_container_width=True):
+                st.session_state.user = st.session_state.input_usuario_key
 
     # Sincronizamos cambios con la URL
     if st.session_state.user != params.get("user", ""):
@@ -267,7 +270,7 @@ if st.session_state.modo_vista == "Cliente":
     user_clean = st.session_state.user.strip().lower()
 
     if not user_clean:
-        st.info("👆 Ingresa tu ID de usuario arriba y presiona Enter o el botón Buscar para ver tus pedidos.")
+        st.info("👆 Ingresa tu ID de usuario arriba, presiona Enter o el botón Buscar para ver tus pedidos.")
     else:
         try:
             user_doc_ref = db.collection("usuarios_perfil").document(user_clean)
