@@ -119,31 +119,31 @@ if st.session_state.modo_vista == "Cliente":
         user_doc_ref = db.collection("usuarios_perfil").document(st.session_state.user.strip().lower())
         user_doc = user_doc_ref.get()
         
-        # SI EL USUARIO NO EXISTE TODAVÍA (PRIMERA VEZ) -> FORMULARIO DE REGISTRO CON LOGO
+        # SI EL USUARIO NO EXISTE TODAVÍA (PRIMERA VEZ) -> REGISTRO CON OPCIÓN DE LOGO OPCIONAL
         if not user_doc.exists:
-            st.warning(f"⚠️ El usuario **{st.session_state.user}** no está registrado. Por favor, sube el logo de tu marca/usuario para completar tu registro por primera vez:")
+            st.warning(f"⚠️ El usuario **{st.session_state.user}** no está registrado. Puedes subir un logo opcionalmente o registrarte directamente:")
             
-            logo_registro_file = st.file_uploader("Sube el logo de tu usuario (PNG, JPG)", type=["png", "jpg", "jpeg"], key="uploader_logo_registro")
+            logo_registro_file = st.file_uploader("Sube el logo de tu usuario (Opcional - PNG, JPG)", type=["png", "jpg", "jpeg"], key="uploader_logo_registro")
             
-            if st.button("✨ Registrar Cuenta y Logo"):
+            if st.button("✨ Registrar Cuenta"):
+                l_b64 = ""
                 if logo_registro_file is not None:
                     l_b64 = base64.b64encode(logo_registro_file.getvalue()).decode("utf-8")
-                    user_doc_ref.set({
-                        "nombre_usuario": st.session_state.user.strip(),
-                        "logo_usuario": l_b64,
-                        "creado": datetime.now()
-                    })
-                    st.success("¡Registro completado con éxito!")
-                    st.rerun()
-                else:
-                    st.warning("⚠️ Debes subir una imagen para continuar con el registro.")
+                
+                user_doc_ref.set({
+                    "nombre_usuario": st.session_state.user.strip(),
+                    "logo_usuario": l_b64,
+                    "creado": datetime.now()
+                })
+                st.success("¡Registro completado con éxito!")
+                st.rerun()
         
-        # SI EL USUARIO YA EXISTE -> MUESTRA SU PERFIL CON EL LOGO AL LADO Y EL RESTO DE FUNCIONES
+        # SI EL USUARIO YA EXISTE -> MUESTRA SU PERFIL Y EL RESTO DE FUNCIONES
         else:
             datos_usuario = user_doc.to_dict()
             logo_perfil_b64 = datos_usuario.get("logo_usuario", "")
 
-            # Contenedor superior con la información del usuario y su logo al lado
+            # Contenedor superior con la información del usuario y su logo al lado (si lo tiene)
             col_perfil1, col_perfil2 = st.columns([3, 1])
             with col_perfil1:
                 st.success(f"Sesión activa como: **{st.session_state.user}**")
