@@ -192,6 +192,7 @@ if st.session_state.modo_vista == "Cliente":
 
         st.markdown("---")
         st.subheader("📋 Estado de Mis Pedidos")
+
         try:
             todos = list(db.collection("pedidos_bordado").order_by("timestamp").stream())
             mis_pedidos = [p.to_dict() for p in todos if p.to_dict().get("cliente", "").strip().lower() == st.session_state.user.strip().lower()]
@@ -207,7 +208,30 @@ if st.session_state.modo_vista == "Cliente":
                     else:
                         pedidos_cliente_activos.append(p)
 
-                # --- MOSTRAR PEDIDOS ACTIVOS DEL CLIENTE ---
+                # --- 1. HISTORIAL DE PEDIDOS COMPLETADOS (JUSTO DEBAJO DEL TÍTULO) ---
+                if pedidos_cliente_completados:
+                    with st.expander(f"📦 Historial de Mis Pedidos Completados / Entregados ({len(pedidos_cliente_completados)})", expanded=False):
+                        st.info("Aquí puedes consultar y volver a descargar los entregables de tus trabajos finalizados.")
+                        
+                        for p in pedidos_cliente_completados:
+                            st.markdown(f"### 🧵 Proyecto: {p.get('nombre_proyecto')}")
+                            st.markdown(f"**ID de Pedido:** `{p.get('id')}` | **Estado:** `✅ Completado`")
+                            st.markdown(f"**Producto:** {p.get('producto')} | **Ubicación:** {p.get('ubicacion')} | **Estilo:** {p.get('estilo')}")
+                            
+                            af = p.get('archivos_finales', [])
+                            if af:
+                                st.success("✨ Archivos Entregados:")
+                                for idx_f, f_item in enumerate(af):
+                                    st.download_button(
+                                        f"📥 Descargar: {f_item.get('nombre')}", 
+                                        data=base64.b64decode(f_item.get('data')), 
+                                        file_name=f_item.get('nombre'), 
+                                        key=f"dl_client_comp_{p.get('id')}_{idx_f}"
+                                    )
+                            st.markdown("---")
+                    st.markdown("<br>", unsafe_allow_html=True)
+
+                # --- 2. MOSTRAR PEDIDOS ACTIVOS EN CURSO ---
                 if pedidos_cliente_activos:
                     for p in pedidos_cliente_activos:
                         with st.container():
@@ -252,29 +276,6 @@ if st.session_state.modo_vista == "Cliente":
                             st.markdown("---")
                 else:
                     st.info("No tienes pedidos pendientes o en proceso en este momento.")
-
-                # --- SECCIÓN APARTE: PEDIDOS COMPLETADOS DEL CLIENTE ---
-                if pedidos_cliente_completados:
-                    st.markdown("<br>", unsafe_allow_html=True)
-                    with st.expander(f"📦 Historial de Mis Pedidos Completados / Entregados ({len(pedidos_cliente_completados)})", expanded=False):
-                        st.info("Aquí puedes consultar y volver a descargar los entregables de tus trabajos finalizados.")
-                        
-                        for p in pedidos_cliente_completados:
-                            st.markdown(f"### 🧵 Proyecto: {p.get('nombre_proyecto')}")
-                            st.markdown(f"**ID de Pedido:** `{p.get('id')}` | **Estado:** `✅ Completado`")
-                            st.markdown(f"**Producto:** {p.get('producto')} | **Ubicación:** {p.get('ubicacion')} | **Estilo:** {p.get('estilo')}")
-                            
-                            af = p.get('archivos_finales', [])
-                            if af:
-                                st.success("✨ Archivos Entregados:")
-                                for idx_f, f_item in enumerate(af):
-                                    st.download_button(
-                                        f"📥 Descargar: {f_item.get('nombre')}", 
-                                        data=base64.b64decode(f_item.get('data')), 
-                                        file_name=f_item.get('nombre'), 
-                                        key=f"dl_client_comp_{p.get('id')}_{idx_f}"
-                                    )
-                            st.markdown("---")
             else:
                 st.info(f"No hay pedidos registrados para: {st.session_state.user}")
         except Exception as e:
