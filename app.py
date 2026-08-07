@@ -4,6 +4,7 @@ from firebase_admin import credentials, firestore
 from datetime import datetime
 import base64
 import io
+from PIL import Image
 from streamlit_autorefresh import st_autorefresh
 
 # Configuración de página optimizada para móvil
@@ -140,7 +141,7 @@ if st.session_state.modo_vista == "Cliente":
 
             st.markdown("---")
 
-            # Control de estado para minimizar el expander tras enviar con éxito
+            # Control de estado para minimizar el expander de manera predeterminada o tras enviar
             if "expandir_nuevo_pedido" not in st.session_state:
                 st.session_state.expandir_nuevo_pedido = False
 
@@ -184,8 +185,27 @@ if st.session_state.modo_vista == "Cliente":
                             lista_archivos_guardados = []
                             try:
                                 for archivo in archivos_subidos:
-                                    # Procesamiento robusto mediante BytesIO para asegurar lectura íntegra de PNG y archivos pesados
-                                    bytes_contenido = io.BytesIO(archivo.getvalue()).read()
+                                    nombre_archivo_lower = archivo.name.lower()
+                                    bytes_contenido = archivo.getvalue()
+
+                                    # Procesamiento especial y seguro para archivos de imagen (.png, .jpg, .jpeg) usando Pillow
+                                    if nombre_archivo_lower.endswith(('.png', '.jpg', '.jpeg')):
+                                        try:
+                                            img = Image.open(io.BytesIO(bytes_contenido))
+                                            # Si es PNG con transparencia RGBA y se guarda a formato estándar, evitamos conflictos convirtiendo si es necesario
+                                            if img.mode in ("RGBA", "P") and nombre_archivo_lower.endswith('.png'):
+                                                buffered = io.BytesIO()
+                                                img.save(buffered, format="PNG")
+                                                bytes_contenido = buffered.getvalue()
+                                            elif img.mode not in ("RGB", "RGBA"):
+                                                img = img.convert("RGB")
+                                                buffered = io.BytesIO()
+                                                img.save(buffered, format="JPEG")
+                                                bytes_contenido = buffered.getvalue()
+                                        except Exception as img_err:
+                                            # Si falla Pillow, mantenemos los bytes originales del uploader
+                                            pass
+
                                     archivo_b64 = base64.b64encode(bytes_contenido).decode("utf-8")
                                     lista_archivos_guardados.append({
                                         "nombre": archivo.name,
@@ -207,22 +227,22 @@ if st.session_state.modo_vista == "Cliente":
                                 
                                 db.collection("pedidos_bordado").add(data_pedido)
                                 
-                                # Guardamos estado para minimizar y mostrar aviso de éxito global
+                                # Minimizar expander y configurar aviso de éxito visible
                                 st.session_state.expandir_nuevo_pedido = False
                                 st.session_state.alerta_envio = {"tipo": "exito", "texto": "🎉 ¡Tu orden se envió y guardó correctamente en producción!"}
                                 st.rerun()
                             except Exception as e:
+                                st.session_state.expandir_nuevo_pedido = True
                                 st.session_state.alerta_envio = {"tipo": "error", "texto": f"❌ Error crítico al procesar los archivos: {e}"}
                                 st.rerun()
 
-            # Mostrar aviso persistente del resultado del envío si existe
+            # Mostrar aviso explícito del resultado del envío de la orden
             if "alerta_envio" in st.session_state:
                 alerta = st.session_state.alerta_envio
                 if alerta["tipo"] == "exito":
-                    st.success(alerta["text"]) if "text" in alerta else st.success(alerta["texto"])
+                    st.success(alerta["texto"])
                 else:
-                    st.error(alerta["text"]) if "text" in alerta else st.error(alerta["texto"])
-                # Limpiamos la alerta para que no se quede estática infinitamente tras recargas
+                    st.error(alerta["texto"])
                 del st.session_state.alerta_envio
 
             st.markdown("---")
@@ -315,8 +335,16 @@ else:
                     else:
                         l_b64 = ""
                         if logo_cliente_file is not None:
-                            bytes_logo = io.BytesIO(logo_cliente_file.getvalue()).read()
-                            l_b64 = base64.b64encode(bytes_logo).decode("utf-8")
+                            try:
+                                l_bytes = logo_cliente_file.getvalue()
+                                img_logo = Image.open(io.BytesIO(l_bytes))
+                                if img_logo.mode in ("RGBA", "P"):
+                                    buffered_l = io.BytesIO()
+                                    img_logo.save(buffered_l, format="PNG")
+                                    l_bytes = buffered_l.getvalue()
+                                l_b64 = base64.b64encode(l_bytes).decode("utf-8")
+                            except Exception:
+                                l_b64 = base64.b64encode(logo_cliente_file.getvalue()).decode("utf-8")
                         
                         doc_ref_nuevo.set({
                             "nombre_usuario": nuevo_id_cliente.strip(),
