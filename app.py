@@ -219,7 +219,6 @@ if st.session_state.modo_vista == "Cliente":
                                 st.markdown(f"**Estado:** `{p.get('estado')}`")
                                 st.text(f"{p.get('producto')} / {p.get('ubicacion')}")
 
-                            # Mostrar archivos y vista previa si es imagen
                             archivos = p.get('archivos', [])
                             if archivos:
                                 st.markdown("📁 **Archivos adjuntos:**")
@@ -227,10 +226,8 @@ if st.session_state.modo_vista == "Cliente":
                                     nombre_a = arch_item.get('nombre', 'archivo')
                                     try:
                                         raw_bytes = base64.b64decode(arch_item.get('data'))
-                                        # Vista previa si es imagen
                                         if nombre_a.lower().endswith(('png', 'jpg', 'jpeg')):
                                             st.image(raw_bytes, width=150, caption=nombre_a)
-                                        
                                         st.download_button(f"📥 Descargar {nombre_a}", data=raw_bytes, file_name=nombre_a, key=f"dl_cli_{p.get('id')}_{idx_a}")
                                     except Exception:
                                         pass
@@ -299,22 +296,18 @@ else:
                             if p.get('comentarios'):
                                 st.caption(f"📝 Comentarios: {p.get('comentarios')}")
                         with col_a2:
-                            # Selector rápido de estado para el Administrador
-                            estados_disponibles = ["Pendiente", "En Proceso", "Diseñando", "Revisión"]
                             estado_actual = p.get('estado', 'Pendiente')
-                            if estado_actual not in estados_disponibles:
-                                estados_disponibles.append(estado_actual)
+                            st.markdown(f"**Estado:** `{estado_actual}`")
                             
-                            nuevo_estado = st.selectbox(
-                                "Cambiar Estado:", 
-                                estados_disponibles, 
-                                index=estados_disponibles.index(estado_actual), 
-                                key=f"status_sel_{doc_id}"
-                            )
-                            if nuevo_estado != estado_actual:
-                                db.collection("pedidos_bordado").document(doc_id).update({"estado": nuevo_estado})
-                                st.success(f"Estado actualizado a: {nuevo_estado}")
-                                st.rerun()
+                            # Botón rápido para alternar entre Pendiente y En Proceso
+                            if estado_actual == "Pendiente":
+                                if st.button("🔄 Cambiar a En Proceso", key=f"btn_proceso_{doc_id}"):
+                                    db.collection("pedidos_bordado").document(doc_id).update({"estado": "En Proceso"})
+                                    st.rerun()
+                            else:
+                                if st.button("🔄 Cambiar a Pendiente", key=f"btn_pendiente_{doc_id}"):
+                                    db.collection("pedidos_bordado").document(doc_id).update({"estado": "Pendiente"})
+                                    st.rerun()
 
                         # Mostrar archivos subidos por el cliente con vista previa
                         archivos_cliente = p.get('archivos', [])
@@ -366,7 +359,7 @@ else:
                 st.info("🎉 No hay pedidos pendientes de revisión.")
 
         with tab_admin_comp:
-            pedidos_completados_admin = [(doc.id, doc.to_dict()) for doc in docs if doc.to_dict().get('estado') == "Completado"]
+            pedidos_completados_admin = [(doc.id, doc.to_dict()) for doc in docs if doc.to_dict().get('estado'] == "Completado"]
 
             if pedidos_completados_admin:
                 for doc_id, p in pedidos_completados_admin:
