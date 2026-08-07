@@ -5,11 +5,9 @@ from datetime import datetime
 import base64
 from io import BytesIO
 from PIL import Image
-from streamlit_autorefresh import st_autorefresh
 
 # --- CONFIGURACIÓN ---
 st.set_page_config(page_title="Pixel Thread | Pro", layout="wide")
-st_autorefresh(interval=10000, limit=1000, key="auto_refrescar")
 
 # --- CSS LIMPIO, SIN LÍNEAS ANIDADAS, LETRAS MÁS GRANDES Y FONDO ORIGINAL ---
 st.markdown("""
@@ -124,20 +122,13 @@ def recalcular_turnos():
 
 # --- FUNCIÓN PARA ESTIMAR EL USO DEL PLAN GRATUITO DE FIREBASE (SPARK) ---
 def obtener_uso_firebase():
-    """
-    Calcula el uso basado en el límite diario de lecturas del plan Spark gratuito (50,000 lecturas/día).
-    Cuenta los documentos actuales como una aproximación del tráfico o usa una base realista.
-    """
     try:
         pedidos = list(db.collection("pedidos_bordado").stream())
         clientes = list(db.collection("usuarios_perfil").stream())
         total_docs = len(pedidos) + len(clientes)
         
-        # Límite diario de operaciones de lectura del plan Spark gratuito
         limite_lecturas = 50000
-        # Tomando las 45k lecturas basadas en tu gráfica actual de Firebase como referencia de uso diario real
         lecturas_actuales = 45000 
-        
         porcentaje_uso = min(float(lecturas_actuales) / limite_lecturas * 100, 100.0)
         
         return {
@@ -265,7 +256,6 @@ if st.session_state.modo_vista == "Cliente":
                     nombre_cliente = data_u.get('nombre_usuario', st.session_state.user)
                     logo_cliente_b64 = data_u.get('logo_b64', None)
 
-                # ENCABEZADO GRANDE PARA EL CLIENTE Y SU LOGO
                 col_c1, col_c2 = st.columns([0.1, 3.9], vertical_alignment="center")
                 with col_c1:
                     if logo_cliente_b64:
@@ -327,18 +317,9 @@ if st.session_state.modo_vista == "Cliente":
                                     "timestamp": datetime.now()
                                 }
                                 db.collection("pedidos_bordado").add(data_pedido)
-                                
                                 recalcular_turnos()
-                                
-                                docs_temp = list(db.collection("pedidos_bordado").order_by("timestamp").stream())
-                                turno_asignado = 1
-                                for d in docs_temp:
-                                    d_dict = d.to_dict()
-                                    if d_dict.get("nombre_proyecto") == nombre_proyecto and d_dict.get("cliente", "").strip().lower() == st.session_state.user.strip().lower() and d_dict.get("estado") != "Completado":
-                                        turno_asignado = d_dict.get("turno", 1)
-                                        break
 
-                                st.session_state.mensaje_exito = f"🎉 ¡Enviado con éxito! Tu turno asignado en la cola es el #{turno_asignado}."
+                                st.session_state.mensaje_exito = "🎉 ¡Pedido enviado con éxito!"
                                 st.session_state.form_version += 1
                                 st.session_state.expandir_nuevo_pedido = False
                                 st.rerun()
@@ -346,7 +327,6 @@ if st.session_state.modo_vista == "Cliente":
                                 status_ph.error(f"Error: {e}")
 
                 st.markdown("---")
-                
                 tab_pendientes, tab_completados = st.tabs(["⏳ Pedidos Pendientes", "✅ Pedidos Completados"])
 
                 todos = list(db.collection("pedidos_bordado").order_by("timestamp").stream())
@@ -417,10 +397,7 @@ if st.session_state.modo_vista == "Cliente":
                         st.info("Aún no tienes pedidos completados.")
 
         except Exception as e:
-            if "ResourceExhausted" in str(type(e).__name__) or "quota" in str(e).lower():
-                st.error("⚠️ Límite de base de datos alcanzado temporalmente. Espera unos segundos.")
-            else:
-                st.error(f"Error: {e}")
+            st.error(f"Error: {e}")
 
 # =========================================================
 # 2. PANEL DE ADMINISTRADOR
@@ -428,7 +405,6 @@ if st.session_state.modo_vista == "Cliente":
 else:
     st.subheader("🛠️ Administración General")
 
-    # --- AVISO DE USO DEL PLAN DE FIREBASE ---
     uso_fb = obtener_uso_firebase()
     porcentaje_uso = uso_fb["porcentaje"]
     
@@ -459,9 +435,6 @@ else:
         recalcular_turnos()
         docs = list(db.collection("pedidos_bordado").order_by("timestamp").stream())
 
-        # =========================================================
-        # PESTAÑA: PENDIENTES Y EN PROCESO
-        # =========================================================
         with tab_admin_pend:
             pedidos_activos = [(doc.id, doc.to_dict()) for doc in docs if doc.to_dict().get('estado') != "Completado"]
 
@@ -535,7 +508,6 @@ else:
                                         try:
                                             status_subida = st.empty()
                                             total_archivos = len(archivos_entregables)
-                                            
                                             db.collection("pedidos_bordado").document(doc_id).update({"archivos_finales": []})
                                             
                                             for idx, af in enumerate(archivos_entregables, start=1):
@@ -564,14 +536,11 @@ else:
             else:
                 st.info("🎉 No hay pedidos pendientes de revisión.")
 
-        # =========================================================
-        # PESTAÑA: COMPLETADOS / ENTREGADOS
-        # =========================================================
         with tab_admin_comp:
             pedidos_completados_admin = [
                 (doc.id, doc.to_dict()) 
                 for doc in docs 
-                if doc.to_dict().get('estado') == "Completado"
+                if doc.to_dict().get('estado'] == "Completado"
             ]
 
             if pedidos_completados_admin:
@@ -618,7 +587,6 @@ else:
                                         try:
                                             status_subida = st.empty()
                                             total_archivos = len(archivos_extra)
-                                            
                                             db.collection("pedidos_bordado").document(doc_id).update({"archivos_finales": []})
                                             
                                             for idx, af in enumerate(archivos_extra, start=1):
@@ -644,9 +612,6 @@ else:
             else:
                 st.info("🎉 No hay pedidos completados actualmente.")
 
-        # =========================================================
-        # PESTAÑA: GESTIÓN DE CLIENTES
-        # =========================================================
         with tab_admin_clientes:
             st.subheader("👥 Registro y Administración de Clientes")
             
@@ -711,7 +676,4 @@ else:
                 st.info("No hay clientes registrados en la base de datos.")
 
     except Exception as e:
-        if "ResourceExhausted" in str(type(e).__name__) or "quota" in str(e).lower():
-            st.error("⚠️ Límite de base de datos alcanzado temporalmente. Espera unos segundos.")
-        else:
-            st.error(f"Error en panel de administración: {e}")
+        st.error(f"Error en panel de administración: {e}")
