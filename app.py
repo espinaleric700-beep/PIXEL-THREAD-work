@@ -5,7 +5,7 @@ import json
 from datetime import datetime
 
 # --- CONFIGURACIÓN DE PÁGINA EN ANCHO COMPLETO ---
-st.set_page_config(page_title="Pixel Nexus", layout="wide")
+st.set_page_config(page_title="Pixel Thread", layout="wide")
 
 # --- ESTILOS FUTURISTAS Y ANCHO EXPANDIDO ---
 st.markdown("""
@@ -42,54 +42,58 @@ db = init_fb()
 
 # --- LÓGICA DE PERSISTENCIA ---
 if "user" not in st.session_state: 
-    st.session_state.user = "Usuario"
+    st.session_state.user = "Pixel2580"
 
-st.title("🧵 Pixel Thread / Pixel Nexus")
+# --- ENCABEZADO PRINCIPAL ---
+st.title("⚡ PIXEL THREAD")
 
-# --- INTERFAZ PRINCIPAL ---
-user = st.text_input("Tu ID / Cliente", value=st.session_state.user)
+# Botones de navegación superior estilo interfaz original
+col_btn1, col_btn2, col_space = st.columns([1, 1, 4])
+with col_btn1:
+    btn_cliente = st.button("👤 PANEL CLIENTE")
+with col_btn2:
+    btn_admin = st.button("🛠️ PANEL ADMIN")
+
+st.markdown("---")
+
+# ID de usuario / Conexión rápida
+user = st.text_input("Tu ID", value=st.session_state.user)
 if st.button("Conectar"):
     st.session_state.user = user
     st.rerun()
 
 st.markdown("---")
 
-# --- PANELES Y GESTIÓN DE PEDIDOS ---
-col1, col2 = st.columns(2)
+# --- PANEL DE ADMINISTRACIÓN Y FORMULARIO DE REGISTRO ---
+st.subheader("🛠️ PANEL DE ADMINISTRACIÓN")
 
-with col1:
-    st.subheader("⚡ Panel de Clientes")
-    with st.form("nuevo_pedido", clear_on_submit=True):
-        nombre = st.text_input("Nombre del Proyecto / Pedido")
-        tipo = st.selectbox("Tipo de Diseño", ["Tela", "Gorra", "VARIOS"])
-        submit = st.form_submit_button("Registrar Nuevo Cliente / Pedido")
-       
-    if submit and nombre:
-        data = {
-            "cliente": user, 
-            "nombre": nombre, 
-            "tipo": tipo, 
-            "estado": "Pendiente",
-            "fecha": datetime.now().isoformat()
-        }
-        db.collection("logos").add(data)
-        st.success("¡Pedido guardado en la red con éxito!")
+with st.form("nuevo_cliente_form", clear_on_submit=True):
+    st.markdown("➕ Registrar Nuevo Cliente / Pedido")
+    nombre_proyecto = st.text_input("Nombre del Proyecto / Producto")
+    tipo_pedido = st.selectbox("Tipo", ["VARIOS", "Tela", "Gorra"])
+    submit = st.form_submit_button("Guardar en el sistema")
 
-with col2:
-    st.subheader("🛠️ Panel de Administración")
-    st.info("Herramientas de control y supervisión activas.")
+if submit and nombre_proyecto:
+    data = {
+        "cliente": user, 
+        "nombre": nombre_proyecto, 
+        "tipo": tipo_pedido, 
+        "estado": "Pendiente",
+        "fecha": datetime.now().isoformat()
+    }
+    db.collection("logos").add(data)
+    st.success("¡Registro completado con éxito!")
 
 st.markdown("---")
 
-# --- GESTIÓN DE PEDIDOS ENTRANTES E HISTORIAL ---
-st.subheader("📋 Gestión de Pedidos Entrantes")
+# --- GESTIÓN DE PEDIDOS ENTRANTES ---
+st.subheader("📋 GESTIÓN DE PEDIDOS ENTRANTES")
 
 docs = db.collection("logos").stream()
 for d in docs:
     p = d.to_dict()
-    # Mostramos los pedidos registrados
     with st.container():
-        st.markdown(f"**Usuario / Cliente:** {p.get('cliente', 'N/A')} — ⏳ **{p.get('tipo', 'N/A')}**")
+        st.markdown(f"👤 **{p.get('cliente', 'N/A')}** — ⏳ **{p.get('tipo', 'N/A')}**")
         st.caption(f"ID de Pedido: {d.id} | Estado: {p.get('estado', 'Pendiente')}")
         st.text(f"Producto: {p.get('nombre', 'N/A')} | Ubicación: N/A | Estilo: N/A")
         st.markdown("---")
