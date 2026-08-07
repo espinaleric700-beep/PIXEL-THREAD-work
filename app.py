@@ -178,7 +178,9 @@ if st.session_state.modo_vista == "Cliente":
                         else:
                             lista_archivos_guardados = []
                             for archivo in archivos_subidos:
-                                archivo_b64 = base64.b64encode(archivo.getvalue()).decode("utf-8")
+                                # Lectura correcta en bytes asegurando que formatos como PNG y PDF se procesen completos
+                                archivo_bytes = archivo.read()
+                                archivo_b64 = base64.b64encode(archivo_bytes).decode("utf-8")
                                 lista_archivos_guardados.append({
                                     "nombre": archivo.name,
                                     "data": archivo_b64
@@ -246,9 +248,7 @@ if st.session_state.modo_vista == "Cliente":
                             if pedido.get('comentarios'):
                                 st.markdown(f"💬 **Comentarios:** {pedido.get('comentarios')}")
                             
-                            # Mostrar archivos adjuntos múltiples
                             archivos = pedido.get('archivos', [])
-                            # Compatibilidad con pedidos antiguos de un solo archivo
                             if not archivos and pedido.get('archivo_nombre'):
                                 archivos = [{"nombre": pedido.get('archivo_nombre'), "data": pedido.get('archivo_data')}]
 
@@ -290,7 +290,7 @@ else:
                     else:
                         l_b64 = ""
                         if logo_cliente_file is not None:
-                            l_b64 = base64.b64encode(logo_cliente_file.getvalue()).decode("utf-8")
+                            l_b64 = base64.b64encode(logo_cliente_file.read()).decode("utf-8")
                         
                         doc_ref_nuevo.set({
                             "nombre_usuario": nuevo_id_cliente.strip(),
