@@ -34,7 +34,7 @@ st.markdown("""
     h1, h2, h3 {
         color: #00ffcc !important;
     }
-    .stTextInput input, .stSelectbox select {
+    .stTextInput input, .stSelectbox select, .stTextArea textarea {
         background-color: #0b0f19;
         color: white;
         border: 1px solid #00ffcc55;
@@ -140,8 +140,8 @@ if st.session_state.modo_vista == "Cliente":
             st.markdown("---")
 
             with st.expander("➕ Enviar Nuevo Pedido", expanded=False):
-                # Selector de producto fuera del formulario para permitir recarga visual inmediata
-                st.markdown("3. **Selecciona el Tipo de Producto:**")
+                # Opciones de producto y ubicación fuera del formulario principal para actualización inmediata
+                st.markdown("📦 **Selecciona el Tipo de Producto:**")
                 tipo_producto = st.radio("Producto:", ["GORRA", "TELA"], horizontal=True, label_visibility="collapsed", key="tipo_producto_dinamico")
 
                 ubicacion = "N/A"
@@ -155,15 +155,23 @@ if st.session_state.modo_vista == "Cliente":
                         st.markdown("✨ **Estilo de Bordado (Frente):**")
                         estilo_frente = st.radio("Estilo:", ["3D (Relieve)", "PLANO / FLAT"], horizontal=True, label_visibility="collapsed", key="estilo_dinamico")
 
+                st.markdown("---")
+
                 with st.form("form_pedido_streamlit", clear_on_submit=True):
                     nombre_proyecto = st.text_input("1. Nombre o Referencia del Proyecto")
-                    archivo_subido = st.file_uploader("2. Sube tu Logo del Pedido (PNG, JPG, DST, PES)", type=["png", "jpg", "jpeg", "dst", "pes"])
+                    
+                    archivo_subido = st.file_uploader(
+                        "2. Sube tu Archivo del Pedido (PNG, JPG, DST, PES, PDF, EMB)", 
+                        type=["png", "jpg", "jpeg", "dst", "pes", "pdf", "emb"]
+                    )
+                    
+                    comentarios = st.text_area("3. Comentarios o Instrucciones Adicionales (Opcional)")
                     
                     submit_pedido = st.form_submit_button("🚀 ENVIAR PEDIDO A PRODUCCIÓN")
                     
                     if submit_pedido:
                         if not nombre_proyecto:
-                            st.warning("⚠️ Debes ingresar el nombre del proyecto.")
+                            st.warning("⚠️ Debes ingresar el nombre o referencia del proyecto.")
                         else:
                             img_base64 = ""
                             file_name = "Sin archivo"
@@ -180,6 +188,7 @@ if st.session_state.modo_vista == "Cliente":
                                 "estilo": estilo_frente if (tipo_producto == "GORRA" and ubicacion == "FRENTE") else "N/A",
                                 "archivo_nombre": file_name,
                                 "archivo_data": img_base64,
+                                "comentarios": comentarios,
                                 "estado": "Pendiente",
                                 "timestamp": datetime.now()
                             }
@@ -230,13 +239,16 @@ if st.session_state.modo_vista == "Cliente":
 
                             st.markdown(f"*Producto:* {pedido.get('producto')} | *Ubicación:* {pedido.get('ubicacion')} | *Estilo:* {pedido.get('estilo')}")
                             
+                            if pedido.get('comentarios'):
+                                st.markdown(f"💬 **Comentarios:** {pedido.get('comentarios')}")
+                            
                             archivo_nombre = pedido.get('archivo_nombre', '').lower()
                             archivo_data = pedido.get('archivo_data', '')
                             if archivo_data and (archivo_nombre.endswith('.png') or archivo_nombre.endswith('.jpg') or archivo_nombre.endswith('.jpeg')):
                                 st.markdown("**Vista Previa del Archivo:**")
                                 st.image(base64.b64decode(archivo_data), width=120)
                             elif archivo_data:
-                                st.text(f"Archivo adjunto: {pedido.get('archivo_nombre')} (Vista previa no disponible)")
+                                st.text(f"Archivo adjunto: {pedido.get('archivo_nombre')}")
 
                             st.markdown("---")
                 else:
@@ -300,6 +312,8 @@ else:
                         st.markdown(f"**Ubicación:** {p.get('ubicacion')}")
                         if p.get('ubicacion') == 'FRENTE':
                             st.markdown(f"**Estilo:** {p.get('estilo')}")
+                    if p.get('comentarios'):
+                        st.markdown(f"**Comentarios:** {p.get('comentarios')}")
                 with col_info2:
                     st.markdown(f"**Archivo:** {p.get('archivo_nombre')}")
                     
@@ -310,7 +324,7 @@ else:
 
                     if a_data:
                         st.download_button(
-                            label="📥 Descargar Logo Adjunto",
+                            label="📥 Descargar Archivo",
                             data=base64.b64decode(a_data),
                             file_name=p.get('archivo_nombre'),
                             mime="application/octet-stream",
