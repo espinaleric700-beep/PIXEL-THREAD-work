@@ -127,18 +127,20 @@ if st.session_state.modo_vista == "Cliente":
             nombre_cliente = data_u.get('nombre_usuario', st.session_state.user)
             logo_cliente_b64 = data_u.get('logo_b64', None)
 
-        # Encabezado con Logo o icono en lugar del 🧵
-        col_h1, col_h2 = st.columns([0.8, 6.2])
-        with col_h1:
-            if logo_cliente_b64:
-                try:
-                    st.image(base64.b64decode(logo_cliente_b64), width=50)
-                except Exception:
+        # Cabecera centralizada horizontalmente sin "Bienvenido" y con icono pegado al nombre
+        col_esp_izq, col_contenido, col_esp_der = st.columns([1, 4, 1])
+        with col_contenido:
+            sub_c1, sub_c2 = st.columns([0.25, 3.75])
+            with sub_c1:
+                if logo_cliente_b64:
+                    try:
+                        st.image(base64.b64decode(logo_cliente_b64), width=45)
+                    except Exception:
+                        st.markdown("### 👤")
+                else:
                     st.markdown("### 👤")
-            else:
-                st.markdown("### 👤")
-        with col_h2:
-            st.title(f"Bienvenido, {nombre_cliente}")
+            with sub_c2:
+                st.markdown(f"<h1 style='margin: 0; padding-top: 2px;'>{nombre_cliente}</h1>", unsafe_allow_html=True)
         
         if st.session_state.mensaje_exito:
             st.success(st.session_state.mensaje_exito)
