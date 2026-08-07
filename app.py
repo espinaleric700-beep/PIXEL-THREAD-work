@@ -179,8 +179,9 @@ if st.session_state.modo_vista == "Cliente":
                             lista_archivos_guardados = []
                             try:
                                 for archivo in archivos_subidos:
-                                    # Usar getvalue() asegura compatibilidad total con PNG, JPG y otros formatos dentro de forms
-                                    archivo_bytes = archivo.getvalue()
+                                    # Reseteamos el puntero del archivo para evitar fallos de lectura en PNGs u otros formatos
+                                    archivo.seek(0)
+                                    archivo_bytes = archivo.read()
                                     archivo_b64 = base64.b64encode(archivo_bytes).decode("utf-8")
                                     lista_archivos_guardados.append({
                                         "nombre": archivo.name,
@@ -296,7 +297,8 @@ else:
                     else:
                         l_b64 = ""
                         if logo_cliente_file is not None:
-                            l_b64 = base64.b64encode(logo_cliente_file.getvalue()).decode("utf-8")
+                            logo_cliente_file.seek(0)
+                            l_b64 = base64.b64encode(logo_cliente_file.read()).decode("utf-8")
                         
                         doc_ref_nuevo.set({
                             "nombre_usuario": nuevo_id_cliente.strip(),
