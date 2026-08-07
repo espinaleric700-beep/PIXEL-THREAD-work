@@ -106,6 +106,24 @@ def init_fb():
 
 db = init_fb()
 
+# --- FUNCIÓN PARA RECALCULAR Y REORGANIZAR LOS TURNOS DE LA COLA ---
+def recalcular_turnos():
+    try:
+        # Traer todos los pedidos ordenados por fecha/timestamp
+        docs = list(db.collection("pedidos_bordado").order_by("timestamp").stream())
+        turno_actual = 1
+        for doc in docs:
+            data = doc.to_dict()
+            estado = data.get("estado", "Pendiente")
+            if estado != "Completado":
+                db.collection("pedidos_bordado").document(doc.id).update({"turno": turno_actual})
+                turno_actual += 1
+            else:
+                # Si está completado, se le quita el turno o se marca como N/A
+                db.collection("pedidos_bordado").document(doc.id).update({"turno": "N/A"})
+    except Exception:
+        pass
+
 # --- FUNCIÓN PARA COMPRIMIR IMÁGENES Y EVITAR EL LÍMITE DE 1MB ---
 def procesar_archivo_subido(arch):
     b_cont = arch.getvalue()
@@ -260,11 +278,6 @@ if st.session_state.modo_vista == "Cliente":
                                     b64_data = procesar_archivo_subido(arch)
                                     lista_archivos.append({"nombre": arch.name, "data": b64_data})
 
-                                # Calcular la posición actual en la cola (pedidos que no estén completados)
-                                todos_pedidos_cola = list(db.collection("pedidos_bordado").stream())
-                                activos_cola = [p.to_dict() for p in todos_pedidos_cola if p.to_dict().get("estado", "Pendiente") != "Completado"]
-                                siguiente_turno = len(activos_cola) + 1
-
                                 data_pedido = {
                                     "id": f"PT-{int(datetime.now().timestamp())}",
                                     "cliente": st.session_state.user.strip(),
@@ -276,11 +289,24 @@ if st.session_state.modo_vista == "Cliente":
                                     "archivos_finales": [],
                                     "comentarios": comentarios,
                                     "estado": "Pendiente",
-                                    "turno": siguiente_turno,
+                                    "turno": 1,
                                     "timestamp": datetime.now()
                                 }
                                 db.collection("pedidos_bordado").add(data_pedido)
-                                st.session_state.mensaje_exito = f"🎉 ¡Enviado con éxito! Tu turno asignado en la cola es el #{siguiente_turno}."
+                                
+                                # Recalcular turnos globales de la cola
+                                recalcular_turnos()
+                                
+                                # Obtener el turno recién asignado para este pedido específico
+                                docs_temp = list(db.collection("pedidos_bordado").order_by("timestamp").stream())
+                                turno_asignado = 1
+                                for d in docs_temp:
+                                    d_dict = d.to_dict()
+                                    if d_dict.get("nombre_proyecto") == nombre_proyecto and d_dict.get("cliente", "").strip().lower() == st.session_state.user.strip().lower() and d_dict.get("estado") != "Completado":
+                                        turno_asignado = d_dict.get("turno", 1)
+                                        break
+
+                                st.session_state.mensaje_exito = f"🎉 ¡Enviado con éxito! Tu turno asignado en la cola es el #{turno_asignado}."
                                 st.session_state.form_version += 1
                                 st.session_state.expandir_nuevo_pedido = False
                                 st.rerun()
@@ -377,6 +403,8 @@ else:
             "👥 Gestión de Clientes"
         ])
 
+        # Asegurar turnos sincronizados al cargar panel admin
+        recalcular_turnos()
         docs = list(db.collection("pedidos_bordado").order_by("timestamp").stream())
 
         # =========================================================
@@ -407,10 +435,12 @@ else:
                             if estado_actual == "Pendiente":
                                 if st.button("🔄 En Proceso", key=f"btn_proceso_{doc_id}", use_container_width=True):
                                     db.collection("pedidos_bordado").document(doc_id).update({"estado": "En Proceso"})
+                                    recalcular_turnos()
                                     st.rerun()
                             else:
                                 if st.button("🔄 Pendiente", key=f"btn_pendiente_{doc_id}", use_container_width=True):
                                     db.collection("pedidos_bordado").document(doc_id).update({"estado": "Pendiente"})
+                                    recalcular_turnos()
                                     st.rerun()
 
                             archivos_cliente = p.get('archivos', [])
@@ -464,9 +494,11 @@ else:
                                                 
                                                 db.collection("pedidos_bordado").document(doc_id).update({
                                                     "archivos_finales": lista_finales,
-                                                    "estado": "Completado"
+                                                    "estado": "Completado",
+                                                    "turno": "N/A"
                                                 })
                                             
+                                            recalcular_turnos()
                                             status_subida.success("¡Completado con éxito!")
                                             st.rerun()
                                         except Exception as e:
@@ -476,6 +508,7 @@ else:
 
                             if st.button("🗑️ Eliminar Pedido", key=f"mob_del_{doc_id}", use_container_width=True):
                                 db.collection("pedidos_bordado").document(doc_id).delete()
+                                recalcular_turnos()
                                 st.rerun()
             else:
                 st.info("🎉 No hay pedidos pendientes de revisión.")
@@ -504,6 +537,7 @@ else:
                             
                             if st.button("🔄 Marcar como Pendiente", key=f"btn_regresar_pend_{doc_id}", use_container_width=True):
                                 db.collection("pedidos_bordado").document(doc_id).update({"estado": "Pendiente"})
+                                recalcular_turnos()
                                 st.rerun()
                             
                             # --- GESTIÓN DE ARCHIVOS EN COMPLETADOS ---
@@ -555,6 +589,7 @@ else:
 
                             if st.button("🗑️ Eliminar Historial", key=f"admin_del_comp_{doc_id}", use_container_width=True):
                                 db.collection("pedidos_bordado").document(doc_id).delete()
+                                recalcular_turnos()
                                 st.rerun()
             else:
                 st.info("No hay pedidos completados en el historial.")
