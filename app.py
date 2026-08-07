@@ -126,7 +126,8 @@ if st.session_state.modo_vista == "Cliente":
 
             st.markdown("---")
 
-            with st.form("form_pedido_streamlit", clear_on_submit=False):
+            # clear_on_submit=True limpia los campos al enviar con éxito
+            with st.form("form_pedido_streamlit", clear_on_submit=True):
                 nombre_proyecto = st.text_input("1. Nombre o Referencia del Proyecto")
                 archivos_subidos = st.file_uploader(
                     "2. Sube tus Archivos del Pedido (PNG, JPG, DST, PES, PDF, EMB)", 
@@ -147,7 +148,6 @@ if st.session_state.modo_vista == "Cliente":
                             for archivo in archivos_subidos:
                                 bytes_contenido = archivo.getvalue()
                                 
-                                # Procesamiento seguro con Pillow para reducir peso y evitar errores de formato
                                 try:
                                     if archivo.name.lower().endswith(('.png', '.jpg', '.jpeg', '.webp')):
                                         img = Image.open(io.BytesIO(bytes_contenido))
@@ -160,7 +160,6 @@ if st.session_state.modo_vista == "Cliente":
                                 except Exception as img_err:
                                     raise Exception(f"Error procesando imagen {archivo.name}: {str(img_err)}")
 
-                                # Aseguramos que sea un diccionario plano simple (clave-valor)
                                 archivo_dict = {
                                     "nombre": str(archivo.name.strip()),
                                     "data": str(base64.b64encode(bytes_contenido).decode("utf-8"))
@@ -174,16 +173,19 @@ if st.session_state.modo_vista == "Cliente":
                                 "producto": str(tipo_producto),
                                 "ubicacion": str(ubicacion),
                                 "estilo": str(estilo_frente),
-                                "archivos": lista_archivos_guardados,  # Arreglo plano de diccionarios puros
+                                "archivos": lista_archivos_guardados,
                                 "comentarios": str(comentarios),
                                 "estado": "Pendiente",
                                 "timestamp": datetime.now()
                             }
                             
                             db.collection("pedidos_bordado").add(data_pedido)
+                            
+                            # AQUÍ SE MINIMIZA EL EXPANDER Y SE RECARGA
                             st.session_state.expandir_nuevo_pedido = False
                             st.success("🎉 ¡Tu orden se envió y guardó correctamente en producción!")
                             st.rerun()
+                            
                         except Exception as e:
                             st.session_state.expandir_nuevo_pedido = True
                             st.error(f"❌ Error al procesar los archivos: {e}")
@@ -233,7 +235,7 @@ else:
     st.title("🛠️ Panel de Administración")
     
     with st.expander("➕ Registrar Nuevo Cliente", expanded=False):
-        with st.form("form_nuevo_cliente_admin"):
+        with st.form("form_nuevo_cliente_admin", clear_on_submit=True):
             nuevo_id_cliente = st.text_input("ID o Nombre del Nuevo Cliente")
             logo_cliente_file = st.file_uploader("Logo del Cliente (Opcional)", type=["png", "jpg", "jpeg"])
             submit_registro = st.form_submit_button("✨ Crear Cliente")
