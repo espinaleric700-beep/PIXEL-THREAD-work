@@ -404,19 +404,32 @@ else:
                                 )
                                 if st.button("🚀 COMPLETAR", key=f"btn_comp_{doc_id}", use_container_width=True):
                                     if archivos_entregables:
-                                        lista_finales = p.get('archivos_finales', [])
-                                        for af in archivos_entregables:
-                                            b64_fin = procesar_archivo_subido(af)
-                                            lista_finales.append({
-                                                "nombre": af.name,
-                                                "data": b64_fin
-                                            })
-                                        db.collection("pedidos_bordado").document(doc_id).update({
-                                            "archivos_finales": lista_finales,
-                                            "estado": "Completado"
-                                        })
-                                        st.success("¡Completado!")
-                                        st.rerun()
+                                        try:
+                                            status_subida = st.empty()
+                                            total_archivos = len(archivos_entregables)
+                                            lista_finales = p.get('archivos_finales', [])
+                                            
+                                            # Subimos los archivos uno por uno de forma secuencial
+                                            for idx, af in enumerate(archivos_entregables, start=1):
+                                                status_subida.info(f"⏳ Subiendo archivo {idx} de {total_archivos} ({af.name})...")
+                                                
+                                                b64_fin = procesar_archivo_subido(af)
+                                                nuevo_archivo = {
+                                                    "nombre": af.name,
+                                                    "data": b64_fin
+                                                }
+                                                lista_finales.append(nuevo_archivo)
+                                                
+                                                # Actualizamos Firestore individualmente por cada archivo
+                                                db.collection("pedidos_bordado").document(doc_id).update({
+                                                    "archivos_finales": lista_finales,
+                                                    "estado": "Completado"
+                                                })
+                                            
+                                            status_subida.success("¡Todos los archivos se subieron y completaron con éxito!")
+                                            st.rerun()
+                                        except Exception as e:
+                                            status_subida.error(f"Error al subir los archivos: {e}")
                                     else:
                                         st.warning("Adjunta al menos un archivo.")
 
@@ -427,7 +440,7 @@ else:
                 st.info("🎉 No hay pedidos pendientes de revisión.")
 
         with tab_admin_comp:
-            pedidos_completados_admin = [(doc.id, doc.to_dict()) for doc in docs if doc.to_dict().get('estado') == "Completado"]
+            pedidos_completados_admin = [(doc.id, doc.to_dict()) for doc in docs if doc.to_dict().get('estado'] == "Completado"]
 
             if pedidos_completados_admin:
                 cols = st.columns(4)
