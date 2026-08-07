@@ -68,7 +68,6 @@ db = init_fb()
 # --- PERSISTENCIA TOTAL MEDIANTE PARÁMETROS DE URL ---
 params = st.query_params
 
-# Recuperar vista de la URL o usar "Cliente" por defecto
 vista_en_url = params.get("seccion", "Cliente")
 if "modo_vista" not in st.session_state:
     st.session_state.modo_vista = vista_en_url
@@ -76,15 +75,13 @@ else:
     if vista_en_url in ["Cliente", "Admin"]:
         st.session_state.modo_vista = vista_en_url
 
-# Recuperar usuario de la URL o usar "Cliente General" por defecto
-usuario_en_url = params.get("user", "Cliente General")
+usuario_en_url = params.get("user", "")
 if "user" not in st.session_state:
     st.session_state.user = usuario_en_url
 else:
-    if usuario_en_url and usuario_en_url != "Cliente General":
+    if usuario_en_url:
         st.session_state.user = usuario_en_url
 
-# Función para actualizar los parámetros en la URL sin perder el estado
 def actualizar_url_y_estado(nueva_vista, nuevo_usuario):
     st.session_state.modo_vista = nueva_vista
     st.session_state.user = nuevo_usuario
@@ -109,114 +106,179 @@ st.markdown("---")
 if st.session_state.modo_vista == "Cliente":
     st.title("🧵 Pixel Thread - Portal de Cliente")
     
-    # Identificador de usuario vinculado dinámicamente con la URL
-    user_input = st.text_input("Tu Nombre o ID de Usuario (Para ver tus pedidos):", value=st.session_state.user)
+    user_input = st.text_input("Ingresa tu Nombre o ID de Usuario para continuar:", value=st.session_state.user, key="input_nombre_usuario")
     
     if user_input != st.session_state.user:
         actualizar_url_y_estado("Cliente", user_input)
 
-    with st.expander("➕ Enviar Nuevo Pedido", expanded=False):
-        with st.form("form_pedido_streamlit", clear_on_submit=True):
-            nombre_proyecto = st.text_input("1. Nombre o Referencia del Proyecto")
-            
-            archivo_subido = st.file_uploader("2. Sube tu Logo (PNG, JPG, DST, PES)", type=["png", "jpg", "jpeg", "dst", "pes"])
-            
-            st.markdown("3. **Selecciona el Tipo de Producto:**")
-            tipo_producto = st.radio("Producto:", ["GORRA", "TELA"], horizontal=True, label_visibility="collapsed")
-            
-            ubicacion = "N/A"
-            estilo_frente = "N/A"
-            
-            if tipo_producto == "GORRA":
-                st.markdown("📍 **Ubicación en la Gorra:**")
-                ubicacion = st.radio("Ubicación:", ["FRENTE", "TRASERO", "LATERAL"], horizontal=True, label_visibility="collapsed")
-                
-                if ubicacion == "FRENTE":
-                    st.markdown("✨ **Estilo de Bordado (Frente):**")
-                    estilo_frente = st.radio("Estilo:", ["3D (Relieve)", "PLANO / FLAT"], horizontal=True, label_visibility="collapsed")
-
-            submit_pedido = st.form_submit_button("🚀 ENVIAR PEDIDO A PRODUCCIÓN")
-            
-            if submit_pedido:
-                if not nombre_proyecto:
-                    st.warning("⚠️ Debes ingresar el nombre del proyecto.")
-                else:
-                    img_base64 = ""
-                    file_name = "Sin archivo"
-                    if archivo_subido is not None:
-                        file_name = archivo_subido.name
-                        img_base64 = base64.b64encode(archivo_subido.getvalue()).decode("utf-8")
-
-                    data_pedido = {
-                        "id": "PT-" + str(int(datetime.now().timestamp())),
-                        "cliente": st.session_state.user.strip(),
-                        "nombre_proyecto": nombre_proyecto,
-                        "producto": tipo_producto,
-                        "ubicacion": ubicacion,
-                        "estilo": estilo_frente if ubicacion == "FRENTE" else "N/A",
-                        "archivo_nombre": file_name,
-                        "archivo_data": img_base64,
-                        "estado": "Pendiente",
-                        "timestamp": datetime.now()
-                    }
-                    
-                    db.collection("pedidos_bordado").add(data_pedido)
-                    st.success("¡Pedido enviado y guardado correctamente!")
-                    st.rerun()
-
-    st.markdown("---")
-    st.subheader("📋 Estado de Mis Pedidos y Posición en Cola")
-
-    try:
-        todos_los_pedidos_ref = db.collection("pedidos_bordado").order_by("timestamp").stream()
+    if not st.session_state.user.strip():
+        st.info("👆 Por favor, ingresa tu nombre o ID de usuario arriba para acceder a tus pedidos y enviar nuevas solicitudes.")
+    else:
+        # Verificamos si este usuario ya existe en la base de datos de perfiles
+        user_doc_ref = db.collection("usuarios_perfil").document(st.session_state.user.strip().lower())
+        user_doc = user_doc_ref.get()
         
-        lista_cola = []
-        pedidos_del_cliente = []
-
-        for doc in todos_los_pedidos_ref:
-            p = doc.to_dict()
-            p["doc_id"] = doc.id
-            lista_cola.append(p)
-            if p.get("cliente", "").strip().lower() == st.session_state.user.strip().lower():
-                pedidos_del_cliente.append(p)
-
-        if pedidos_del_cliente:
-            for pedido in pedidos_del_cliente:
-                estado = pedido.get("estado", "Pendiente")
-                
-                posicion_cola = "N/A (Finalizado o En Proceso)"
-                if estado != "Completado":
-                    pendientes_antes = [
-                        item for item in lista_cola 
-                        if item.get("estado") != "Completado" and item["timestamp"] <= pedido["timestamp"]
-                    ]
-                    posicion_cola = len(pendientes_antes)
-
-                color_estado = "⏳" if estado == "Pendiente" else ("⚙️" if estado == "En Proceso" else "✅")
-
-                with st.container():
-                    st.markdown(f"### {color_estado} Proyecto: {pedido.get('nombre_proyecto')}")
-                    st.markdown(f"**ID de Orden:** `{pedido.get('id')}`")
-                    st.markdown(f"**Estado Actual:** `{estado}`")
-                    
-                    if estado != "Completado":
-                        st.info(f"📊 **Posición en la cola de producción:** #{posicion_cola}")
-                    else:
-                        st.success("🎉 ¡Tu pedido ha sido completado con éxito por el taller!")
-
-                    st.markdown(f"*Producto:* {pedido.get('producto')} | *Ubicación:* {pedido.get('ubicacion')}")
-                    st.markdown("---")
+        # SI EL USUARIO NO EXISTE -> BLOQUEAR ACCESO Y PEDIR CONTACTAR AL ADMIN
+        if not user_doc.exists:
+            st.error(f"❌ El usuario **{st.session_state.user}** no está registrado en el sistema. Por favor, contacta al administrador para que cree tu cuenta.")
+        
+        # SI EL USUARIO YA EXISTE -> MUESTRA SU PERFIL Y EL RESTO DE FUNCIONES
         else:
-            st.info(f"No se encontraron pedidos registrados para el usuario: **{st.session_state.user}**")
+            datos_usuario = user_doc.to_dict()
+            logo_perfil_b64 = datos_usuario.get("logo_usuario", "")
 
-    except Exception as e:
-        st.error(f"Error al cargar los datos del cliente: {e}")
+            # Contenedor superior con la información del usuario y su logo al lado (si lo tiene)
+            col_perfil1, col_perfil2 = st.columns([3, 1])
+            with col_perfil1:
+                st.success(f"Sesión activa como: **{st.session_state.user}**")
+            with col_perfil2:
+                if logo_perfil_b64:
+                    st.image(base64.b64decode(logo_perfil_b64), width=60, caption="Tu Logo")
+
+            st.markdown("---")
+
+            # Opción de Enviar Nuevo Pedido
+            with st.expander("➕ Enviar Nuevo Pedido", expanded=False):
+                with st.form("form_pedido_streamlit", clear_on_submit=True):
+                    nombre_proyecto = st.text_input("1. Nombre o Referencia del Proyecto")
+                    
+                    archivo_subido = st.file_uploader("2. Sube tu Logo del Pedido (PNG, JPG, DST, PES)", type=["png", "jpg", "jpeg", "dst", "pes"])
+                    
+                    st.markdown("3. **Selecciona el Tipo de Producto:**")
+                    tipo_producto = st.radio("Producto:", ["GORRA", "TELA"], horizontal=True, label_visibility="collapsed")
+                    
+                    ubicacion = "N/A"
+                    estilo_frente = "N/A"
+                    
+                    if tipo_producto == "GORRA":
+                        st.markdown("📍 **Ubicación en la Gorra:**")
+                        ubicacion = st.radio("Ubicación:", ["FRENTE", "TRASERO", "LATERAL"], horizontal=True, label_visibility="collapsed")
+                        
+                        if ubicacion == "FRENTE":
+                            st.markdown("✨ **Estilo de Bordado (Frente):**")
+                            estilo_frente = st.radio("Estilo:", ["3D (Relieve)", "PLANO / FLAT"], horizontal=True, label_visibility="collapsed")
+
+                    submit_pedido = st.form_submit_button("🚀 ENVIAR PEDIDO A PRODUCCIÓN")
+                    
+                    if submit_pedido:
+                        if not nombre_proyecto:
+                            st.warning("⚠️ Debes ingresar el nombre del proyecto.")
+                        else:
+                            img_base64 = ""
+                            file_name = "Sin archivo"
+                            if archivo_subido is not None:
+                                file_name = archivo_subido.name
+                                img_base64 = base64.b64encode(archivo_subido.getvalue()).decode("utf-8")
+
+                            data_pedido = {
+                                "id": "PT-" + str(int(datetime.now().timestamp())),
+                                "cliente": st.session_state.user.strip(),
+                                "nombre_proyecto": nombre_proyecto,
+                                "producto": tipo_producto,
+                                "ubicacion": ubicacion,
+                                "estilo": estilo_frente if ubicacion == "FRENTE" else "N/A",
+                                "archivo_nombre": file_name,
+                                "archivo_data": img_base64,
+                                "estado": "Pendiente",
+                                "timestamp": datetime.now()
+                            }
+                            
+                            db.collection("pedidos_bordado").add(data_pedido)
+                            st.success("¡Pedido enviado y guardado correctamente!")
+                            st.rerun()
+
+            st.markdown("---")
+            st.subheader("📋 Estado de Mis Pedidos y Posición en Cola")
+
+            try:
+                todos_los_pedidos_ref = db.collection("pedidos_bordado").order_by("timestamp").stream()
+                
+                lista_cola = []
+                pedidos_del_cliente = []
+
+                for doc in todos_los_pedidos_ref:
+                    p = doc.to_dict()
+                    p["doc_id"] = doc.id
+                    lista_cola.append(p)
+                    if p.get("cliente", "").strip().lower() == st.session_state.user.strip().lower():
+                        pedidos_del_cliente.append(p)
+
+                if pedidos_del_cliente:
+                    for pedido in pedidos_del_cliente:
+                        estado = pedido.get("estado", "Pendiente")
+                        
+                        posicion_cola = "N/A (Finalizado o En Proceso)"
+                        if estado != "Completado":
+                            pendientes_antes = [
+                                item for item in lista_cola 
+                                if item.get("estado") != "Completado" and item["timestamp"] <= pedido["timestamp"]
+                            ]
+                            posicion_cola = len(pendientes_antes)
+
+                        color_estado = "⏳" if estado == "Pendiente" else ("⚙️" if estado == "En Proceso" else "✅")
+
+                        with st.container():
+                            st.markdown(f"### {color_estado} Proyecto: {pedido.get('nombre_proyecto')}")
+                            st.markdown(f"**ID de Orden:** `{pedido.get('id')}`")
+                            st.markdown(f"**Estado Actual:** `{estado}`")
+                            
+                            if estado != "Completado":
+                                st.info(f"📊 **Posición en la cola de producción:** #{posicion_cola}")
+                            else:
+                                st.success("🎉 ¡Tu pedido ha sido completado con éxito por el taller!")
+
+                            st.markdown(f"*Producto:* {pedido.get('producto')} | *Ubicación:* {pedido.get('ubicacion')}")
+                            
+                            # Vista previa miniatura si el archivo es imagen
+                            archivo_nombre = pedido.get('archivo_nombre', '').lower()
+                            archivo_data = pedido.get('archivo_data', '')
+                            if archivo_data and (archivo_nombre.endswith('.png') or archivo_nombre.endswith('.jpg') or archivo_nombre.endswith('.jpeg')):
+                                st.markdown("**Vista Previa del Archivo:**")
+                                st.image(base64.b64decode(archivo_data), width=120)
+                            elif archivo_data:
+                                st.text(f"Archivo adjunto: {pedido.get('archivo_nombre')} (Vista previa no disponible para este formato)")
+
+                            st.markdown("---")
+                else:
+                    st.info(f"No tienes pedidos registrados todavía bajo el usuario: **{st.session_state.user}**")
+
+            except Exception as e:
+                st.error(f"Error al cargar los datos del cliente: {e}")
 
 # =========================================================
 # 2. PANEL DE ADMINISTRADOR
 # =========================================================
 else:
     st.title("🛠️ Panel de Administración")
+    
+    # Módulo exclusivo de Administrador para registrar nuevos usuarios con logo opcional
+    with st.expander("➕ Registrar Nuevo Cliente", expanded=False):
+        with st.form("form_nuevo_cliente_admin"):
+            nuevo_id_cliente = st.text_input("ID o Nombre del Nuevo Cliente")
+            logo_cliente_file = st.file_uploader("Logo del Cliente (Opcional - PNG, JPG)", type=["png", "jpg", "jpeg"])
+            submit_registro = st.form_submit_button("✨ Crear Cliente en el Sistema")
+            
+            if submit_registro:
+                if not nuevo_id_cliente.strip():
+                    st.warning("⚠️ Debes ingresar un ID para el cliente.")
+                else:
+                    doc_ref_nuevo = db.collection("usuarios_perfil").document(nuevo_id_cliente.strip().lower())
+                    if doc_ref_nuevo.get().exists:
+                        st.error("⚠️ Este cliente ya existe en el sistema.")
+                    else:
+                        l_b64 = ""
+                        if logo_cliente_file is not None:
+                            l_b64 = base64.b64encode(logo_cliente_file.getvalue()).decode("utf-8")
+                        
+                        doc_ref_nuevo.set({
+                            "nombre_usuario": nuevo_id_cliente.strip(),
+                            "logo_usuario": l_b64,
+                            "creado": datetime.now()
+                        })
+                        st.success(f"¡Cliente '{nuevo_id_cliente.strip()}' registrado exitosamente!")
+                        st.rerun()
+
+    st.markdown("---")
     st.subheader("📋 Gestión de Pedidos Entrantes")
 
     try:
@@ -241,10 +303,16 @@ else:
                             st.markdown(f"**Estilo:** {p.get('estilo')}")
                 with col_info2:
                     st.markdown(f"**Archivo:** {p.get('archivo_nombre')}")
-                    if p.get('archivo_data'):
+                    
+                    a_nombre = p.get('archivo_nombre', '').lower()
+                    a_data = p.get('archivo_data', '')
+                    if a_data and (a_nombre.endswith('.png') or a_nombre.endswith('.jpg') or a_nombre.endswith('.jpeg')):
+                        st.image(base64.b64decode(a_data), width=100, caption="Miniatura del Logo")
+
+                    if a_data:
                         st.download_button(
                             label="📥 Descargar Logo Adjunto",
-                            data=base64.b64decode(p.get('archivo_data')),
+                            data=base64.b64decode(a_data),
                             file_name=p.get('archivo_nombre'),
                             mime="application/octet-stream",
                             key=f"dl_{doc_id}"
