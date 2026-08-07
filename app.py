@@ -166,8 +166,7 @@ if st.session_state.modo_vista == "Cliente":
                                     "data": str(base64.b64encode(bytes_contenido).decode("utf-8"))
                                 })
 
-                            # Guardado en Firestore
-                            db.collection("pedidos_bordado").add({
+                            data_pedido = {
                                 "id": f"PT-{int(datetime.now().timestamp())}",
                                 "cliente": str(st.session_state.user.strip()),
                                 "nombre_proyecto": str(nombre_proyecto),
@@ -178,12 +177,20 @@ if st.session_state.modo_vista == "Cliente":
                                 "comentarios": str(comentarios),
                                 "estado": "Pendiente",
                                 "timestamp": datetime.now()
-                            })
+                            }
                             
-                            # ÉXITO: Se limpia el formulario y se avisa
-                            st.session_state.expandir_nuevo_pedido = False
-                            st.success("🎉 ¡Tu orden se envió y guardó correctamente!")
-                            st.rerun() 
+                            # Guardado con referencia para verificación posterior
+                            ref = db.collection("pedidos_bordado").document()
+                            ref.set(data_pedido)
+                            
+                            # Verificación de existencia real en la base de datos
+                            if ref.get().exists:
+                                st.session_state.expandir_nuevo_pedido = False
+                                status_placeholder.success("🎉 ¡Tu orden se envió y guardó correctamente!")
+                                st.rerun() 
+                            else:
+                                status_placeholder.error("❌ El pedido no pudo ser verificado en la base de datos. Inténtalo de nuevo.")
+                                st.session_state.expandir_nuevo_pedido = True
                             
                         except Exception as e:
                             # AVISO DE ERROR: Se muestra el error exacto si algo falló al guardar
