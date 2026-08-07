@@ -3,8 +3,6 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 from datetime import datetime
 import base64
-import io
-from PIL import Image
 from streamlit_autorefresh import st_autorefresh
 
 # --- CONFIGURACIÓN ---
@@ -21,12 +19,6 @@ st.markdown("""
     .stApp {
         background: radial-gradient(circle at 50% 50%, #1a0033 0%, #050505 100%);
         background-attachment: fixed;
-    }
-    .stApp::before {
-        content: ""; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-        background-image: linear-gradient(rgba(0, 255, 204, 0.05) 1px, transparent 1px),
-                          linear-gradient(90deg, rgba(0, 255, 204, 0.05) 1px, transparent 1px);
-        background-size: 50px 50px; pointer-events: none; z-index: 0;
     }
     .block-container {
         max-width: 100% !important;
@@ -108,7 +100,7 @@ with col_nav2:
 st.markdown("<br>", unsafe_allow_html=True)
 
 # =========================================================
-# 1. PANEL DE CLIENTE
+# 1. PANEL DE CLIENTE (EJEMPLO DE GRILLA HORIZONTAL DE PEDIDOS)
 # =========================================================
 if st.session_state.modo_vista == "Cliente":
     user_input = st.text_input("Ingresa tu Nombre o ID de Usuario:", value=st.session_state.user)
@@ -116,7 +108,7 @@ if st.session_state.modo_vista == "Cliente":
         actualizar_url("Cliente", user_input)
 
     if not st.session_state.user.strip():
-        st.info("👆 Por favor, ingresa tu nombre o ID de usuario arriba para acceder à tus pedidos.")
+        st.info("👆 Por favor, ingresa tu nombre o ID de usuario arriba para acceder a tus pedidos.")
     else:
         try:
             user_doc_ref = db.collection("usuarios_perfil").document(st.session_state.user.strip().lower())
@@ -197,93 +189,40 @@ if st.session_state.modo_vista == "Cliente":
                             status_ph.error(f"Error: {e}")
 
             st.markdown("---")
-            st.subheader("📋 Estado de Mis Pedidos")
+            st.subheader("📋 Estado de Mis Pedidos (Organización en Tarjetas Horizontales)")
 
             todos = list(db.collection("pedidos_bordado").order_by("timestamp").stream())
             mis_pedidos = [p.to_dict() for p in todos if p.to_dict().get("cliente", "").strip().lower() == st.session_state.user.strip().lower()]
 
             if mis_pedidos:
-                pedidos_cliente_activos = [p for p in mis_pedidos if p.get('estado') != "Completado"]
-                pedidos_cliente_completados = [p for p in mis_pedidos if p.get('estado') == "Completado"]
-
-                if pedidos_cliente_completados:
-                    with st.expander(f"📦 Historial de Mis Pedidos Completados / Entregados ({len(pedidos_cliente_completados)})", expanded=False):
-                        for p in pedidos_cliente_completados:
-                            # DISEÑO HORIZONTAL EN COLUMNAS
-                            col_h1, col_h2, col_h3, col_h4 = st.columns([2, 2, 2, 2])
-                            with col_h1:
-                                st.markdown(f"**Proyecto:** {p.get('nombre_proyecto')}")
-                            with col_h2:
-                                st.markdown(f"**ID:** `{p.get('id')}`")
-                            with col_h3:
-                                st.markdown(f"**Estado:** `✅ Completado`")
-                            with col_h4:
-                                st.markdown(f"**Prod:** {p.get('producto')} | **Ubi:** {p.get('ubicacion')}")
-                            
-                            af = p.get('archivos_finales', [])
-                            if af:
-                                cols_dl = st.columns(len(af))
-                                for idx_f, f_item in enumerate(af):
-                                    with cols_dl[idx_f]:
-                                        st.download_button(
-                                            f"📥 {f_item.get('nombre')}", 
-                                            data=base64.b64decode(f_item.get('data')), 
-                                            file_name=f_item.get('nombre'), 
-                                            key=f"dl_client_comp_{p.get('id')}_{idx_f}"
-                                        )
-                            st.markdown("---")
-                    st.markdown("<br>", unsafe_allow_html=True)
-
-                if pedidos_cliente_activos:
-                    for p in pedidos_cliente_activos:
-                        with st.container():
-                            # DISTRIBUCIÓN HORIZONTAL DE DATOS PRINCIPALES
-                            col_info1, col_info2, col_info3, col_info4 = st.columns([2, 2, 2, 2])
-                            with col_info1:
-                                st.markdown(f"### 🧵 {p.get('nombre_proyecto')}")
-                            with col_info2:
-                                st.markdown(f"**ID:** `{p.get('id')}`")
-                            with col_info3:
-                                st.markdown(f"**Estado:** `{p.get('estado')}`")
-                            with col_info4:
-                                st.markdown(f"**Prod:** {p.get('producto')} | **Ubi:** {p.get('ubicacion')}")
-
-                            if p.get('comentarios'):
-                                st.markdown(f"**Comentarios:** {p.get('comentarios')}")
-                            
-                            archivos = p.get('archivos', [])
-                            if archivos:
-                                st.markdown("🖼️ **Archivos Adjuntos:**")
-                                cols_arch = st.columns(min(len(archivos), 4))
-                                for idx_a, arch_item in enumerate(archivos):
-                                    nombre_a = arch_item.get('nombre', 'archivo')
-                                    data_a = arch_item.get('data')
-                                    with cols_arch[idx_a % len(cols_arch)]:
-                                        if nombre_a.lower().endswith(('png', 'jpg', 'jpeg')):
-                                            try:
-                                                st.image(base64.b64decode(data_a), caption=nombre_a, width=120)
-                                            except Exception:
-                                                st.text(nombre_a)
-                                        else:
-                                            st.text(f"📄 {nombre_a}")
-                                        try:
-                                            st.download_button(f"📥 {nombre_a}", data=base64.b64decode(data_a), file_name=nombre_a, key=f"dl_orig_{p.get('id')}_{idx_a}")
-                                        except Exception:
-                                            pass
-
-                            af = p.get('archivos_finales', [])
-                            if af:
-                                st.success("✨ ¡Entregables listos para descargar!")
-                                cols_ent = st.columns(len(af))
-                                for idx_f, f_item in enumerate(af):
-                                    with cols_ent[idx_f]:
-                                        st.download_button(
-                                            f"📥 {f_item.get('nombre')}", 
-                                            data=base64.b64decode(f_item.get('data')), 
-                                            file_name=f_item.get('nombre'), 
-                                            key=f"dl_client_{p.get('id')}_{idx_f}"
-                                        )
-                            st.markdown("---")
+                pedidos_activos = [p for p in mis_pedidos if p.get('estado') != "Completado"]
+                
+                # ORGANIZACIÓN EN GRILLA HORIZONTAL (2 columnas de tarjetas por fila)
+                if pedidos_activos:
+                    for i in range(0, len(pedidos_activos), 2):
+                        cols = st.columns(2)
+                        for j in range(2):
+                            if i + j < len(pedidos_activos):
+                                p = pedidos_activos[i + j]
+                                with cols[j]:
+                                    with st.container():
+                                        st.markdown(f"### 🧵 {p.get('nombre_proyecto')}")
+                                        st.markdown(f"**ID:** `{p.get('id')}` | **Estado:** `{p.get('estado')}`")
+                                        st.markdown(f"**Prod:** {p.get('producto')} | **Ubi:** {p.get('ubicacion')}")
+                                        if p.get('comentarios'):
+                                            st.markdown(f"*Comentarios:* {p.get('comentarios')}")
+                                        
+                                        archivos = p.get('archivos', [])
+                                        if archivos:
+                                            st.markdown("🖼️ **Archivos:**")
+                                            for idx_a, arch_item in enumerate(archivos):
+                                                nombre_a = arch_item.get('nombre', 'archivo')
+                                                data_a = arch_item.get('data')
+                                                try:
+                                                    st.download_button(f"📥 {nombre_a}", data=base64.b64decode(data_a), file_name=nombre_a, key=f"grid_orig_{p.get('id')}_{idx_a}")
+                                                except Exception:
+                                                    pass
+                                        st.markdown("---")
                 else:
                     st.info("No tienes pedidos pendientes o en proceso en este momento.")
             else:
@@ -296,161 +235,63 @@ if st.session_state.modo_vista == "Cliente":
                 st.error(f"Error al cargar historial: {e}")
 
 # =========================================================
-# 2. PANEL DE ADMINISTRADOR
+# 2. PANEL DE ADMINISTRADOR (GRILLA HORIZONTAL DE PEDIDAS)
 # =========================================================
 else:
-    st.subheader("🛠️ Panel de Administración")
+    st.subheader("🛠️ Panel de Administración (Vista en Tarjetas Horizontales)")
 
-    with st.expander("➕ Registrar Nuevo Cliente", expanded=False):
-        with st.form("form_cliente", clear_on_submit=True):
-            nuevo_id = st.text_input("ID o Nombre del Nuevo Cliente")
-            logo_subido = st.file_uploader("Logo Opcional", type=["png", "jpg", "jpeg"])
-            if st.form_submit_button("Crear Cliente"):
-                if nuevo_id.strip():
-                    try:
-                        ref = db.collection("usuarios_perfil").document(nuevo_id.strip().lower())
-                        logo_b64 = base64.b64encode(logo_subido.getvalue()).decode("utf-8") if logo_subido else None
-                        ref.set({"nombre_usuario": nuevo_id.strip(), "logo_b64": logo_b64, "creado": datetime.now()})
-                        st.success("¡Cliente registrado!")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Error al registrar cliente: {e}")
-
-    st.markdown("---")
-    st.subheader("📋 Gestión de Pedidos Entrantes")
     try:
         docs = list(db.collection("pedidos_bordado").order_by("timestamp").stream())
-        if not docs:
-            st.info("No hay pedidos en la base de datos.")
-        
-        pedidos_activos = []
-        pedidos_completados = []
+        pedidos_activos = [(doc.id, doc.to_dict()) for doc in docs if doc.to_dict().get('estado') != "Completado"]
 
-        for doc in docs:
-            p_data = doc.to_dict()
-            if p_data.get('estado') == "Completado":
-                pedidos_completados.append((doc.id, p_data))
-            else:
-                pedidos_activos.append((doc.id, p_data))
-
-        # --- MOSTRAR PEDIDOS ACTIVOS (Admin) EN HORIZONTAL ---
         if pedidos_activos:
-            for doc_id, p in pedidos_activos:
-                nombre_cliente = p.get('cliente', 'Desconocido')
-                nombre_proyecto = p.get('nombre_proyecto', 'Sin Nombre')
-                id_pedido = p.get('id', 'Sin ID')
-                
-                # Diseño de columnas en horizontal para los datos principales
-                col_a1, col_a2, col_a3, col_a4 = st.columns([2, 2, 2, 2])
-                with col_a1:
-                    st.markdown(f"### 👤 {nombre_cliente}")
-                    st.text(f"Proyecto: {nombre_proyecto}")
-                with col_a2:
-                    st.markdown(f"**ID:** `{id_pedido}`")
-                    st.markdown(f"**Estado:** `{p.get('estado')}`")
-                with col_a3:
-                    st.text(f"Prod: {p.get('producto')}")
-                    st.text(f"Ubi: {p.get('ubicacion')}")
-                with col_a4:
-                    st.text(f"Estilo: {p.get('estilo')}")
+            # Organizar la vista de administración en filas de 2 columnas horizontales
+            for i in range(0, len(pedidos_activos), 2):
+                cols = st.columns(2)
+                for j in range(2):
+                    if i + j < len(pedidos_activos):
+                        doc_id, p = pedidos_activos[i + j]
+                        with cols[j]:
+                            with st.container():
+                                st.markdown(f"### 👤 {p.get('cliente')} — 🧵 {p.get('nombre_proyecto')}")
+                                st.markdown(f"**ID:** `{p.get('id')}` | **Estado:** `{p.get('estado')}`")
+                                st.text(f"Prod: {p.get('producto')} | Ubi: {p.get('ubicacion')}")
+                                
+                                # Subir entregables dentro de la tarjeta horizontal
+                                with st.expander("📤 Subir Entregable", expanded=False):
+                                    archivos_entregables = st.file_uploader(
+                                        "Archivos finalizados:", 
+                                        type=["dst", "emb", "pes", "png", "jpg", "pdf"],
+                                        accept_multiple_files=True, 
+                                        key=f"grid_upload_{doc_id}"
+                                    )
+                                    if st.button("🚀 ENVIAR AL CLIENTE", key=f"grid_btn_{doc_id}"):
+                                        if archivos_entregables:
+                                            lista_finales = p.get('archivos_finales', [])
+                                            for af in archivos_entregables:
+                                                lista_finales.append({
+                                                    "nombre": af.name,
+                                                    "data": base64.b64encode(af.getvalue()).decode("utf-8")
+                                                })
+                                            db.collection("pedidos_bordado").document(doc_id).update({
+                                                "archivos_finales": lista_finales,
+                                                "estado": "Completado"
+                                            })
+                                            st.success("¡Enviado!")
+                                            st.rerun()
+                                        else:
+                                            st.warning("Adjunta un archivo.")
 
-                if p.get('comentarios'):
-                    st.text(f"Comentarios: {p.get('comentarios')}")
-
-                archivos = p.get('archivos', [])
-                if archivos:
-                    st.markdown("🖼️ **Archivos del Cliente:**")
-                    cols_arch_adm = st.columns(min(len(archivos), 4))
-                    for idx_a, arch_item in enumerate(archivos):
-                        nombre_a = arch_item.get('nombre', 'archivo')
-                        data_a = arch_item.get('data')
-                        with cols_arch_adm[idx_a % len(cols_arch_adm)]:
-                            if nombre_a.lower().endswith(('png', 'jpg', 'jpeg')):
-                                try:
-                                    st.image(base64.b64decode(data_a), caption=nombre_a, width=100)
-                                except Exception:
-                                    pass
-                            st.download_button(f"📥 {nombre_a}", data=base64.b64decode(data_a), file_name=nombre_a, key=f"dl_admin_orig_{id_pedido}_{idx_a}")
-
-                st.markdown("<br>", unsafe_allow_html=True)
-
-                with st.expander("📤 Subir Entregables / Archivo Digitalizado para el Cliente", expanded=False):
-                    archivos_entregables = st.file_uploader(
-                        "Selecciona los archivos finalizados:", 
-                        type=["dst", "emb", "pes", "png", "jpg", "jpeg", "pdf"],
-                        accept_multiple_files=True, 
-                        key=f"upload_final_{doc_id}"
-                    )
-                    if st.button("🚀 ENVIAR ARCHIVO AL CLIENTE", key=f"btn_send_final_{doc_id}"):
-                        if archivos_entregables:
-                            lista_finales = p.get('archivos_finales', [])
-                            for af in archivos_entregables:
-                                b_cont = af.getvalue()
-                                lista_finales.append({
-                                    "nombre": af.name,
-                                    "data": base64.b64encode(b_cont).decode("utf-8")
-                                })
-                            db.collection("pedidos_bordado").document(doc_id).update({
-                                "archivos_finales": lista_finales,
-                                "estado": "Completado"
-                            })
-                            st.success("¡Archivos enviados correctamente al cliente!")
-                            st.rerun()
-                        else:
-                            st.warning("⚠️ Debes adjuntar al menos un archivo para enviar.")
-
-                # Controles de Estado y Acciones organizados de forma horizontal
-                col_act1, col_act2, col_act3 = st.columns([2, 2, 1])
-                with col_act1:
-                    estados = ["Pendiente", "En Proceso", "Completado"]
-                    est_actual = p.get('estado', 'Pendiente')
-                    nuevo_est = st.selectbox("Actualizar Estado", estados, index=estados.index(est_actual) if est_actual in estados else 0, key=f"st_{doc_id}")
-                    if nuevo_est != est_actual:
-                        db.collection("pedidos_bordado").document(doc_id).update({"estado": nuevo_est})
-                        st.success("¡Estado actualizado!")
-                        st.rerun()
-                with col_act2:
-                    af_existentes = p.get('archivos_finales', [])
-                    if af_existentes:
-                        st.markdown(f"✅ **Entregables:** {len(af_existentes)} archivo(s)")
-                with col_act3:
-                    st.markdown("<br>", unsafe_allow_html=True)
-                    if st.button(f"🗑️ Eliminar", key=f"del_{doc_id}"):
-                        db.collection("pedidos_bordado").document(doc_id).delete()
-                        st.warning("Pedido eliminado.")
-                        st.rerun()
-
-                st.markdown("---")
+                                if st.button(f"🗑️ Eliminar Pedido", key=f"grid_del_{doc_id}"):
+                                    db.collection("pedidos_bordado").document(doc_id).delete()
+                                    st.warning("Eliminado.")
+                                    st.rerun()
+                                st.markdown("---")
         else:
-            st.info("🎉 No hay pedidos pendientes o en proceso en este momento.")
-
-        # --- PEDIDOS COMPLETADOS / ENTREGADOS ---
-        if pedidos_completados:
-            st.markdown("<br>", unsafe_allow_html=True)
-            with st.expander(f"🗂️ Historial de Pedidos Entregados / Completados ({len(pedidos_completados)})", expanded=False):
-                for doc_id, p in pedidos_completados:
-                    col_c1, col_c2, col_c3, col_c4 = st.columns([2, 2, 2, 2])
-                    with col_c1:
-                        st.markdown(f"**Cliente:** {p.get('cliente')} | **Proj:** {p.get('nombre_proyecto')}")
-                    with col_c2:
-                        st.markdown(f"**ID:** `{p.get('id')}`")
-                    with col_c3:
-                        st.markdown(f"**Estado:** `✅ Completado`")
-                    with col_c4:
-                        sub_c1, sub_c2 = st.columns(2)
-                        with sub_c1:
-                            if st.button(f"🔄 Revertir", key=f"revert_{doc_id}"):
-                                db.collection("pedidos_bordado").document(doc_id).update({"estado": "Pendiente"})
-                                st.rerun()
-                        with sub_c2:
-                            if st.button(f"🗑️ Borrar", key=f"del_comp_{doc_id}"):
-                                db.collection("pedidos_bordado").document(doc_id).delete()
-                                st.warning("Eliminado.")
-                                st.rerun()
-                    st.markdown("---")
+            st.info("🎉 No hay pedidos pendientes.")
 
     except Exception as e:
         if "ResourceExhausted" in str(type(e).__name__) or "quota" in str(e).lower():
             st.error("⚠️ Límite de consultas a la base de datos alcanzado temporalmente. Por favor, espera unos segundos y recarga la página.")
         else:
-            st.error(f"Error al cargar panel de administración: {e}")
+            st.error(f"Error al cargar administración: {e}")
