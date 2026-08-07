@@ -127,20 +127,20 @@ if st.session_state.modo_vista == "Cliente":
             nombre_cliente = data_u.get('nombre_usuario', st.session_state.user)
             logo_cliente_b64 = data_u.get('logo_b64', None)
 
-        # Cabecera centralizada horizontalmente con el icono al lado izquierdo exacto del texto
+        # Cabecera centralizada horizontalmente con el icono exactamente del tamaño del cuadro rojo (ancho mayor) y al lado del nombre
         col_esp_izq, col_contenido, col_esp_der = st.columns([1, 4, 1])
         with col_contenido:
-            sub_c1, sub_c2 = st.columns([0.28, 3.72])
+            sub_c1, sub_c2 = st.columns([0.42, 3.58])
             with sub_c1:
                 if logo_cliente_b64:
                     try:
-                        st.image(base64.b64decode(logo_cliente_b64), width=75)
+                        st.image(base64.b64decode(logo_cliente_b64), width=120)
                     except Exception:
-                        st.markdown("<h1 style='margin: 0;'>👤</h1>", unsafe_allow_html=True)
+                        st.markdown("<h1 style='margin: 0; font-size: 60px;'>👤</h1>", unsafe_allow_html=True)
                 else:
-                    st.markdown("<h1 style='margin: 0;'>👤</h1>", unsafe_allow_html=True)
+                    st.markdown("<h1 style='margin: 0; font-size: 60px;'>👤</h1>", unsafe_allow_html=True)
             with sub_c2:
-                st.markdown(f"<h1 style='margin: 0; padding-top: 8px;'>{nombre_cliente}</h1>", unsafe_allow_html=True)
+                st.markdown(f"<h1 style='margin: 0; padding-top: 24px;'>{nombre_cliente}</h1>", unsafe_allow_html=True)
         
         if st.session_state.mensaje_exito:
             st.success(st.session_state.mensaje_exito)
@@ -443,51 +443,4 @@ else:
                             lista_finales = p.get("archivos_finales", [])
                             
                             for archivo_final in archivos_finales_subidos:
-                                bytes_final = archivo_final.getvalue()
-                                b64_final = base64.b64encode(bytes_final).decode("utf-8")
-                                
-                                lista_finales.append({
-                                    "nombre": str(archivo_final.name.strip()),
-                                    "data": b64_final
-                                })
-                            
-                            db.collection("pedidos_bordado").document(doc_id).update({
-                                "archivos_finales": lista_finales,
-                                "estado": "Completado"
-                            })
-                            st.success("¡Archivos finales guardados y orden marcada como completada con éxito!")
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Error al subir los archivos finales: {e}")
-
-                archivos_finales_actuales = p.get("archivos_finales", [])
-                if archivos_finales_actuales:
-                    st.markdown("✔️ **Entregables actuales en la nube:**")
-                    for idx_af_admin, af_item in enumerate(archivos_finales_actuales):
-                        st.text(f"• {af_item.get('nombre')}")
-
-                st.markdown("---")
-                
-                estado_actual = p.get('estado', 'Pendiente')
-                opciones_estado = ["Pendiente", "En Proceso", "Completado"]
-                nuevo_estado = st.selectbox(
-                    "Estado del Pedido",
-                    opciones_estado,
-                    index=opciones_estado.index(estado_actual) if estado_actual in opciones_estado else 0,
-                    key=f"status_{doc_id}"
-                )
-
-                if nuevo_estado != estado_actual:
-                    db.collection("pedidos_bordado").document(doc_id).update({"estado": nuevo_estado})
-                    st.success("¡Estado actualizado!")
-                    st.rerun()
-
-                if st.button(f"🗑️ Eliminar Pedido {p.get('id')}", key=f"del_{doc_id}"):
-                    db.collection("pedidos_bordado").document(doc_id).delete()
-                    st.warning("Pedido eliminado.")
-                    st.rerun()
-
-                st.markdown("==================================================")
-
-    except Exception as e:
-        st.error(f"Error al conectar con Firebase: {e}")
+    ```
