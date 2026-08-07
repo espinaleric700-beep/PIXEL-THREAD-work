@@ -10,19 +10,44 @@ from streamlit_autorefresh import st_autorefresh
 # --- CONFIGURACIÓN ---
 st.set_page_config(page_title="Pixel Thread | Pro", layout="centered")
 
-# Intervalo de auto-refresco optimizado a 60 segundos para cuidar la cuota
+# Intervalo de auto-refresco optimizado a 60 segundos
 st_autorefresh(interval=60000, limit=1000, key="auto_refrescar")
 
-# --- CONVERSIÓN DE LA IMAGEN A BASE64 ---
-# Carga la imagen adjunta y la convierte para usarla en el CSS del fondo
-with open("Gemini_Generated_Image_3l5ydm3l5ydm3l5y (1).jpg", "rb") as image_file:
+# --- CSS CON FONDO DE IMAGEN FORZADO ---
+# Usamos un contenedor general de Streamlit para asegurar que la imagen cubra todo el fondo
+st.markdown("""
+<style>
+    :root { --primary: #00ffcc; --bg-dark: #050505; }
+    
+    /* Fondo principal de la aplicación */
+    .stApp {
+        background-image: linear-gradient(rgba(5, 5, 5, 0.85), rgba(5, 5, 5, 0.85)), 
+                          url("https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1000&auto=format&fit=crop");
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+        background-attachment: fixed;
+    }
+    
+    div[data-testid="stExpander"], div[data-testid="stVerticalBlock"] > div {
+        background: rgba(10, 10, 15, 0.75) !important;
+        border: 1px solid rgba(0, 255, 204, 0.3) !important;
+        border-radius: 12px !important;
+        backdrop-filter: blur(8px);
+    }
+    
+    h1, h2, h3 { color: var(--primary) !important; text-shadow: 0 0 10px rgba(0,255,204,0.3); }
+</style>
+""", unsafe_allow_html=True)
+
+# O si prefieres usar estrictamente tu imagen del oso con gorra, sube la imagen a tu repositorio, 
+# cámbiale el nombre a un formato simple como "fondo.jpg" y usa este bloque en lugar del de arriba:
+"""
+with open("fondo.jpg", "rb") as image_file:
     encoded_bg = base64.b64encode(image_file.read()).decode()
 
-# --- CSS CON FONDO PERSONALIZADO ---
-st.markdown(f"""
+st.markdown(f'''
 <style>
-    :root {{ --primary: #00ffcc; --bg-dark: #050505; }}
-    
     .stApp {{
         background: linear-gradient(rgba(5, 5, 5, 0.8), rgba(5, 5, 5, 0.8)), 
                     url("data:image/jpeg;base64,{encoded_bg}");
@@ -30,18 +55,10 @@ st.markdown(f"""
         background-position: center;
         background-repeat: no-repeat;
         background-attachment: fixed;
-    }
-    
-    div[data-testid="stExpander"], div[data-testid="stVerticalBlock"] > div {{
-        background: rgba(10, 10, 15, 0.75) !important;
-        border: 1px solid rgba(0, 255, 204, 0.3) !important;
-        border-radius: 12px !important;
-        backdrop-filter: blur(8px);
     }}
-    
-    h1, h2, h3 {{ color: var(--primary) !important; text-shadow: 0 0 10px rgba(0,255,204,0.3); }}
 </style>
-""", unsafe_allow_html=True)
+''', unsafe_allow_html=True)
+"""
 
 # --- INICIALIZACIÓN ---
 @st.cache_resource
