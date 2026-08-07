@@ -11,7 +11,7 @@ from streamlit_autorefresh import st_autorefresh
 st.set_page_config(page_title="Pixel Thread | Pro", layout="wide")
 st_autorefresh(interval=10000, limit=1000, key="auto_refrescar")
 
-# --- CSS ---
+# --- CSS LIMPIO, SIN LÍNEAS ANIDADas, LETRAS MÁS GRANDES Y OCULTAR TOTALMENTE ELEMENTOS FLOTANTES Y DE STREAMLIT ---
 st.markdown("""
 <style>
     :root {
@@ -62,6 +62,7 @@ st.markdown("""
     h2 { color: var(--primary) !important; font-size: 1.8rem !important; }
     h3 { color: var(--primary) !important; font-size: 1.3rem !important; }
 
+    /* --- OCULTAR ELEMENTOS DE STREAMLIT, GITHUB Y TODOS LOS BADGES/BOTONES FLOTANTES INFERIORES --- */
     header { visibility: hidden !important; display: none !important; }
     footer { visibility: hidden !important; display: none !important; }
     #MainMenu { visibility: hidden !important; display: none !important; }
@@ -125,6 +126,7 @@ def init_fb():
 
 db = init_fb()
 
+# --- FUNCIÓN PARA RECALCULAR Y REORGANIZAR LOS TURNOS DE LA COLA ---
 def recalcular_turnos():
     try:
         docs = list(db.collection("pedidos_bordado").order_by("timestamp").stream())
@@ -140,13 +142,16 @@ def recalcular_turnos():
     except Exception:
         pass
 
+# --- FUNCIÓN PARA ESTIMAR EL USO DEL PLAN GRATUITO DE FIREBASE (SPARK) ---
 def obtener_uso_firebase():
     try:
         pedidos = list(db.collection("pedidos_bordado").stream())
         clientes = list(db.collection("usuarios_perfil").stream())
         total_docs = len(pedidos) + len(clientes)
+        
         limite_docs = 50000
         porcentaje_docs = min(float(total_docs) / limite_docs * 100, 100.0)
+        
         return {
             "total_docs": total_docs,
             "limite_docs": limite_docs,
@@ -155,9 +160,11 @@ def obtener_uso_firebase():
     except Exception:
         return {"total_docs": 0, "limite_docs": 50000, "porcentaje": 0.0}
 
+# --- FUNCIÓN PARA COMPRIMIR IMÁGENES Y EVITAR EL LÍMITE DE 1MB ---
 def procesar_archivo_subido(arch):
     b_cont = arch.getvalue()
     nombre_lower = arch.name.lower()
+    
     if nombre_lower.endswith(('png', 'jpg', 'jpeg')):
         try:
             img = Image.open(BytesIO(b_cont))
@@ -169,8 +176,10 @@ def procesar_archivo_subido(arch):
             b_cont = buffered.getvalue()
         except Exception:
             pass
+            
     return base64.b64encode(b_cont).decode("utf-8")
 
+# --- FUNCIÓN RECURSIVA PARA APLANAR LISTAS ANIDADAS ---
 def limpiar_lista_archivos(raw_data):
     lista_limpia = []
     if not isinstance(raw_data, list):
@@ -182,6 +191,7 @@ def limpiar_lista_archivos(raw_data):
             lista_limpia.append({"nombre": item["nombre"], "data": item["data"]})
     return lista_limpia
 
+# --- GESTIÓN DE ESTADOS Y URL ---
 params = st.query_params
 if "modo_vista" not in st.session_state: 
     st.session_state.modo_vista = params.get("seccion", "Cliente")
@@ -210,20 +220,13 @@ def render_estado_badge(estado):
     else:
         st.markdown("**Estado:** Completado <span class='dot-blue'></span>", unsafe_allow_html=True)
 
-# --- ENCABEZADO SUPERIOR: TU LOGO Y DESPUÉS EL TEXTO PIXEL THREAD ---
-col_head_logo, col_head_title, col_head_menu = st.columns([0.08, 2.92, 1], vertical_alignment="center")
+# --- ENCABEZADO SUPERIOR CON MENÚ MINIMIZADO ---
+col_head1, col_head2 = st.columns([3, 1])
 
-with col_head_logo:
-    try:
-        img_logo_header = Image.open("PIXEL THREAD W_Mesa de trabajo 1_2.jpg")
-        st.image(img_logo_header, width=48)
-    except Exception:
-        st.markdown("🧵")
+with col_head1:
+    st.title("⚡ PIXEL THREAD")
 
-with col_head_title:
-    st.title("PIXEL THREAD")
-
-with col_head_menu:
+with col_head2:
     with st.popover("⚙️ Menú"):
         st.markdown("### Navegación")
         if st.button("👤 Panel Cliente", use_container_width=True): 
@@ -242,6 +245,8 @@ st.markdown("<br>", unsafe_allow_html=True)
 # =========================================================
 if st.session_state.modo_vista == "Cliente":
     user_clean_inicial = st.session_state.user.strip()
+
+    # Si hay un usuario válido ingresado, expandido=False (minimizado); si no hay usuario, expandido=True para que se vea
     user_valido_inicial = bool(user_clean_inicial)
     
     with st.expander("👤 Cambiar / Ver Usuario Actual", expanded=not user_valido_inicial):
@@ -260,6 +265,7 @@ if st.session_state.modo_vista == "Cliente":
             if st.button("🔍 Buscar", use_container_width=True):
                 st.session_state.user = st.session_state.input_usuario_key
 
+    # Sincronizamos cambios con la URL
     if st.session_state.user != params.get("user", ""):
         actualizar_url("Cliente", st.session_state.user)
 
@@ -343,6 +349,7 @@ if st.session_state.modo_vista == "Cliente":
                                     "timestamp": datetime.now()
                                 }
                                 db.collection("pedidos_bordado").add(data_pedido)
+                                
                                 recalcular_turnos()
                                 
                                 docs_temp = list(db.collection("pedidos_bordado").order_by("timestamp").stream())
@@ -721,7 +728,7 @@ else:
 
         st.markdown("---")
         with st.expander("🚨 Zona de Peligro: Limpieza Masiva de Historial"):
-            st.warning("⚠️ Esta acciónදේශ Esta acción eliminará todos los registros de pedidos en la base de datos de manera permanente.")
+            st.warning("⚠️ Esta acción eliminará todos los registros de pedidos en la base de datos de manera permanente.")
             if st.button("⚠️ BORRAR TODO EL HISTORIAL DE PEDIDOS", use_container_width=True):
                 try:
                     for doc in docs:
