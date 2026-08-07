@@ -3,6 +3,7 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 from datetime import datetime
 import base64
+import io
 from streamlit_autorefresh import st_autorefresh
 
 # Configuración de página optimizada para móvil
@@ -179,10 +180,9 @@ if st.session_state.modo_vista == "Cliente":
                             lista_archivos_guardados = []
                             try:
                                 for archivo in archivos_subidos:
-                                    # Reseteamos el puntero del archivo para evitar fallos de lectura en PNGs u otros formatos
-                                    archivo.seek(0)
-                                    archivo_bytes = archivo.read()
-                                    archivo_b64 = base64.b64encode(archivo_bytes).decode("utf-8")
+                                    # Lectura segura utilizando BytesIO para evitar bloqueos en formatos binarios o imágenes grandes (.png, .emb)
+                                    bytes_data = io.BytesIO(archivo.getvalue()).read()
+                                    archivo_b64 = base64.b64encode(bytes_data).decode("utf-8")
                                     lista_archivos_guardados.append({
                                         "nombre": archivo.name,
                                         "data": archivo_b64
@@ -205,7 +205,7 @@ if st.session_state.modo_vista == "Cliente":
                                 st.success("¡Pedido enviado y guardado correctamente!")
                                 st.rerun()
                             except Exception as e:
-                                st.error(f"❌ Error al procesar y guardar los archivos: {e}")
+                                st.error(f"❌ Error crítico al procesar los archivos: {e}")
 
             st.markdown("---")
             st.subheader("📋 Estado de Mis Pedidos y Posición en Cola")
@@ -297,8 +297,8 @@ else:
                     else:
                         l_b64 = ""
                         if logo_cliente_file is not None:
-                            logo_cliente_file.seek(0)
-                            l_b64 = base64.b64encode(logo_cliente_file.read()).decode("utf-8")
+                            bytes_logo = io.BytesIO(logo_cliente_file.getvalue()).read()
+                            l_b64 = base64.b64encode(bytes_logo).decode("utf-8")
                         
                         doc_ref_nuevo.set({
                             "nombre_usuario": nuevo_id_cliente.strip(),
