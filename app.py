@@ -9,79 +9,78 @@ from streamlit_autorefresh import st_autorefresh
 st.set_page_config(page_title="Pixel Thread | Pro", layout="wide")
 st_autorefresh(interval=10000, limit=1000, key="auto_refrescar")
 
-# --- CSS AVANZADO PARA INTERFAZ Y CÍRCULOS CON RESPLANDOR SUAVE ---
+# --- CSS MINIMALISTA, MODERNO Y SUAVE ---
 st.markdown("""
 <style>
     :root {
-        --primary: #00ffcc;
-        --bg-dark: #050505;
+        --primary: #00d26a;
+        --bg-dark: #121417;
+        --card-bg: #1a1d23;
+        --border-color: rgba(255, 255, 255, 0.08);
+        --text-main: #f0f2f5;
     }
     .stApp {
-        background: radial-gradient(circle at 50% 50%, #1a0033 0%, #050505 100%);
-        background-attachment: fixed;
+        background: var(--bg-dark);
+        color: var(--text-main);
     }
     .block-container {
         max-width: 100% !important;
-        padding-left: 1.5rem;
-        padding-right: 1.5rem;
+        padding-left: 2rem;
+        padding-right: 2rem;
         padding-top: 1.5rem;
     }
     div[data-testid="stExpander"], div[data-testid="stVerticalBlock"] > div {
-        background: rgba(10, 10, 15, 0.6) !important;
-        border: 1px solid rgba(0, 255, 204, 0.2) !important;
-        border-radius: 12px !important;
-        backdrop-filter: blur(10px);
-        padding: 12px;
+        background: var(--card-bg) !important;
+        border: 1px solid var(--border-color) !important;
+        border-radius: 8px !important;
+        padding: 14px;
     }
     div.stButton > button {
         background: transparent !important;
         color: var(--primary) !important;
         border: 1px solid var(--primary) !important;
-        border-radius: 5px !important;
-        transition: all 0.3s ease !important;
-        text-transform: uppercase;
-        font-weight: bold;
+        border-radius: 6px !important;
+        transition: all 0.2s ease !important;
+        font-weight: 600;
     }
     div.stButton > button:hover {
         background: var(--primary) !important;
-        color: black !important;
-        box-shadow: 0 0 15px var(--primary) !important;
-        transform: translateY(-2px);
+        color: #121417 !important;
+        box-shadow: 0 0 10px rgba(0, 210, 106, 0.3);
     }
-    h1 { color: var(--primary) !important; text-transform: uppercase; letter-spacing: 2px; }
-    h2, h3 { color: var(--primary) !important; text-transform: uppercase; letter-spacing: 1px; }
+    h1, h2, h3 { 
+        color: var(--text-main) !important; 
+        font-weight: 600;
+        letter-spacing: 0.5px;
+    }
+    h1 { color: var(--primary) !important; }
 
-    /* --- CÍRCULOS CON RESPLANDOR ESTABLE --- */
+    /* --- CÍRCULOS DE ESTADO LIMPIOS --- */
     .dot-red {
-        height: 10px;
-        width: 10px;
-        background-color: #ff4b4b;
+        height: 8px;
+        width: 8px;
+        background-color: #ff5c5c;
         border-radius: 50%;
         display: inline-block;
         margin-left: 6px;
-        box-shadow: 0 0 8px #ff4b4b;
         vertical-align: middle;
     }
-
     .dot-green {
-        height: 10px;
-        width: 10px;
-        background-color: #00ff80;
+        height: 8px;
+        width: 8px;
+        background-color: #00d26a;
         border-radius: 50%;
         display: inline-block;
         margin-left: 6px;
-        box-shadow: 0 0 8px #00ff80;
         vertical-align: middle;
     }
-
     .dot-blue {
-        height: 10px;
-        width: 10px;
-        background-color: #00bfff;
+        height: 8px;
+        width: 8px;
+        background-color: #3b82f6;
         border-radius: 50%;
         display: inline-block;
         margin-left: 6px;
-        box-shadow: 0 0 8px #00bfff;
         vertical-align: middle;
     }
 </style>
@@ -239,7 +238,6 @@ if st.session_state.modo_vista == "Cliente":
 
             st.markdown("---")
             
-            # --- PESTAÑAS PARA DIVIDIR PENDIENTES Y COMPLETADOS ---
             tab_pendientes, tab_completados = st.tabs(["⏳ Pedidos Pendientes", "✅ Pedidos Completados"])
 
             todos = list(db.collection("pedidos_bordado").order_by("timestamp").stream())
@@ -403,7 +401,6 @@ else:
                 st.info("🎉 No hay pedidos pendientes de revisión.")
 
         with tab_admin_comp:
-            # CORREGIDO EL PARÉNTESIS AQUÍ ABAJO:
             pedidos_completados_admin = [(doc.id, doc.to_dict()) for doc in docs if doc.to_dict().get('estado') == "Completado"]
 
             if pedidos_completados_admin:
