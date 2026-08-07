@@ -109,7 +109,6 @@ db = init_fb()
 # --- FUNCIÓN PARA RECALCULAR Y REORGANIZAR LOS TURNOS DE LA COLA ---
 def recalcular_turnos():
     try:
-        # Traer todos los pedidos ordenados por fecha/timestamp
         docs = list(db.collection("pedidos_bordado").order_by("timestamp").stream())
         turno_actual = 1
         for doc in docs:
@@ -119,10 +118,34 @@ def recalcular_turnos():
                 db.collection("pedidos_bordado").document(doc.id).update({"turno": turno_actual})
                 turno_actual += 1
             else:
-                # Si está completado, se le quita el turno o se marca como N/A
                 db.collection("pedidos_bordado").document(doc.id).update({"turno": "N/A"})
     except Exception:
         pass
+
+# --- FUNCIÓN PARA ESTIMAR EL USO DEL PLAN GRATUITO DE FIREBASE (SPARK) ---
+def obtener_uso_firebase():
+    """
+    Estima el uso basado en los límites diarios del plan Spark (Gratuito):
+    - Documentos almacenados (Límite: 50,000)
+    - Operaciones de Escritura diarias (Límite: 20,000 / día)
+    - Operaciones de Lectura diarias (Límite: 50,000 / día)
+    """
+    try:
+        # Conteo aproximado de documentos en colecciones principales
+        pedidos = list(db.collection("pedidos_bordado").stream())
+        clientes = list(db.collection("usuarios_perfil").stream())
+        total_docs = len(pedidos) + len(clientes)
+        
+        limite_docs = 50000
+        porcentaje_docs = min(float(total_docs) / limite_docs * 100, 100.0)
+        
+        return {
+            "total_docs": total_docs,
+            "limite_docs": limite_docs,
+            "porcentaje": porcentaje_docs
+        }
+    except Exception:
+        return {"total_docs": 0, "limite_docs": 50000, "porcentaje": 0.0}
 
 # --- FUNCIÓN PARA COMPRIMIR IMÁGENES Y EVITAR EL LÍMITE DE 1MB ---
 def procesar_archivo_subido(arch):
@@ -294,10 +317,8 @@ if st.session_state.modo_vista == "Cliente":
                                 }
                                 db.collection("pedidos_bordado").add(data_pedido)
                                 
-                                # Recalcular turnos globales de la cola
                                 recalcular_turnos()
                                 
-                                # Obtener el turno recién asignado para este pedido específico
                                 docs_temp = list(db.collection("pedidos_bordado").order_by("timestamp").stream())
                                 turno_asignado = 1
                                 for d in docs_temp:
@@ -396,6 +417,27 @@ if st.session_state.modo_vista == "Cliente":
 else:
     st.subheader("🛠️ Administración General")
 
+    # --- AVISO DE USO DEL PLAN DE FIREBASE ---
+    uso_fb = obtener_uso_firebase()
+    porcentaje_uso = uso_fb["porcentaje"]
+    
+    st.markdown("### 📊 Estado del Plan Firebase (Spark - Gratuito)")
+    col_metrica1, col_metrica2, col_metrica3 = st.columns(3)
+    with col_metrica1:
+        st.metric(label="Documentos Totales", value=f"{uso_fb['total_docs']} / {uso_fb['limite_docs']}")
+    with col_metrica2:
+        st.metric(label="Porcentaje Utilizado", value=f"{porcentaje_uso:.2f}%")
+    with col_metrica3:
+        if porcentaje_uso > 80:
+            st.error("⚠️ Estás cerca del límite del plan gratuito.")
+        elif porcentaje_uso > 50:
+            st.warning("⚡ Uso moderado del almacenamiento.")
+        else:
+            st.success("✅ Uso óptimo y seguro.")
+            
+    st.progress(min(porcentaje_uso / 100.0, 1.0))
+    st.markdown("---")
+
     try:
         tab_admin_pend, tab_admin_comp, tab_admin_clientes = st.tabs([
             "⏳ Pendientes y En Proceso", 
@@ -403,7 +445,6 @@ else:
             "👥 Gestión de Clientes"
         ])
 
-        # Asegurar turnos sincronizados al cargar panel admin
         recalcular_turnos()
         docs = list(db.collection("pedidos_bordado").order_by("timestamp").stream())
 
@@ -456,7 +497,6 @@ else:
                                     except Exception:
                                         pass
 
-                            # --- GESTIÓN DE ARCHIVOS ---
                             with st.expander("📤 Gestionar Archivos al Cliente"):
                                 lista_finales = limpiar_lista_archivos(p.get('archivos_finales', []))
                                 
@@ -540,7 +580,6 @@ else:
                                 recalcular_turnos()
                                 st.rerun()
                             
-                            # --- GESTIÓN DE ARCHIVOS EN COMPLETADOS ---
                             with st.expander("📤 Gestionar Archivos al Cliente"):
                                 lista_finales = limpiar_lista_archivos(p.get('archivos_finales', []))
                                 
@@ -660,9 +699,6 @@ else:
             except Exception as e:
                 st.error(f"Error al listar clientes: {e}")
 
-        # =========================================================
-        # 🧹 SECCIÓN GLOBAL: ELIMINAR TODO EL HISTORIAL DE FIREBASE
-        # =========================================================
         st.markdown("---")
         with st.expander("🚨 Zona de Peligro: Limpieza Masiva de Historial"):
             st.warning("⚠️ Esta acción eliminará todos los registros de pedidos en la base de datos de manera permanente.")
