@@ -67,7 +67,7 @@ if "modo_vista" not in st.session_state:
 if "user" not in st.session_state:
     st.session_state.user = params.get("user", "")
 
-# Se mantiene siempre minimizado por defecto al iniciar o refrescar
+# Control para mantener el expander minimizado por defecto
 if "expandir_nuevo_pedido" not in st.session_state:
     st.session_state.expandir_nuevo_pedido = False
 
@@ -112,7 +112,6 @@ if st.session_state.modo_vista == "Cliente":
         st.title(f"🧵 Bienvenido, {nombre_cliente}")
         st.markdown("---")
 
-        # El expander arranca minimizado (False) por defecto
         with st.expander("➕ Enviar Nuevo Pedido", expanded=st.session_state.expandir_nuevo_pedido):
             st.markdown("📦 **Tipo de Producto:**")
             tipo_producto = st.radio("Producto:", ["GORRA", "TELA", "VARIOS"], horizontal=True, label_visibility="collapsed")
@@ -140,14 +139,15 @@ if st.session_state.modo_vista == "Cliente":
                 submit_pedido = st.form_submit_button("🚀 ENVIAR PEDIDO A PRODUCCIÓN")
                 
                 if submit_pedido:
+                    # Forzamos de inmediato que el panel se cierre al presionar el botón
+                    st.session_state.expandir_nuevo_pedido = False
+                    
                     status_placeholder = st.empty()
                     
                     if not nombre_proyecto:
-                        status_placeholder.warning("⚠️ Debes ingresar el nombre o referencia del proyecto.")
-                        st.session_state.expandir_nuevo_pedido = True
+                        st.warning("⚠️ Debes ingresar el nombre o referencia del proyecto.")
                     elif not archivos_subidos:
-                        status_placeholder.error("❌ Error: Debes adjuntar al menos un archivo.")
-                        st.session_state.expandir_nuevo_pedido = True
+                        st.error("❌ Error: Debes adjuntar al menos un archivo.")
                     else:
                         try:
                             status_placeholder.info("⏳ Enviando pedido, por favor espera...")
@@ -186,17 +186,13 @@ if st.session_state.modo_vista == "Cliente":
                             ref.set(data_pedido)
                             
                             if ref.get().exists:
-                                # Pedido exitoso: se minimiza el panel
-                                st.session_state.expandir_nuevo_pedido = False
-                                status_placeholder.success("🎉 ¡Tu orden se envió y guardó correctamente!")
+                                st.success("🎉 ¡Tu orden se envió y guardó correctamente!")
                                 st.rerun() 
                             else:
-                                status_placeholder.error("❌ El pedido no pudo ser verificado en la base de datos. Inténtalo de nuevo.")
-                                st.session_state.expandir_nuevo_pedido = True
+                                st.error("❌ El pedido no pudo ser verificado en la base de datos. Inténtalo de nuevo.")
                             
                         except Exception as e:
-                            status_placeholder.error(f"❌ Error al enviar el pedido: {str(e)}")
-                            st.session_state.expandir_nuevo_pedido = True
+                            st.error(f"❌ Error al enviar el pedido: {str(e)}")
 
         st.markdown("---")
         st.subheader("📋 Estado de Mis Pedidos y Posición en Cola")
