@@ -2,3 +2,4 @@ streamlit
 firebase-admin
 google-cloud-firestore
 pillow
+streamlit-autorefresh
