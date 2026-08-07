@@ -398,9 +398,16 @@ else:
                                     except Exception:
                                         pass
 
-                            # --- NUEVA SECCIÓN DE GESTIÓN DE ARCHIVOS ---
+                            # --- GESTIÓN DE ARCHIVOS ---
                             with st.expander("📤 Gestionar Archivos al Cliente"):
-                                lista_finales = p.get('archivos_finales', [])
+                                # Nos aseguramos de limpiar/aplanar la lista para evitar arrays anidados
+                                raw_lista = p.get('archivos_finales', [])
+                                lista_finales = []
+                                for item in raw_lista:
+                                    if isinstance(item, list):
+                                        lista_finales.extend(item)
+                                    elif isinstance(item, dict):
+                                        lista_finales.append(item)
                                 
                                 if lista_finales:
                                     st.markdown("**✨ Ya enviados:**")
@@ -427,7 +434,6 @@ else:
                                             status_subida = st.empty()
                                             total_archivos = len(archivos_entregables)
                                             
-                                            # Subimos los archivos uno por uno de forma secuencial
                                             for idx, af in enumerate(archivos_entregables, start=1):
                                                 status_subida.info(f"⏳ Subiendo archivo {idx} de {total_archivos} ({af.name})...")
                                                 b64_fin = procesar_archivo_subido(af)
@@ -473,9 +479,15 @@ else:
                                 db.collection("pedidos_bordado").document(doc_id).update({"estado": "Pendiente"})
                                 st.rerun()
                             
-                            # --- SECCIÓN DE GESTIÓN DE ARCHIVOS TAMBIÉN EN COMPLETADOS ---
+                            # --- GESTIÓN DE ARCHIVOS EN COMPLETADOS ---
                             with st.expander("📤 Gestionar Archivos al Cliente"):
-                                lista_finales = p.get('archivos_finales', [])
+                                raw_lista = p.get('archivos_finales', [])
+                                lista_finales = []
+                                for item in raw_lista:
+                                    if isinstance(item, list):
+                                        lista_finales.extend(item)
+                                    elif isinstance(item, dict):
+                                        lista_finales.append(item)
                                 
                                 if lista_finales:
                                     st.markdown("**✨ Ya enviados:**")
