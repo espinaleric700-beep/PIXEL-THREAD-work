@@ -8,7 +8,11 @@ from PIL import Image
 from streamlit_autorefresh import st_autorefresh
 
 # --- CONFIGURACIÓN ---
-st.set_page_config(page_title="Pixel Thread | Pro", layout="wide")
+st.set_page_config(
+    page_title="Pixel Thread | Pro", 
+    page_icon="PIXEL-THREAD-W_Mesa-de-trabajo-1-_1_.ico",
+    layout="wide"
+)
 st_autorefresh(interval=10000, limit=1000, key="auto_refrescar")
 
 # --- CSS ---
@@ -158,7 +162,7 @@ def obtener_uso_firebase():
 def procesar_archivo_subido(arch):
     b_cont = arch.getvalue()
     nombre_lower = arch.name.lower()
-    if nombre_lower.endswith(('png', 'jpg', 'jpeg')):
+    if nombre_lower.endswith(('png', 'jpg', 'jpeg', 'ico')):
         try:
             img = Image.open(BytesIO(b_cont))
             img.thumbnail((700, 700))
@@ -215,7 +219,7 @@ col_head_logo, col_head_title, col_head_menu = st.columns([0.08, 2.92, 1], verti
 
 with col_head_logo:
     try:
-        img_logo_header = Image.open("PIXEL THREAD W_Mesa de trabajo 1_2.jpg")
+        img_logo_header = Image.open("PIXEL-THREAD-W_Mesa-de-trabajo-1-_1_.ico")
         st.image(img_logo_header, width=48)
     except Exception:
         st.markdown("🧵")
@@ -311,7 +315,7 @@ if st.session_state.modo_vista == "Cliente":
                             estilo_frente = st.radio("Estilo:", ["3D (Relieve)", "PLANO"], horizontal=True, key=f"est_{fv}")
 
                     nombre_proyecto = st.text_input("Nombre del Proyecto", key=f"nom_{fv}")
-                    archivos_subidos = st.file_uploader("Archivos", type=["png", "jpg", "jpeg", "dst", "pes", "pdf", "emb"], accept_multiple_files=True, key=f"arch_{fv}")
+                    archivos_subidos = st.file_uploader("Archivos", type=["png", "jpg", "jpeg", "dst", "pes", "pdf", "emb", "ico"], accept_multiple_files=True, key=f"arch_{fv}")
                     comentarios = st.text_area("Comentarios", key=f"com_{fv}")
                     status_ph = st.empty()
 
@@ -393,7 +397,7 @@ if st.session_state.modo_vista == "Cliente":
                                             nombre_a = arch_item.get('nombre', 'archivo')
                                             try:
                                                 raw_bytes = base64.b64decode(arch_item.get('data'))
-                                                if nombre_a.lower().endswith(('png', 'jpg', 'jpeg')):
+                                                if nombre_a.lower().endswith(('png', 'jpg', 'jpeg', 'ico')):
                                                     st.image(raw_bytes, width=120, caption=nombre_a)
                                                 st.download_button(f"📥 {nombre_a}", data=raw_bytes, file_name=nombre_a, key=f"dl_cli_{p.get('id')}_{idx_a}")
                                             except Exception:
@@ -423,7 +427,7 @@ if st.session_state.modo_vista == "Cliente":
                                             nom_f = af.get('nombre', 'resultado')
                                             try:
                                                 raw_f_bytes = base64.b64decode(af.get('data'))
-                                                if nom_f.lower().endswith(('png', 'jpg', 'jpeg')):
+                                                if nom_f.lower().endswith(('png', 'jpg', 'jpeg', 'ico')):
                                                     st.image(raw_f_bytes, width=120, caption=nom_f)
                                                 st.download_button(f"📥 {nom_f}", data=raw_f_bytes, file_name=nom_f, key=f"dl_fin_{p.get('id')}_{idx_f}")
                                             except Exception:
@@ -513,7 +517,7 @@ else:
                                     nom_ac = ac.get('nombre', 'archivo')
                                     try:
                                         raw_ac = base64.b64decode(ac.get('data'))
-                                        if nom_ac.lower().endswith(('png', 'jpg', 'jpeg')):
+                                        if nom_ac.lower().endswith(('png', 'jpg', 'jpeg', 'ico')):
                                             st.image(raw_ac, width=100, caption=nom_ac)
                                         st.download_button(f"📥 {nom_ac}", data=raw_ac, file_name=nom_ac, key=f"dl_admin_cli_{doc_id}_{idx_ac}", use_container_width=True)
                                     except Exception:
@@ -537,7 +541,7 @@ else:
                                 st.markdown("**➕ Agregar nuevos:**")
                                 archivos_entregables = st.file_uploader(
                                     "Seleccionar archivos:", 
-                                    type=["dst", "emb", "pes", "png", "jpg", "pdf"],
+                                    type=["dst", "emb", "pes", "png", "jpg", "pdf", "ico"],
                                     accept_multiple_files=True, 
                                     key=f"up_admin_{doc_id}"
                                 )
@@ -617,7 +621,7 @@ else:
                                 st.markdown("**➕ Agregar nuevos:**")
                                 archivos_extra = st.file_uploader(
                                     "Seleccionar archivos:", 
-                                    type=["dst", "emb", "pes", "png", "jpg", "pdf"],
+                                    type=["dst", "emb", "pes", "png", "jpg", "pdf", "ico"],
                                     accept_multiple_files=True, 
                                     key=f"up_admin_comp_{doc_id}"
                                 )
@@ -659,7 +663,7 @@ else:
                 with st.form("form_cliente"):
                     c_id = st.text_input("ID o Usuario del Cliente (ej. juan123):").strip().lower()
                     c_nombre = st.text_input("Nombre Completo / Nombre Comercial:").strip()
-                    c_logo = st.file_uploader("Logotipo del Cliente (Opcional)", type=["png", "jpg", "jpeg"])
+                    c_logo = st.file_uploader("Logotipo del Cliente (Opcional)", type=["png", "jpg", "jpeg", "ico"])
                     
                     guardar_cliente = st.form_submit_button("💾 Guardar / Actualizar Cliente")
                     
@@ -721,7 +725,7 @@ else:
 
         st.markdown("---")
         with st.expander("🚨 Zona de Peligro: Limpieza Masiva de Historial"):
-            st.warning("⚠️ Esta acciónදේශ Esta acción eliminará todos los registros de pedidos en la base de datos de manera permanente.")
+            st.warning("⚠️ Esta acción eliminará todos los registros de pedidos en la base de datos de manera permanente.")
             if st.button("⚠️ BORRAR TODO EL HISTORIAL DE PEDIDOS", use_container_width=True):
                 try:
                     for doc in docs:
