@@ -197,47 +197,84 @@ if st.session_state.modo_vista == "Cliente":
             mis_pedidos = [p.to_dict() for p in todos if p.to_dict().get("cliente", "").strip().lower() == st.session_state.user.strip().lower()]
 
             if mis_pedidos:
-                for p in mis_pedidos:
-                    with st.container():
-                        st.markdown(f"### 🧵 Proyecto: {p.get('nombre_proyecto')}")
-                        st.markdown(f"**ID de Pedido:** `{p.get('id')}` | **Estado:** `{p.get('estado')}`")
-                        st.markdown(f"**Producto:** {p.get('producto')} | **Ubicación:** {p.get('ubicacion')} | **Estilo:** {p.get('estilo')}")
-                        if p.get('comentarios'):
-                            st.markdown(f"**Comentarios:** {p.get('comentarios')}")
-                        
-                        archivos = p.get('archivos', [])
-                        if archivos:
-                            st.markdown("🖼️ **Archivos Adjuntos:**")
-                            cols_arch = st.columns(min(len(archivos), 3))
-                            for idx_a, arch_item in enumerate(archivos):
-                                nombre_a = arch_item.get('nombre', 'archivo')
-                                data_a = arch_item.get('data')
-                                with cols_arch[idx_a % len(cols_arch)]:
-                                    if nombre_a.lower().endswith(('png', 'jpg', 'jpeg')):
-                                        try:
-                                            img_bytes = base64.b64decode(data_a)
-                                            st.image(img_bytes, caption=nombre_a, width=150)
-                                        except Exception:
-                                            st.text(nombre_a)
-                                    else:
-                                        st.text(f"📄 {nombre_a}")
-                                    
-                                    try:
-                                        st.download_button(f"📥 {nombre_a}", data=base64.b64decode(data_a), file_name=nombre_a, key=f"dl_orig_{p.get('id')}_{idx_a}")
-                                    except Exception:
-                                        pass
+                # Separar pedidos activos y completados para el cliente
+                pedidos_cliente_activos = []
+                pedidos_cliente_completados = []
 
-                        af = p.get('archivos_finales', [])
-                        if af:
-                            st.success("✨ ¡Entregables listos para descargar!")
-                            for idx_f, f_item in enumerate(af):
-                                st.download_button(
-                                    f"📥 Descargar Entregable: {f_item.get('nombre')}", 
-                                    data=base64.b64decode(f_item.get('data')), 
-                                    file_name=f_item.get('nombre'), 
-                                    key=f"dl_client_{p.get('id')}_{idx_f}"
-                                )
-                        st.markdown("---")
+                for p in mis_pedidos:
+                    if p.get('estado') == "Completado":
+                        pedidos_cliente_completados.append(p)
+                    else:
+                        pedidos_cliente_activos.append(p)
+
+                # --- MOSTRAR PEDIDOS ACTIVOS DEL CLIENTE ---
+                if pedidos_cliente_activos:
+                    for p in pedidos_cliente_activos:
+                        with st.container():
+                            st.markdown(f"### 🧵 Proyecto: {p.get('nombre_proyecto')}")
+                            st.markdown(f"**ID de Pedido:** `{p.get('id')}` | **Estado:** `{p.get('estado')}`")
+                            st.markdown(f"**Producto:** {p.get('producto')} | **Ubicación:** {p.get('ubicacion')} | **Estilo:** {p.get('estilo')}")
+                            if p.get('comentarios'):
+                                st.markdown(f"**Comentarios:** {p.get('comentarios')}")
+                            
+                            archivos = p.get('archivos', [])
+                            if archivos:
+                                st.markdown("🖼️ **Archivos Adjuntos:**")
+                                cols_arch = st.columns(min(len(archivos), 3))
+                                for idx_a, arch_item in enumerate(archivos):
+                                    nombre_a = arch_item.get('nombre', 'archivo')
+                                    data_a = arch_item.get('data')
+                                    with cols_arch[idx_a % len(cols_arch)]:
+                                        if nombre_a.lower().endswith(('png', 'jpg', 'jpeg')):
+                                            try:
+                                                img_bytes = base64.b64decode(data_a)
+                                                st.image(img_bytes, caption=nombre_a, width=150)
+                                            except Exception:
+                                                st.text(nombre_a)
+                                        else:
+                                            st.text(f"📄 {nombre_a}")
+                                        
+                                        try:
+                                            st.download_button(f"📥 {nombre_a}", data=base64.b64decode(data_a), file_name=nombre_a, key=f"dl_orig_{p.get('id')}_{idx_a}")
+                                        except Exception:
+                                            pass
+
+                            af = p.get('archivos_finales', [])
+                            if af:
+                                st.success("✨ ¡Entregables listos para descargar!")
+                                for idx_f, f_item in enumerate(af):
+                                    st.download_button(
+                                        f"📥 Descargar Entregable: {f_item.get('nombre')}", 
+                                        data=base64.b64decode(f_item.get('data')), 
+                                        file_name=f_item.get('nombre'), 
+                                        key=f"dl_client_{p.get('id')}_{idx_f}"
+                                    )
+                            st.markdown("---")
+                else:
+                    st.info("No tienes pedidos pendientes o en proceso en este momento.")
+
+                # --- SECCIÓN APARTE: PEDIDOS COMPLETADOS DEL CLIENTE ---
+                if pedidos_cliente_completados:
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    with st.expander(f"📦 Historial de Mis Pedidos Completados / Entregados ({len(pedidos_cliente_completados)})", expanded=False):
+                        st.info("Aquí puedes consultar y volver a descargar los entregables de tus trabajos finalizados.")
+                        
+                        for p in pedidos_cliente_completados:
+                            st.markdown(f"### 🧵 Proyecto: {p.get('nombre_proyecto')}")
+                            st.markdown(f"**ID de Pedido:** `{p.get('id')}` | **Estado:** `✅ Completado`")
+                            st.markdown(f"**Producto:** {p.get('producto')} | **Ubicación:** {p.get('ubicacion')} | **Estilo:** {p.get('estilo')}")
+                            
+                            af = p.get('archivos_finales', [])
+                            if af:
+                                st.success("✨ Archivos Entregados:")
+                                for idx_f, f_item in enumerate(af):
+                                    st.download_button(
+                                        f"📥 Descargar: {f_item.get('nombre')}", 
+                                        data=base64.b64decode(f_item.get('data')), 
+                                        file_name=f_item.get('nombre'), 
+                                        key=f"dl_client_comp_{p.get('id')}_{idx_f}"
+                                    )
+                            st.markdown("---")
             else:
                 st.info(f"No hay pedidos registrados para: {st.session_state.user}")
         except Exception as e:
@@ -268,7 +305,6 @@ else:
         if not docs:
             st.info("No hay pedidos en la base de datos.")
         
-        # Separar pedidos pendientes/en proceso de los completados
         pedidos_activos = []
         pedidos_completados = []
 
@@ -279,7 +315,7 @@ else:
             else:
                 pedidos_activos.append((doc.id, p_data))
 
-        # --- MOSTRAR PEDIDOS ACTIVOS (Pendientes / En Proceso) ---
+        # --- MOSTRAR PEDIDOS ACTIVOS (Admin) ---
         if pedidos_activos:
             for doc_id, p in pedidos_activos:
                 nombre_cliente = p.get('cliente', 'Desconocido')
@@ -354,7 +390,7 @@ else:
         else:
             st.info("🎉 No hay pedidos pendientes o en proceso en este momento.")
 
-        # --- SECCIÓN APARTE: PEDIDOS COMPLETADOS / ENTREGADOS ---
+        # --- SECCIÓN APARTE: PEDIDOS COMPLETADOS / ENTREGADOS (Admin) ---
         if pedidos_completados:
             st.markdown("<br>", unsafe_allow_html=True)
             with st.expander(f"🗂️ Historial de Pedidos Entregados / Completados ({len(pedidos_completados)})", expanded=False):
@@ -369,7 +405,6 @@ else:
                     st.markdown(f"**ID de Pedido:** `{id_pedido}` | **Estado:** `✅ Completado`")
                     st.text(f"Producto: {p.get('producto')} | Ubicación: {p.get('ubicacion')} | Estilo: {p.get('estilo')}")
                     
-                    # Opciones de gestión rápida por si necesitas cambiar el estado de vuelta o eliminarlo
                     col_op1, col_op2 = st.columns(2)
                     with col_op1:
                         if st.button(f"🔄 Volver a 'Pendiente' {id_pedido}", key=f"revert_{doc_id}"):
