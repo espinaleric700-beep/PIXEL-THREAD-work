@@ -9,7 +9,7 @@ from streamlit_autorefresh import st_autorefresh
 st.set_page_config(page_title="Pixel Thread | Pro", layout="wide")
 st_autorefresh(interval=10000, limit=1000, key="auto_refrescar")
 
-# --- CSS AVANZADO PARA DISEÑO HORIZONTAL EN MÓVILES Y PC ---
+# --- CSS AVANZADO PARA DISEÑO HORIZONTAL Y COMPACTO ---
 st.markdown("""
 <style>
     :root {
@@ -22,9 +22,9 @@ st.markdown("""
     }
     .block-container {
         max-width: 100% !important;
-        padding-left: 1.5rem;
-        padding-right: 1.5rem;
-        padding-top: 2rem;
+        padding-left: 1rem;
+        padding-right: 1rem;
+        padding-top: 1rem;
     }
     div[data-testid="stExpander"], div[data-testid="stVerticalBlock"] > div {
         background: rgba(10, 10, 15, 0.6) !important;
@@ -42,6 +42,8 @@ st.markdown("""
         text-transform: uppercase;
         font-weight: bold;
         width: 100%;
+        font-size: 12px !important;
+        padding: 6px 2px !important;
     }
     div.stButton > button:hover {
         background: var(--primary) !important;
@@ -49,18 +51,20 @@ st.markdown("""
         box-shadow: 0 0 15px var(--primary) !important;
         transform: translateY(-2px);
     }
-    h1, h2, h3 { color: var(--primary) !important; text-transform: uppercase; letter-spacing: 2px; }
+    h1 { font-size: 1.5rem !important; margin: 0 !important; color: var(--primary) !important; letter-spacing: 1px; }
+    h2, h3 { color: var(--primary) !important; text-transform: uppercase; letter-spacing: 1px; }
 
-    /* Forzar que las columnas se mantengan limpias y compactas en pantallas móviles */
+    /* Forzar que la barra superior quede perfectamente alineada y horizontal en móviles */
     @media (max-width: 768px) {
-        .stColumns {
-            flex-direction: row !important;
+        .row-widget.stHorizontal {
             display: flex !important;
+            flex-direction: row !important;
+            align-items: center !important;
         }
         div[data-testid="column"] {
-            width: 50% !important;
-            flex: 1 1 auto !important;
+            flex: 1 !important;
             min-width: unset !important;
+            padding: 0px 3px !important;
         }
     }
 </style>
@@ -98,23 +102,25 @@ def actualizar_url(vista, user):
 
 ADMINS_AUTORIZADOS = ["Pixel2580", "eric"]
 
-# --- NAVEGACIÓN SUPERIOR (AHORA EN HORIZONTAL COMPACTO) ---
-st.title("⚡ PIXEL THREAD")
+# --- BARRA SUPERIOR UNIFICADA (TÍTULO Y BOTONES EN LA MISMA LÍNEA) ---
+col_t, col_b1, col_b2 = st.columns([1.6, 1.2, 1.2], gap="small")
 
-# Contenedor en columnas para que los botones queden lado a lado en el móvil
-col_nav1, col_nav2 = st.columns(2)
-with col_nav1:
+with col_t:
+    st.markdown("<h1>⚡ PIXEL</h1>", unsafe_allow_html=True)
+
+with col_b1:
     if st.button("👤 CLIENTE"): 
         actualizar_url("Cliente", st.session_state.user)
-with col_nav2:
+
+with col_b2:
     if st.button("🛠️ ADMIN"): 
         usuario_actual = st.session_state.user.strip()
         if usuario_actual in ADMINS_AUTORIZADOS:
             actualizar_url("Admin", st.session_state.user)
         else:
-            st.error("❌ Sin permisos de administrador.")
+            st.error("❌ Sin permisos.")
 
-st.markdown("<br>", unsafe_allow_html=True)
+st.markdown("<hr style='margin: 10px 0px; border-color: rgba(0,255,204,0.2);'>", unsafe_allow_html=True)
 
 # =========================================================
 # 1. PANEL DE CLIENTE
@@ -142,11 +148,11 @@ if st.session_state.modo_vista == "Cliente":
             with col_c1:
                 if logo_cliente_b64:
                     try:
-                        st.image(base64.b64decode(logo_cliente_b64), width=50)
+                        st.image(base64.b64decode(logo_cliente_b64), width=40)
                     except Exception:
-                        st.markdown("<h3>👤</h3>", unsafe_allow_html=True)
+                        st.markdown("👤", unsafe_allow_html=True)
                 else:
-                    st.markdown("<h3>👤</h3>", unsafe_allow_html=True)
+                    st.markdown("👤", unsafe_allow_html=True)
             with col_c2:
                 st.subheader(f"Hola, {nombre_cliente}")
 
@@ -217,7 +223,6 @@ if st.session_state.modo_vista == "Cliente":
                 if pedidos_activos:
                     for p in pedidos_activos:
                         with st.container():
-                            # Organizar los datos clave horizontalmente dentro de la tarjeta
                             col_p1, col_p2 = st.columns([2, 1])
                             with col_p1:
                                 st.markdown(f"**🧵 {p.get('nombre_proyecto')}**")
