@@ -353,6 +353,9 @@ else:
 
         docs = list(db.collection("pedidos_bordado").order_by("timestamp").stream())
 
+        # =========================================================
+        # PESTAÑA: PENDIENTES Y EN PROCESO
+        # =========================================================
         with tab_admin_pend:
             pedidos_activos = [(doc.id, doc.to_dict()) for doc in docs if doc.to_dict().get('estado') != "Completado"]
 
@@ -384,7 +387,7 @@ else:
 
                             archivos_cliente = p.get('archivos', [])
                             if archivos_cliente:
-                                st.markdown("📁 **Archivos:**")
+                                st.markdown("📁 **Archivos del Cliente:**")
                                 for idx_ac, ac in enumerate(archivos_cliente):
                                     nom_ac = ac.get('nombre', 'archivo')
                                     try:
@@ -395,50 +398,62 @@ else:
                                     except Exception:
                                         pass
 
-                            with st.expander("📤 Subir Resultado"):
+                            # --- NUEVA SECCIÓN DE GESTIÓN DE ARCHIVOS ---
+                            with st.expander("📤 Gestionar Archivos al Cliente"):
+                                lista_finales = p.get('archivos_finales', [])
+                                
+                                if lista_finales:
+                                    st.markdown("**✨ Ya enviados:**")
+                                    for idx_f, af in enumerate(lista_finales):
+                                        c_nom, c_btn = st.columns([4, 1])
+                                        with c_nom:
+                                            st.caption(f"📄 {af.get('nombre', 'archivo')}")
+                                        with c_btn:
+                                            if st.button("❌", key=f"del_arch_pend_{doc_id}_{idx_f}", help="Eliminar este archivo"):
+                                                lista_finales.pop(idx_f)
+                                                db.collection("pedidos_bordado").document(doc_id).update({"archivos_finales": lista_finales})
+                                                st.rerun()
+                                                
+                                st.markdown("**➕ Agregar nuevos:**")
                                 archivos_entregables = st.file_uploader(
-                                    "Archivos finales:", 
+                                    "Seleccionar archivos:", 
                                     type=["dst", "emb", "pes", "png", "jpg", "pdf"],
                                     accept_multiple_files=True, 
                                     key=f"up_admin_{doc_id}"
                                 )
-                                if st.button("🚀 COMPLETAR", key=f"btn_comp_{doc_id}", use_container_width=True):
+                                if st.button("🚀 SUBIR Y COMPLETAR", key=f"btn_comp_{doc_id}", use_container_width=True):
                                     if archivos_entregables:
                                         try:
                                             status_subida = st.empty()
                                             total_archivos = len(archivos_entregables)
-                                            lista_finales = p.get('archivos_finales', [])
                                             
                                             # Subimos los archivos uno por uno de forma secuencial
                                             for idx, af in enumerate(archivos_entregables, start=1):
                                                 status_subida.info(f"⏳ Subiendo archivo {idx} de {total_archivos} ({af.name})...")
-                                                
                                                 b64_fin = procesar_archivo_subido(af)
-                                                nuevo_archivo = {
-                                                    "nombre": af.name,
-                                                    "data": b64_fin
-                                                }
-                                                lista_finales.append(nuevo_archivo)
+                                                lista_finales.append({"nombre": af.name, "data": b64_fin})
                                                 
-                                                # Actualizamos Firestore individualmente por cada archivo
                                                 db.collection("pedidos_bordado").document(doc_id).update({
                                                     "archivos_finales": lista_finales,
                                                     "estado": "Completado"
                                                 })
                                             
-                                            status_subida.success("¡Todos los archivos se subieron y completaron con éxito!")
+                                            status_subida.success("¡Completado con éxito!")
                                             st.rerun()
                                         except Exception as e:
-                                            status_subida.error(f"Error al subir los archivos: {e}")
+                                            status_subida.error(f"Error al subir: {e}")
                                     else:
                                         st.warning("Adjunta al menos un archivo.")
 
-                            if st.button("🗑️ Eliminar", key=f"mob_del_{doc_id}", use_container_width=True):
+                            if st.button("🗑️ Eliminar Pedido", key=f"mob_del_{doc_id}", use_container_width=True):
                                 db.collection("pedidos_bordado").document(doc_id).delete()
                                 st.rerun()
             else:
                 st.info("🎉 No hay pedidos pendientes de revisión.")
 
+        # =========================================================
+        # PESTAÑA: COMPLETADOS / ENTREGADOS
+        # =========================================================
         with tab_admin_comp:
             pedidos_completados_admin = [(doc.id, doc.to_dict()) for doc in docs if doc.to_dict().get('estado') == "Completado"]
 
@@ -454,6 +469,55 @@ else:
                             st.markdown(f"**🎨 Estilo:** {p.get('estilo', 'N/A')}")
                             render_estado_badge("Completado")
                             
+                            if st.button("🔄 Marcar como Pendiente", key=f"btn_regresar_pend_{doc_id}", use_container_width=True):
+                                db.collection("pedidos_bordado").document(doc_id).update({"estado": "Pendiente"})
+                                st.rerun()
+                            
+                            # --- SECCIÓN DE GESTIÓN DE ARCHIVOS TAMBIÉN EN COMPLETADOS ---
+                            with st.expander("📤 Gestionar Archivos al Cliente"):
+                                lista_finales = p.get('archivos_finales', [])
+                                
+                                if lista_finales:
+                                    st.markdown("**✨ Ya enviados:**")
+                                    for idx_f, af in enumerate(lista_finales):
+                                        c_nom, c_btn = st.columns([4, 1])
+                                        with c_nom:
+                                            st.caption(f"📄 {af.get('nombre', 'archivo')}")
+                                        with c_btn:
+                                            if st.button("❌", key=f"del_arch_comp_{doc_id}_{idx_f}", help="Eliminar este archivo"):
+                                                lista_finales.pop(idx_f)
+                                                db.collection("pedidos_bordado").document(doc_id).update({"archivos_finales": lista_finales})
+                                                st.rerun()
+                                                
+                                st.markdown("**➕ Agregar nuevos:**")
+                                archivos_extra = st.file_uploader(
+                                    "Seleccionar archivos:", 
+                                    type=["dst", "emb", "pes", "png", "jpg", "pdf"],
+                                    accept_multiple_files=True, 
+                                    key=f"up_admin_comp_{doc_id}"
+                                )
+                                if st.button("🚀 SUBIR ARCHIVOS", key=f"btn_comp_extra_{doc_id}", use_container_width=True):
+                                    if archivos_extra:
+                                        try:
+                                            status_subida = st.empty()
+                                            total_archivos = len(archivos_extra)
+                                            
+                                            for idx, af in enumerate(archivos_extra, start=1):
+                                                status_subida.info(f"⏳ Subiendo archivo {idx} de {total_archivos} ({af.name})...")
+                                                b64_fin = procesar_archivo_subido(af)
+                                                lista_finales.append({"nombre": af.name, "data": b64_fin})
+                                                
+                                                db.collection("pedidos_bordado").document(doc_id).update({
+                                                    "archivos_finales": lista_finales
+                                                })
+                                            
+                                            status_subida.success("¡Archivos agregados con éxito!")
+                                            st.rerun()
+                                        except Exception as e:
+                                            status_subida.error(f"Error al subir: {e}")
+                                    else:
+                                        st.warning("Adjunta al menos un archivo.")
+
                             if st.button("🗑️ Eliminar Historial", key=f"admin_del_comp_{doc_id}", use_container_width=True):
                                 db.collection("pedidos_bordado").document(doc_id).delete()
                                 st.rerun()
