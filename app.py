@@ -127,9 +127,13 @@ if st.session_state.modo_vista == "Cliente":
             nombre_cliente = data_u.get('nombre_usuario', st.session_state.user)
             logo_cliente_b64 = data_u.get('logo_b64', None)
 
-        # Cabecera centralizada horizontalmente con el icono exactamente del tamaño del cuadro rojo (ancho mayor) y al lado del nombre
+        # Cabecera centralizada con alineación vertical mediante Flexbox
         col_esp_izq, col_contenido, col_esp_der = st.columns([1, 4, 1])
         with col_contenido:
+            st.markdown("""
+                <div style="display: flex; align-items: center; gap: 20px;">
+            """, unsafe_allow_html=True)
+            
             sub_c1, sub_c2 = st.columns([0.42, 3.58])
             with sub_c1:
                 if logo_cliente_b64:
@@ -140,7 +144,9 @@ if st.session_state.modo_vista == "Cliente":
                 else:
                     st.markdown("<h1 style='margin: 0; font-size: 60px;'>👤</h1>", unsafe_allow_html=True)
             with sub_c2:
-                st.markdown(f"<h1 style='margin: 0; padding-top: 24px;'>{nombre_cliente}</h1>", unsafe_allow_html=True)
+                st.markdown(f"<h1 style='margin: 0;'>{nombre_cliente}</h1>", unsafe_allow_html=True)
+            
+            st.markdown("</div>", unsafe_allow_html=True)
         
         if st.session_state.mensaje_exito:
             st.success(st.session_state.mensaje_exito)
