@@ -11,7 +11,7 @@ from streamlit_autorefresh import st_autorefresh
 st.set_page_config(page_title="Pixel Thread | Pro", layout="wide")
 st_autorefresh(interval=10000, limit=1000, key="auto_refrescar")
 
-# --- CSS LIMPIO, SIN LÍNEAS ANIDADAS, LETRAS MÁS GRANDES Y OCULTAR TOTALMENTE ELEMENTOS FLOTANTES Y DE STREAMLIT ---
+# --- CSS LIMPIO, SIN LÍNEAS ANIDADas, LETRAS MÁS GRANDES Y OCULTAR TOTALMENTE ELEMENTOS FLOTANTES Y DE STREAMLIT ---
 st.markdown("""
 <style>
     :root {
@@ -245,6 +245,8 @@ st.markdown("<br>", unsafe_allow_html=True)
 # =========================================================
 if st.session_state.modo_vista == "Cliente":
     user_clean_inicial = st.session_state.user.strip()
+
+    # Si hay un usuario válido ingresado, expandido=False (minimizado); si no hay usuario, expandido=True para que se vea
     user_valido_inicial = bool(user_clean_inicial)
     
     with st.expander("👤 Cambiar / Ver Usuario Actual", expanded=not user_valido_inicial):
@@ -263,6 +265,7 @@ if st.session_state.modo_vista == "Cliente":
             if st.button("🔍 Buscar", use_container_width=True):
                 st.session_state.user = st.session_state.input_usuario_key
 
+    # Sincronizamos cambios con la URL
     if st.session_state.user != params.get("user", ""):
         actualizar_url("Cliente", st.session_state.user)
 
@@ -537,7 +540,7 @@ else:
                                                 lista_finales.pop(idx_f)
                                                 db.collection("pedidos_bordado").document(doc_id).update({"archivos_finales": lista_finales})
                                                 st.rerun()
-                                        
+                                                
                                 st.markdown("**➕ Agregar nuevos:**")
                                 archivos_entregables = st.file_uploader(
                                     "Seleccionar archivos:", 
@@ -619,89 +622,124 @@ else:
                                                 st.rerun()
                                                 
                                 st.markdown("**➕ Agregar nuevos:**")
-                                archivos_entregables_comp = st.file_uploader(
+                                archivos_extra = st.file_uploader(
                                     "Seleccionar archivos:", 
                                     type=["dst", "emb", "pes", "png", "jpg", "pdf"],
                                     accept_multiple_files=True, 
                                     key=f"up_admin_comp_{doc_id}"
                                 )
-                                if st.button("🚀 ACTUALIZAR ENTREGABLES", key=f"btn_upd_comp_{doc_id}", use_container_width=True):
-                                    if archivos_entregables_comp:
+                                if st.button("🚀 SUBIR ARCHIVOS", key=f"btn_comp_extra_{doc_id}", use_container_width=True):
+                                    if archivos_extra:
                                         try:
-                                            status_subida_c = st.empty()
-                                            total_archivos_c = len(archivos_entregables_comp)
+                                            status_subida = st.empty()
+                                            total_archivos = len(archivos_extra)
                                             
-                                            for idx, af in enumerate(archivos_entregables_comp, start=1):
-                                                status_subida_c.info(f"⏳ Subiendo archivo {idx} de {total_archivos_c} ({af.name})...")
+                                            db.collection("pedidos_bordado").document(doc_id).update({"archivos_finales": []})
+                                            
+                                            for idx, af in enumerate(archivos_extra, start=1):
+                                                status_subida.info(f"⏳ Subiendo archivo {idx} de {total_archivos} ({af.name})...")
                                                 b64_fin = procesar_archivo_subido(af)
                                                 lista_finales.append({"nombre": af.name, "data": b64_fin})
                                                 
-                                            db.collection("pedidos_bordado").document(doc_id).update({"archivos_finales": lista_finales})
-                                            status_subida_c.success("¡Actualizado con éxito!")
+                                                db.collection("pedidos_bordado").document(doc_id).update({
+                                                    "archivos_finales": lista_finales
+                                                })
+                                            
+                                            status_subida.success("¡Archivos agregados con éxito!")
                                             st.rerun()
                                         except Exception as e:
-                                            status_subida_c.error(f"Error al subir: {e}")
+                                            status_subida.error(f"Error al subir: {e}")
                                     else:
                                         st.warning("Adjunta al menos un archivo.")
 
-                            if st.button("🗑️ Eliminar Pedido", key=f"del_comp_{doc_id}", use_container_width=True):
+                            if st.button("🗑️ Eliminar Historial", key=f"admin_del_comp_{doc_id}", use_container_width=True):
                                 db.collection("pedidos_bordado").document(doc_id).delete()
                                 recalcular_turnos()
                                 st.rerun()
             else:
-                st.info("🎉 No hay pedidos completados guardados.")
+                st.info("No hay pedidos completados en el historial.")
 
         with tab_admin_clientes:
-            st.subheader("👥 Gestión de Perfiles de Clientes")
+            st.subheader("👥 Registro y Control de Clientes")
             
-            with st.form("form_crear_cliente"):
-                st.markdown("**Registrar o Actualizar Cliente**")
-                nuevo_id = st.text_input("ID de Usuario único (ej: usuario123)").strip().lower()
-                nuevo_nombre = st.text_input("Nombre Visible del Cliente").strip()
-                logo_cliente_file = st.file_uploader("Logo del Cliente (Opcional)", type=["png", "jpg", "jpeg"])
-                
-                btn_guardar_cliente = st.form_submit_button("💾 Guardar Cliente")
-                
-                if btn_guardar_cliente:
-                    if not nuevo_id or not nuevo_nombre:
-                        st.warning("⚠️ Debes rellenar el ID de usuario y el nombre visible.")
-                    else:
-                        try:
-                            logo_b64_str = None
-                            if logo_cliente_file:
-                                logo_b64_str = procesar_archivo_subido(logo_cliente_file)
+            with st.expander("➕ Agregar o Modificar Cliente"):
+                with st.form("form_cliente"):
+                    c_id = st.text_input("ID o Usuario del Cliente (ej. juan123):").strip().lower()
+                    c_nombre = st.text_input("Nombre Completo / Nombre Comercial:").strip()
+                    c_logo = st.file_uploader("Logotipo del Cliente (Opcional)", type=["png", "jpg", "jpeg"])
+                    
+                    guardar_cliente = st.form_submit_button("💾 Guardar / Actualizar Cliente")
+                    
+                    if guardar_cliente:
+                        if not c_id:
+                            st.warning("⚠️ Debes ingresar un ID o nombre de usuario.")
+                        elif not c_id.isalnum() and "_" not in c_id and "-" not in c_id:
+                            st.error("❌ **Usuario inválido:** El ID de usuario solo debe contener letras, números, guiones bajos o guiones medios (sin espacios ni caracteres especiales).")
+                        else:
+                            try:
+                                doc_ref = db.collection("usuarios_perfil").document(c_id)
+                                data_cliente = {
+                                    "id_usuario": c_id,
+                                    "nombre_usuario": c_nombre if c_nombre else c_id
+                                }
+                                if c_logo:
+                                    data_cliente["logo_b64"] = procesar_archivo_subido(c_logo)
                                 
-                            data_cliente = {
-                                "nombre_usuario": nuevo_nombre,
-                                "logo_b64": logo_b64_str
-                            }
-                            db.collection("usuarios_perfil").document(nuevo_id).set(data_cliente, merge=True)
-                            st.success(f"✅ Cliente '{nuevo_nombre}' guardado exitosamente.")
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Error al guardar cliente: {e}")
+                                doc_ref.set(data_cliente, merge=True)
+                                st.success(f"✅ Cliente '{c_id}' guardado correctamente.")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Error al guardar cliente: {e}")
 
             st.markdown("---")
             st.markdown("### 📋 Lista de Clientes Registrados")
-            clientes_docs = list(db.collection("usuarios_perfil").stream())
             
-            if clientes_docs:
-                for c_doc in clientes_docs:
-                    c_data = c_doc.to_dict()
-                    c_id = c_doc.id
-                    c_nom = c_data.get('nombre_usuario', 'Sin nombre')
-                    
-                    with st.container(border=True):
-                        col_info, col_del = st.columns([4, 1], vertical_alignment="center")
-                        with col_info:
-                            st.markdown(f"**ID:** `{c_id}` | **Nombre:** **{c_nom}**")
-                        with col_del:
-                            if st.button("🗑️ Borrar", key=f"del_cli_{c_id}", use_container_width=True):
-                                db.collection("usuarios_perfil").document(c_id).delete()
-                                st.success(f"Cliente {c_id} eliminado.")
-                                st.rerun()
-            else:
-                st.info("No hay clientes registrados todavía.")
+            try:
+                clientes_docs = list(db.collection("usuarios_perfil").stream())
+                if clientes_docs:
+                    cols_cli = st.columns(4)
+                    for i, c_doc in enumerate(clientes_docs):
+                        c_data = c_doc.to_dict()
+                        c_key = c_doc.id
+                        
+                        w_cols_cli = cols_cli[i % 4]
+                        with w_cols_cli:
+                            with st.container(border=True):
+                                logo_b64 = c_data.get("logo_b64")
+                                if logo_b64:
+                                    try:
+                                        st.image(base64.b64decode(logo_b64), width=50)
+                                    except:
+                                        st.markdown("👤", unsafe_allow_html=True)
+                                else:
+                                    st.markdown("👤", unsafe_allow_html=True)
+                                
+                                st.markdown(f"**ID:** `{c_key}`")
+                                st.markdown(f"**Nombre:** {c_data.get('nombre_usuario', 'N/A')}")
+                                
+                                if st.button("🗑️ Eliminar", key=f"del_cli_{c_key}", use_container_width=True):
+                                    db.collection("usuarios_perfil").document(c_key).delete()
+                                    st.success(f"Cliente {c_key} eliminado.")
+                                    st.rerun()
+                else:
+                    st.info("No hay clientes registrados en la base de datos.")
+            except Exception as e:
+                st.error(f"Error al listar clientes: {e}")
+
+        st.markdown("---")
+        with st.expander("🚨 Zona de Peligro: Limpieza Masiva de Historial"):
+            st.warning("⚠️ Esta acción eliminará todos los registros de pedidos en la base de datos de manera permanente.")
+            if st.button("⚠️ BORRAR TODO EL HISTORIAL DE PEDIDOS", use_container_width=True):
+                try:
+                    for doc in docs:
+                        db.collection("pedidos_bordado").document(doc.id).delete()
+                    st.success("¡Historial eliminado por completo!")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Error al limpiar la base de datos: {e}")
 
     except Exception as e:
-        st.error(f"Error en el panel de administración: {e}")
+        if "ResourceExhausted" in str(type(e).__name__) or "quota" in str(e).lower():
+            st.error("⚠️ Límite de base de datos alcanzado temporalmente. Espera unos segundos.")
+        else:
+            st.error(f"Error: {e}")
