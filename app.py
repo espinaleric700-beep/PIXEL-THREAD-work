@@ -227,11 +227,17 @@ if st.session_state.modo_vista == "Cliente":
                                     except Exception:
                                         pass
 
+                        # Mostrar entregables finales enviados por el Administrador
                         af = p.get('archivos_finales', [])
                         if af:
                             st.success("✨ ¡Entregables listos para descargar!")
                             for idx_f, f_item in enumerate(af):
-                                st.download_button(f"📥 Descargar Entregable: {f_item.get('nombre')}", data=base64.b64decode(f_item.get('data')), file_name=f_item.get('nombre'), key=f"dl_client_{p.get('id')}_{idx_f}")
+                                st.download_button(
+                                    f"📥 Descargar Entregable: {f_item.get('nombre')}", 
+                                    data=base64.b64decode(f_item.get('data')), 
+                                    file_name=f_item.get('nombre'), 
+                                    key=f"dl_client_{p.get('id')}_{idx_f}"
+                                )
                         st.markdown("---")
             else:
                 st.info(f"No hay pedidos registrados para: {st.session_state.user}")
@@ -266,19 +272,18 @@ else:
             p = doc.to_dict()
             doc_id = doc.id
             
-            # --- ENCABEZADO CON NOMBRE DEL CLIENTE Y NOMBRE DEL PROYECTO ---
+            # Encabezado con Nombre del Cliente y Nombre del Proyecto
             nombre_cliente = p.get('cliente', 'Desconocido')
             nombre_proyecto = p.get('nombre_proyecto', 'Sin Nombre')
             id_pedido = p.get('id', 'Sin ID')
             
             st.markdown(f"### 👤 {nombre_cliente} — 🧵 {nombre_proyecto}")
-            
-            # Mostramos el ID del pedido y el estado de forma secundaria abajo
             st.markdown(f"**ID de Pedido:** `{id_pedido}` | **Estado:** `{p.get('estado')}`")
             st.text(f"Producto: {p.get('producto')} | Ubicación: {p.get('ubicacion')} | Estilo: {p.get('estilo')}")
             if p.get('comentarios'):
                 st.text(f"Comentarios: {p.get('comentarios')}")
 
+            # Archivos enviados por el Cliente
             archivos = p.get('archivos', [])
             if archivos:
                 st.markdown("🖼️ **Archivos del Cliente:**")
@@ -292,9 +297,46 @@ else:
                             pass
                     st.download_button(f"📥 Descargar {nombre_a}", data=base64.b64decode(data_a), file_name=nombre_a, key=f"dl_admin_orig_{id_pedido}_{nombre_a}")
 
+            st.markdown("<br>", unsafe_allow_html=True)
+
+            # --- NUEVA SECCIÓN: SUBIR ENTREGABLES AL CLIENTE ---
+            with st.expander("📤 Subir Entregables / Archivo Digitalizado para el Cliente", expanded=False):
+                archivos_entregables = st.file_uploader(
+                    "Selecciona los archivos finalizados (.DST, .EMB, .PES, .PNG, etc.):", 
+                    type=["dst", "emb", "pes", "png", "jpg", "jpeg", "pdf"],
+                    accept_multiple_files=True, 
+                    key=f"upload_final_{doc_id}"
+                )
+                if st.button("🚀 ENVIAR ARCHIVO AL CLIENTE", key=f"btn_send_final_{doc_id}"):
+                    if archivos_entregables:
+                        lista_finales = p.get('archivos_finales', [])
+                        for af in archivos_entregables:
+                            b_cont = af.getvalue()
+                            lista_finales.append({
+                                "nombre": af.name,
+                                "data": base64.b64encode(b_cont).decode("utf-8")
+                            })
+                        # Actualizar en Firestore y marcar como Completado
+                        db.collection("pedidos_bordado").document(doc_id).update({
+                            "archivos_finales": lista_finales,
+                            "estado": "Completado"
+                        })
+                        st.success("¡Archivos enviados correctamente al cliente!")
+                        st.rerun()
+                    else:
+                        st.warning("⚠️ Debes adjuntar al menos un archivo para enviar.")
+
+            # Mostrar entregables ya subidos anteriormente
+            af_existentes = p.get('archivos_finales', [])
+            if af_existentes:
+                st.markdown("✅ **Entregables Ya Subidos:**")
+                for idx_fe, fe_item in enumerate(af_existentes):
+                    st.text(f"📄 {fe_item.get('nombre')}")
+
+            # Selector de estado manual
             estados = ["Pendiente", "En Proceso", "Completado"]
             est_actual = p.get('estado', 'Pendiente')
-            nuevo_est = st.selectbox("Actualizar Estado", estados, index=estados.index(est_actual) if est_actual in estados else 0, key=f"st_{doc_id}")
+            nuevo_est = st.selectbox("Actualizar Estado Manualmente", estados, index=estados.index(est_actual) if est_actual in estados else 0, key=f"st_{doc_id}")
             if nuevo_est != est_actual:
                 db.collection("pedidos_bordado").document(doc_id).update({"estado": nuevo_est})
                 st.success("¡Estado actualizado!")
