@@ -125,13 +125,15 @@ if st.session_state.modo_vista == "Cliente":
             logo_perfil_b64 = datos_usuario.get("logo_usuario", "")
             nombre_cliente = datos_usuario.get('nombre_usuario', st.session_state.user)
 
-            # TÍTULO DINÁMICO CON LOGO E ICONO AL LADO
-            col_t1, col_t2 = st.columns([5, 1])
-            with col_t1:
-                st.title(f"🧵 {nombre_cliente}")
-            with col_t2:
-                if logo_perfil_b64:
-                    st.image(base64.b64decode(logo_perfil_b64), width=65)
+            # TÍTULO DINÁMICO CON EL LOGO DEL CLIENTE COMO ICONO Y SU NOMBRE AL LADO
+            if logo_perfil_b64:
+                col_img, col_txt = st.columns([1, 6])
+                with col_img:
+                    st.image(base64.b64decode(logo_perfil_b64), width=50)
+                with col_txt:
+                    st.title(f"{nombre_cliente}")
+            else:
+                st.title(f"{nombre_cliente}")
 
             st.markdown("---")
 
