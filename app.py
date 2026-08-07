@@ -114,7 +114,7 @@ if st.session_state.modo_vista == "Cliente":
         actualizar_url_y_estado("Cliente", user_input)
 
     if not st.session_state.user.strip():
-        st.title("🧵 Pixel Thread - Portal de Cliente")
+        st.title("Pixel Thread - Portal de Cliente")
         st.info("👆 Por favor, ingresa tu nombre o ID de usuario arriba para acceder a tus pedidos.")
     else:
         user_doc_ref = db.collection("usuarios_perfil").document(st.session_state.user.strip().lower())
@@ -127,16 +127,18 @@ if st.session_state.modo_vista == "Cliente":
             nombre_cliente = data_u.get('nombre_usuario', st.session_state.user)
             logo_cliente_b64 = data_u.get('logo_b64', None)
 
-        # Encabezado con Logo opcional al lado del nombre
-        col_h1, col_h2 = st.columns([1, 6])
+        # Encabezado con Logo o icono en lugar del 🧵
+        col_h1, col_h2 = st.columns([0.8, 6.2])
         with col_h1:
             if logo_cliente_b64:
                 try:
-                    st.image(base64.b64decode(logo_cliente_b64), width=60)
+                    st.image(base64.b64decode(logo_cliente_b64), width=50)
                 except Exception:
-                    pass
+                    st.markdown("### 👤")
+            else:
+                st.markdown("### 👤")
         with col_h2:
-            st.title(f"🧵 Bienvenido, {nombre_cliente}")
+            st.title(f"Bienvenido, {nombre_cliente}")
         
         if st.session_state.mensaje_exito:
             st.success(st.session_state.mensaje_exito)
