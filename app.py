@@ -160,9 +160,10 @@ if st.session_state.modo_vista == "Cliente":
                 with st.form("form_pedido_streamlit", clear_on_submit=True):
                     nombre_proyecto = st.text_input("1. Nombre o Referencia del Proyecto")
                     
-                    archivo_subido = st.file_uploader(
-                        "2. Sube tu Archivo del Pedido (PNG, JPG, DST, PES, PDF, EMB)", 
-                        type=["png", "jpg", "jpeg", "dst", "pes", "pdf", "emb"]
+                    archivos_subidos = st.file_uploader(
+                        "2. Sube tus Archivos del Pedido (PNG, JPG, DST, PES, PDF, EMB)", 
+                        type=["png", "jpg", "jpeg", "dst", "pes", "pdf", "emb"],
+                        accept_multiple_files=True
                     )
                     
                     comentarios = st.text_area("3. Comentarios o Instrucciones Adicionales (Opcional)")
@@ -172,12 +173,16 @@ if st.session_state.modo_vista == "Cliente":
                     if submit_pedido:
                         if not nombre_proyecto:
                             st.warning("⚠️ Debes ingresar el nombre o referencia del proyecto.")
+                        elif not archivos_subidos or len(archivos_subidos) == 0:
+                            st.error("❌ Error: Debes adjuntar al menos un archivo para enviar la orden a producción.")
                         else:
-                            img_base64 = ""
-                            file_name = "Sin archivo"
-                            if archivo_subido is not None:
-                                file_name = archivo_subido.name
-                                img_base64 = base64.b64encode(archivo_subido.getvalue()).decode("utf-8")
+                            lista_archivos_guardados = []
+                            for archivo in archivos_subidos:
+                                archivo_b64 = base64.b64encode(archivo.getvalue()).decode("utf-8")
+                                lista_archivos_guardados.append({
+                                    "nombre": archivo.name,
+                                    "data": archivo_b64
+                                })
 
                             data_pedido = {
                                 "id": "PT-" + str(int(datetime.now().timestamp())),
@@ -186,8 +191,7 @@ if st.session_state.modo_vista == "Cliente":
                                 "producto": tipo_producto,
                                 "ubicacion": ubicacion if tipo_producto == "GORRA" else "N/A",
                                 "estilo": estilo_frente if (tipo_producto == "GORRA" and ubicacion == "FRENTE") else "N/A",
-                                "archivo_nombre": file_name,
-                                "archivo_data": img_base64,
+                                "archivos": lista_archivos_guardados,
                                 "comentarios": comentarios,
                                 "estado": "Pendiente",
                                 "timestamp": datetime.now()
@@ -242,13 +246,20 @@ if st.session_state.modo_vista == "Cliente":
                             if pedido.get('comentarios'):
                                 st.markdown(f"💬 **Comentarios:** {pedido.get('comentarios')}")
                             
-                            archivo_nombre = pedido.get('archivo_nombre', '').lower()
-                            archivo_data = pedido.get('archivo_data', '')
-                            if archivo_data and (archivo_nombre.endswith('.png') or archivo_nombre.endswith('.jpg') or archivo_nombre.endswith('.jpeg')):
-                                st.markdown("**Vista Previa del Archivo:**")
-                                st.image(base64.b64decode(archivo_data), width=120)
-                            elif archivo_data:
-                                st.text(f"Archivo adjunto: {pedido.get('archivo_nombre')}")
+                            # Mostrar archivos adjuntos múltiples
+                            archivos = pedido.get('archivos', [])
+                            # Compatibilidad con pedidos antiguos de un solo archivo
+                            if not archivos and pedido.get('archivo_nombre'):
+                                archivos = [{"nombre": pedido.get('archivo_nombre'), "data": pedido.get('archivo_data')}]
+
+                            if archivos:
+                                st.markdown("**Archivos Adjuntos:**")
+                                for arch in archivos:
+                                    nombre_arch = arch.get('nombre', '')
+                                    data_arch = arch.get('data', '')
+                                    st.text(f"📄 {nombre_arch}")
+                                    if data_arch and (nombre_arch.lower().endswith('.png') or nombre_arch.lower().endswith('.jpg') or nombre_arch.lower().endswith('.jpeg')):
+                                        st.image(base64.b64decode(data_arch), width=120)
 
                             st.markdown("---")
                 else:
@@ -315,21 +326,28 @@ else:
                     if p.get('comentarios'):
                         st.markdown(f"**Comentarios:** {p.get('comentarios')}")
                 with col_info2:
-                    st.markdown(f"**Archivo:** {p.get('archivo_nombre')}")
+                    st.markdown("**Archivos del Pedido:**")
                     
-                    a_nombre = p.get('archivo_nombre', '').lower()
-                    a_data = p.get('archivo_data', '')
-                    if a_data and (a_nombre.endswith('.png') or a_nombre.endswith('.jpg') or a_nombre.endswith('.jpeg')):
-                        st.image(base64.b64decode(a_data), width=100, caption="Miniatura del Logo")
+                    archivos = p.get('archivos', [])
+                    if not archivos and p.get('archivo_nombre'):
+                        archivos = [{"nombre": p.get('archivo_nombre'), "data": p.get('archivo_data')}]
 
-                    if a_data:
-                        st.download_button(
-                            label="📥 Descargar Archivo",
-                            data=base64.b64decode(a_data),
-                            file_name=p.get('archivo_nombre'),
-                            mime="application/octet-stream",
-                            key=f"dl_{doc_id}"
-                        )
+                    for idx, arch in enumerate(archivos):
+                        a_nombre = arch.get('nombre', '')
+                        a_data = arch.get('data', '')
+                        
+                        st.text(f"• {a_nombre}")
+                        if a_data and (a_nombre.lower().endswith('.png') or a_nombre.lower().endswith('.jpg') or a_nombre.lower().endswith('.jpeg')):
+                            st.image(base64.b64decode(a_data), width=80)
+
+                        if a_data:
+                            st.download_button(
+                                label=f"📥 Descargar {a_nombre}",
+                                data=base64.b64decode(a_data),
+                                file_name=a_nombre,
+                                mime="application/octet-stream",
+                                key=f"dl_{doc_id}_{idx}"
+                            )
 
                 estado_actual = p.get('estado', 'Pendiente')
                 opciones_estado = ["Pendiente", "En Proceso", "Completado"]
