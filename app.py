@@ -3,6 +3,7 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 from datetime import datetime
 import base64
+import io
 from streamlit_autorefresh import st_autorefresh
 
 # Configuración de página optimizada para móvil
@@ -139,7 +140,11 @@ if st.session_state.modo_vista == "Cliente":
 
             st.markdown("---")
 
-            with st.expander("➕ Enviar Nuevo Pedido", expanded=False):
+            # Control de estado para minimizar el expander tras enviar con éxito
+            if "expandir_nuevo_pedido" not in st.session_state:
+                st.session_state.expandir_nuevo_pedido = False
+
+            with st.expander("➕ Enviar Nuevo Pedido", expanded=st.session_state.expandir_nuevo_pedido):
                 # Opciones de producto y ubicación fuera del formulario principal para actualización inmediata
                 st.markdown("📦 **Selecciona el Tipo de Producto:**")
                 tipo_producto = st.radio("Producto:", ["GORRA", "TELA", "VARIOS"], horizontal=True, label_visibility="collapsed", key="tipo_producto_dinamico")
@@ -179,9 +184,9 @@ if st.session_state.modo_vista == "Cliente":
                             lista_archivos_guardados = []
                             try:
                                 for archivo in archivos_subidos:
-                                    # Extracción segura y directa por getvalue() para evitar bloqueos en archivos PNG y binarios
-                                    archivo_bytes = archivo.getvalue()
-                                    archivo_b64 = base64.b64encode(archivo_bytes).decode("utf-8")
+                                    # Procesamiento robusto mediante BytesIO para asegurar lectura íntegra de PNG y archivos pesados
+                                    bytes_contenido = io.BytesIO(archivo.getvalue()).read()
+                                    archivo_b64 = base64.b64encode(bytes_contenido).decode("utf-8")
                                     lista_archivos_guardados.append({
                                         "nombre": archivo.name,
                                         "data": archivo_b64
@@ -201,10 +206,24 @@ if st.session_state.modo_vista == "Cliente":
                                 }
                                 
                                 db.collection("pedidos_bordado").add(data_pedido)
-                                st.success("¡Pedido enviado y guardado correctamente!")
+                                
+                                # Guardamos estado para minimizar y mostrar aviso de éxito global
+                                st.session_state.expandir_nuevo_pedido = False
+                                st.session_state.alerta_envio = {"tipo": "exito", "texto": "🎉 ¡Tu orden se envió y guardó correctamente en producción!"}
                                 st.rerun()
                             except Exception as e:
-                                st.error(f"❌ Error crítico al procesar los archivos: {e}")
+                                st.session_state.alerta_envio = {"tipo": "error", "texto": f"❌ Error crítico al procesar los archivos: {e}"}
+                                st.rerun()
+
+            # Mostrar aviso persistente del resultado del envío si existe
+            if "alerta_envio" in st.session_state:
+                alerta = st.session_state.alerta_envio
+                if alerta["tipo"] == "exito":
+                    st.success(alerta["text"]) if "text" in alerta else st.success(alerta["texto"])
+                else:
+                    st.error(alerta["text"]) if "text" in alerta else st.error(alerta["texto"])
+                # Limpiamos la alerta para que no se quede estática infinitamente tras recargas
+                del st.session_state.alerta_envio
 
             st.markdown("---")
             st.subheader("📋 Estado de Mis Pedidos y Posición en Cola")
@@ -296,7 +315,8 @@ else:
                     else:
                         l_b64 = ""
                         if logo_cliente_file is not None:
-                            l_b64 = base64.b64encode(logo_cliente_file.getvalue()).decode("utf-8")
+                            bytes_logo = io.BytesIO(logo_cliente_file.getvalue()).read()
+                            l_b64 = base64.b64encode(bytes_logo).decode("utf-8")
                         
                         doc_ref_nuevo.set({
                             "nombre_usuario": nuevo_id_cliente.strip(),
