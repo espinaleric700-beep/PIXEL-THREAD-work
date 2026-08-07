@@ -86,6 +86,9 @@ def actualizar_url_y_estado(nueva_vista, nuevo_usuario):
     st.query_params["user"] = nuevo_usuario
     st.rerun()
 
+# Lista de administradores autorizados (incluyendo Pixel2580)
+ADMINS_AUTORIZADOS = ["Pixel2580", "eric"]
+
 # Barra superior de navegación entre paneles
 col_nav1, col_nav2 = st.columns(2)
 with col_nav1:
@@ -93,7 +96,11 @@ with col_nav1:
         actualizar_url_y_estado("Cliente", st.session_state.user)
 with col_nav2:
     if st.button("🛠️ Panel Admin"):
-        actualizar_url_y_estado("Admin", st.session_state.user)
+        usuario_actual = st.session_state.user.strip()
+        if usuario_actual in ADMINS_AUTORIZADOS:
+            actualizar_url_y_estado("Admin", st.session_state.user)
+        else:
+            st.error("❌ Acceso denegado: Tu usuario no tiene permisos de administrador.")
 
 st.markdown("---")
 
@@ -203,7 +210,6 @@ if st.session_state.modo_vista == "Cliente":
                         
                         if ref.get().exists:
                             st.session_state.mensaje_exito = "🎉 ¡Pedido enviado con éxito a producción!"
-                            # Incrementamos la versión para limpiar automáticamente los campos de entrada
                             st.session_state.form_version += 1
                             st.rerun() 
                         else:
