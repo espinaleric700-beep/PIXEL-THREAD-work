@@ -77,19 +77,25 @@ def recalcular_turnos():
 def procesar_archivo_subido(arch):
     b_cont = arch.getvalue()
     nombre_lower = arch.name.lower()
-    if nombre_lower.endswith(('png', 'jpg', 'jpeg', 'svg')):
+    
+    # Si es SVG, se maneja directamente como texto/vector sin pasar por PIL
+    if nombre_lower.endswith('svg'):
+        return base64.b64encode(b_cont).decode("utf-8"), "svg"
+    
+    # Para imágenes PNG / JPG / JPEG
+    if nombre_lower.endswith(('png', 'jpg', 'jpeg')):
         try:
-            if not nombre_lower.endswith('svg'):
-                img = Image.open(BytesIO(b_cont))
-                img.thumbnail((800, 800))
-                if img.mode in ("RGBA", "P"):
-                    img = img.convert("RGB")
-                buffered = BytesIO()
-                img.save(buffered, format="JPEG", quality=80)
-                b_cont = buffered.getvalue()
+            img = Image.open(BytesIO(b_cont))
+            img.thumbnail((1200, 1200))
+            if img.mode in ("RGBA", "P"):
+                img = img.convert("RGB")
+            buffered = BytesIO()
+            img.save(buffered, format="JPEG", quality=85)
+            b_cont = buffered.getvalue()
         except Exception:
             pass
-    return base64.b64encode(b_cont).decode("utf-8")
+            
+    return base64.b64encode(b_cont).decode("utf-8"), "raster"
 
 def obtener_configuracion_activa():
     try:
@@ -101,6 +107,7 @@ def obtener_configuracion_activa():
     return {
         "nombre_modelo": "Camisa Estándar",
         "patron_base64": "",
+        "tipo_patron": "raster",
         "modelo_3d_url": "https://modelviewer.dev/shared-assets/models/Astronaut.glb"
     }
 
@@ -150,6 +157,7 @@ if st.session_state.modo_vista == "Estudio":
 
     config_actual = obtener_configuracion_activa()
     patron_b64 = config_actual.get("patron_base64", "")
+    tipo_patron = config_actual.get("tipo_patron", "raster")
     url_3d = config_actual.get("modelo_3d_url", "https://modelviewer.dev/shared-assets/models/Astronaut.glb")
 
     col_iconos, col_panel, col_centro, col_right = st.columns([0.5, 2.3, 4.7, 2.5], gap="medium")
@@ -173,7 +181,8 @@ if st.session_state.modo_vista == "Estudio":
                     try:
                         lista_archivos = []
                         if up_file:
-                            lista_archivos.append({"nombre": up_file.name, "data": procesar_archivo_subido(up_file)})
+                            archivo_b64, _ = procesar_archivo_subido(up_file)
+                            lista_archivos.append({"nombre": up_file.name, "data": archivo_b64})
                         db.collection("pedidos_bordado").add({
                             "id": f"PT-{int(datetime.now().timestamp())}",
                             "cliente": st.session_state.user.strip(),
@@ -197,11 +206,12 @@ if st.session_state.modo_vista == "Estudio":
                 st.markdown("##### Logo IA")
                 st.text_area("Prompt", "Oso urbano bordado")
 
-    # 3. Lienzo Central
+    # 3. Lienzo Central (Soporte dinámico correcto para SVG o Raster)
     with col_centro:
         with st.container(border=True):
             if patron_b64:
-                contenido_lienzo = f"<img src='data:image/svg+xml;base64,{patron_b64}' style='max-height: 100%; max-width: 100%; object-fit: contain; border-radius: 6px;' onerror=\"this.onerror=null;this.src='data:image/jpeg;base64,{patron_b64}';\"/>"
+                mime_type = "image/svg+xml" if tipo_patron == "svg" else "image/jpeg"
+                contenido_lienzo = f"<img src='data:{mime_type};base64,{patron_b64}' style='max-height: 100%; max-width: 100%; object-fit: contain; border-radius: 6px;'/>"
             else:
                 contenido_lienzo = """
                     <div style='display: flex; gap: 12px; width: 100%; justify-content: center; align-items: center; height: 100%;'>
@@ -298,23 +308,24 @@ else:
         config_actual = obtener_configuracion_activa()
         nuevo_nombre = st.text_input("Nombre del Modelo / Prenda", config_actual.get("nombre_modelo", "Camisa Estándar"))
         nueva_url_3d = st.text_input("URL del Modelo 3D (.glb)", config_actual.get("modelo_3d_url", ""))
-        
-        # Actualizado para aceptar archivos .svg además de imágenes rasterizadas
-        nuevo_archivo_patron = st.file_uploader("Subir Imagen o Patrón Vectorial (SVG, PNG, JPG)", type=["svg", "png", "jpg", "jpeg"])
+        nuevo_archivo_patron = st.file_uploader("Subir Patrón en SVG o Imagen (PNG, JPG)", type=["svg", "png", "jpg", "jpeg"])
         
         if st.button("💾 Guardar Configuración de Prenda"):
             try:
                 patron_b64 = config_actual.get("patron_base64", "")
+                tipo_patron = config_actual.get("tipo_patron", "raster")
+                
                 if nuevo_archivo_patron:
-                    patron_b64 = procesar_archivo_subido(nuevo_archivo_patron)
+                    patron_b64, tipo_patron = procesar_archivo_subido(nuevo_archivo_patron)
                 
                 db.collection("config_estudio").document("modelo_actual").set({
                     "nombre_modelo": nuevo_nombre,
                     "modelo_3d_url": nueva_url_3d,
                     "patron_base64": patron_b64,
+                    "tipo_patron": tipo_patron,
                     "actualizado": datetime.now()
                 })
-                st.success("¡Configuración de patrón SVG y modelo 3D actualizada con éxito!")
+                st.success("¡Configuración actualizada correctamente con soporte SVG nativo!")
             except Exception as e:
                 st.error(f"Error al guardar: {e}")
 
