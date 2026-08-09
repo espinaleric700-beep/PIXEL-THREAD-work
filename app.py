@@ -204,29 +204,32 @@ if st.session_state.modo_vista == "Estudio":
                 st.markdown("##### Logo IA")
                 st.text_area("Prompt", "Oso urbano bordado")
 
-    # 3. Lienzo Central con Visor HTML Seguro para SVG y Raster
+    # 3. Lienzo Central Robusto para SVG
     with col_centro:
         with st.container(border=True):
             if patron_b64:
                 if tipo_patron == "svg":
-                    # Decodificar el contenido SVG para inyectarlo directamente como marcado vectorial
-                    svg_raw = base64.b64decode(patron_b64).decode("utf-8", errors="ignore")
-                    contenido_html = f"""
-                    <div style="display: flex; justify-content: center; align-items: center; width: 100%; height: 100%; background: #181818;">
-                        <div style="transform: scale({st.session_state.zoom / 100}); transform-origin: center; display: flex; justify-content: center; align-items: center; max-width: 90%; max-height: 90%;">
+                    try:
+                        svg_raw = base64.b64decode(patron_b64).decode("utf-8", errors="ignore")
+                        # Aseguramos que el SVG escala bien inyectándole atributos de tamaño si carece de ellos
+                        if "<svg" in svg_raw and "width=" not in svg_raw:
+                            svg_raw = svg_raw.replace("<svg", '<svg width="100%" height="100%"')
+                        contenido_html = f"""
+                        <div style="display: flex; justify-content: center; align-items: center; width: 100%; height: 100%;">
                             {svg_raw}
                         </div>
-                    </div>
-                    """
+                        """
+                    except Exception:
+                        contenido_html = "<div style='color: #ff4d4d; text-align: center;'>Error al procesar el SVG guardado. Sube uno nuevo desde Admin.</div>"
                 else:
                     contenido_html = f"""
-                    <div style="display: flex; justify-content: center; align-items: center; width: 100%; height: 100%; background: #181818;">
-                        <img src="data:image/jpeg;base64,{patron_b64}" style="transform: scale({st.session_state.zoom / 100}); max-height: 90%; max-width: 90%; object-fit: contain; border-radius: 6px;" />
+                    <div style="display: flex; justify-content: center; align-items: center; width: 100%; height: 100%;">
+                        <img src="data:image/jpeg;base64,{patron_b64}" style="max-height: 100%; max-width: 100%; object-fit: contain; border-radius: 6px;" />
                     </div>
                     """
             else:
                 contenido_html = """
-                <div style="display: flex; justify-content: center; align-items: center; width: 100%; height: 100%; background: #181818;">
+                <div style="display: flex; justify-content: center; align-items: center; width: 100%; height: 100%;">
                     <div style="background: #fff; color: #000; border-radius: 6px; padding: 12px; width: 150px; height: 180px; display: flex; align-items: center; justify-content: center;">
                         <svg viewBox="0 0 100 120" style="width: 80%; height: 80%; fill: #fff; stroke: #000; stroke-width: 2;"><path d="M 30,10 Q 50,25 70,10 L 85,25 L 75,45 L 85,115 L 15,115 L 25,45 L 15,25 Z"/></svg>
                     </div>
@@ -239,13 +242,16 @@ if st.session_state.modo_vista == "Estudio":
             <head>
                 <style>
                     body, html {{ margin: 0; padding: 0; width: 100%; height: 100%; background-color: #181818; overflow: hidden; }}
-                    .container {{ width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; }}
+                    .viewport {{ width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; }}
+                    .zoom-container {{ transform: scale({st.session_state.zoom / 100}); transform-origin: center; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; }}
                     svg {{ max-width: 100%; max-height: 100%; }}
                 </style>
             </head>
             <body>
-                <div class="container">
-                    {contenido_html}
+                <div class="viewport">
+                    <div class="zoom-container">
+                        {contenido_html}
+                    </div>
                 </div>
             </body>
             </html>
@@ -333,24 +339,38 @@ else:
         nueva_url_3d = st.text_input("URL del Modelo 3D (.glb)", config_actual.get("modelo_3d_url", ""))
         nuevo_archivo_patron = st.file_uploader("Subir Patrón en SVG o Imagen (PNG, JPG)", type=["svg", "png", "jpg", "jpeg"])
         
-        if st.button("💾 Guardar Configuración de Prenda"):
-            try:
-                patron_b64 = config_actual.get("patron_base64", "")
-                tipo_patron = config_actual.get("tipo_patron", "raster")
-                
-                if nuevo_archivo_patron:
-                    patron_b64, tipo_patron = procesar_archivo_subido(nuevo_archivo_patron)
-                
-                db.collection("config_estudio").document("modelo_actual").set({
-                    "nombre_modelo": nuevo_nombre,
-                    "modelo_3d_url": nueva_url_3d,
-                    "patron_b64": patron_b64,
-                    "tipo_patron": tipo_patron,
-                    "actualizado": datetime.now()
-                })
-                st.success("¡Configuración actualizada con visor SVG directo!")
-            except Exception as e:
-                st.error(f"Error al guardar: {e}")
+        col_btn1, col_btn2 = st.columns(2)
+        with col_btn1:
+            if st.button("💾 Guardar Configuración de Prenda"):
+                try:
+                    patron_b64 = config_actual.get("patron_base64", "")
+                    tipo_patron = config_actual.get("tipo_patron", "raster")
+                    
+                    if nuevo_archivo_patron:
+                        patron_b64, tipo_patron = procesar_archivo_subido(nuevo_archivo_patron)
+                    
+                    db.collection("config_estudio").document("modelo_actual").set({
+                        "nombre_modelo": nuevo_nombre,
+                        "modelo_3d_url": nueva_url_3d,
+                        "patron_base64": patron_b64,
+                        "tipo_patron": tipo_patron,
+                        "actualizado": datetime.now()
+                    })
+                    st.success("¡Configuración actualizada con éxito!")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Error al guardar: {e}")
+        with col_btn2:
+            if st.button("🗑️ Limpiar Patrón Actual"):
+                try:
+                    db.collection("config_estudio").document("modelo_actual").update({
+                        "patron_base64": "",
+                        "tipo_patron": "raster"
+                    })
+                    st.success("¡Patrón limpiado correctamente!")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Error: {e}")
 
     st.markdown("---")
     st.subheader("📋 Gestión de Pedidos")
