@@ -324,14 +324,13 @@ if st.session_state.modo_vista == "Estudio":
             
         st.markdown('</div>', unsafe_allow_html=True)
 
-    # --- PANEL DERECHO (Visor 3D actualizado con Camiseta) ---
+    # --- PANEL DERECHO (Visor 3D con Camiseta) ---
     with col_right:
         st.markdown('<div class="preview-box">', unsafe_allow_html=True)
         st.markdown("#### 🧊 Visor 3D en Vivo (Camiseta)")
         
         shirt_color = st.color_picker("Color Base del Producto", "#ffffff")
         
-        # Modelo 3D de camiseta (enlace estándar de modelo de playera 3D compatible con model-viewer)
         model_viewer_html = f"""
         <!DOCTYPE html>
         <html>
@@ -464,7 +463,8 @@ else:
                 st.info("🎉 No hay pedidos pendientes.")
 
         with tab_admin_comp:
-            pedidos_completados_admin = [(doc.id, doc.to_dict()) for doc in docs if doc.to_dict().get('estado'] == "Completado"]
+            # Corrección aplicada aquí (paréntesis en vez de corchete al final de la comprensión)
+            pedidos_completados_admin = [(doc.id, doc.to_dict()) for doc in docs if doc.to_dict().get('estado') == "Completado"]
             if pedidos_completados_admin:
                 for doc_id, p in pedidos_completados_admin:
                     with st.container(border=True):
