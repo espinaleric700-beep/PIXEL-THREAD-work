@@ -210,7 +210,7 @@ if st.session_state.modo_vista == "Estudio":
 
                 col_b_act1, col_b_act2 = st.columns(2)
                 with col_b_act1:
-                    if st.button("📌 Aplicar al Patrón", key="btn_aplicar_patron"):
+                    if st.button("📌 Agregar al Patrón", key="btn_aplicar_patron"):
                         if up_file:
                             try:
                                 b64, tipo = procesar_archivo_subido(up_file)
@@ -219,20 +219,21 @@ if st.session_state.modo_vista == "Estudio":
                                 if "elementos" not in piezas[parte_destino]:
                                     piezas[parte_destino]["elementos"] = []
                                 
-                                # Agregamos el nuevo elemento a la lista con posición inicial centrada (x: 50%, y: 50%)
                                 nuevo_elemento = {
                                     "id": f"elem_{int(datetime.now().timestamp())}",
                                     "b64": b64,
                                     "tipo": tipo,
-                                    "x": 50,  # porcentaje
-                                    "y": 50   # porcentaje
+                                    "x": 50,
+                                    "y": 50,
+                                    "escala": 100,  # Porcentaje de tamaño
+                                    "rotacion": 0   # Grados
                                 }
                                 piezas[parte_destino]["elementos"].append(nuevo_elemento)
                                 
                                 db.collection("config_estudio").document("modelo_actual").update({
                                     "piezas": piezas
                                 })
-                                st.success("¡Imagen agregada al patrón! Puedes arrastrarla.")
+                                st.success("¡Imagen agregada al patrón!")
                                 st.rerun()
                             except Exception as e:
                                 st.error(f"Error: {e}")
@@ -258,6 +259,34 @@ if st.session_state.modo_vista == "Estudio":
                             st.success("¡Enviado a Producción!")
                         except Exception as e:
                             st.error(f"Error: {e}")
+
+                # Sección para ajustar escala y orientación de los elementos existentes
+                st.markdown("---")
+                st.markdown("<div style='font-size: 12px; font-weight: bold;'>Ajustar Elementos (Tamaño / Giro)</div>", unsafe_allow_html=True)
+                
+                elementos_totales = []
+                for p_key, p_val in piezas.items():
+                    if isinstance(p_val, dict):
+                        for el in p_val.get("elementos", []):
+                            elementos_totales.append((p_key, el))
+                
+                if elementos_totales:
+                    sel_idx = st.selectbox("Seleccionar Elemento", range(len(elementos_totales)), format_func=lambda i: f"{elementos_totales[i][0].upper()} - {elementos_totales[i][1]['id']}")
+                    p_target, el_target = elementos_totales[sel_idx]
+                    
+                    nueva_escala = st.slider("Escala / Tamaño (%)", 10, 300, int(el_target.get("escala", 100)), key=f"scl_{el_target['id']}")
+                    nueva_rot = st.slider("Rotación (Grados)", 0, 360, int(el_target.get("rotacion", 0)), key=f"rot_{el_target['id']}")
+                    
+                    if st.button("💾 Aplicar Cambios al Elemento"):
+                        for el in piezas[p_target]["elementos"]:
+                            if el["id"] == el_target["id"]:
+                                el["escala"] = nueva_escala
+                                el["rotacion"] = nueva_rot
+                        db.collection("config_estudio").document("modelo_actual").update({"piezas": piezas})
+                        st.success("¡Actualizado!")
+                        st.rerun()
+                else:
+                    st.caption("No hay elementos en el patrón.")
                             
             elif st.session_state.herramienta_activa == "Elementos":
                 st.markdown("##### Elementos")
@@ -269,7 +298,7 @@ if st.session_state.modo_vista == "Estudio":
                 st.markdown("##### Logo IA")
                 st.text_area("Prompt", "Oso urbano bordado")
 
-    # 3. Lienzo Central con Arrastre Libre (Drag & Drop de múltiples elementos)
+    # 3. Lienzo Central con Arrastre y Recorte Estricto (Overflow Hidden)
     with col_centro:
         with st.container(border=True):
             
@@ -282,17 +311,8 @@ if st.session_state.modo_vista == "Estudio":
                     base_b64 = p_dict.get("b64", "")
                     base_tipo = p_dict.get("tipo", "raster")
                     elementos = p_dict.get("elementos", [])
-                    # Retrocompatibilidad si existía un diseño único anterior
-                    if not elementos and p_dict.get("diseno_b64"):
-                        elementos = [{
-                            "id": "legacy",
-                            "b64": p_dict.get("diseno_b64"),
-                            "tipo": p_dict.get("diseno_tipo", "raster"),
-                            "x": 50,
-                            "y": 50
-                        }]
 
-                # Patrón Base (Fondo)
+                # Patrón Base (Fondo de la pieza)
                 html_base = ""
                 if base_b64:
                     if base_tipo == "svg":
@@ -303,7 +323,7 @@ if st.session_state.modo_vista == "Estudio":
                 else:
                     html_base = "<div style='background-color: #ffffff; width: 75%; height: 85%; border-radius: 4px; opacity: 0.9;'></div>"
 
-                # Renderizar múltiples elementos con capacidad de arrastre (Draggable via JS)
+                # Renderizar múltiples elementos con soporte de escala, rotación y recorte estricto dentro del contenedor
                 html_elementos = ""
                 for idx, elem in enumerate(elementos):
                     e_id = elem.get("id", f"elem_{idx}")
@@ -311,6 +331,8 @@ if st.session_state.modo_vista == "Estudio":
                     e_tipo = elem.get("tipo", "raster")
                     posX = elem.get("x", 50)
                     posY = elem.get("y", 50)
+                    escala = elem.get("escala", 100)
+                    rotacion = elem.get("rotacion", 0)
 
                     contenido_elem = ""
                     if e_tipo == "svg":
@@ -321,14 +343,14 @@ if st.session_state.modo_vista == "Estudio":
 
                     html_elementos += f"""
                     <div class='draggable-item' id='item_{p_nombre_pieza}_{e_id}' 
-                         style='position: absolute; left: {posX}%; top: {posY}%; transform: translate(-50%, -50%); width: 70px; height: 70px; cursor: grab; z-index: 10; border: 1px dashed rgba(0,206,201,0.5); background: rgba(0,0,0,0.2);'
+                         style='position: absolute; left: {posX}%; top: {posY}%; transform: translate(-50%, -50%) scale({escala / 100}) rotate({rotacion}deg); width: 70px; height: 70px; cursor: grab; z-index: 10; border: 1px dashed rgba(0,206,201,0.5); background: rgba(0,0,0,0.2);'
                          onmousedown='startDrag(event, "{p_nombre_pieza}", "{e_id}")'>
                         {contenido_elem}
                     </div>
                     """
 
                 return f"""
-                <div class='drop-zone' id='zone_{p_nombre_pieza}' style='position: relative; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center;'>
+                <div class='drop-zone' id='zone_{p_nombre_pieza}' style='position: relative; width: 100%; height: 100%; overflow: hidden; display: flex; justify-content: center; align-items: center;'>
                     <div style='position: absolute; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; z-index: 1;'>
                         {html_base}
                     </div>
@@ -352,7 +374,7 @@ if st.session_state.modo_vista == "Estudio":
                     body, html {{ margin: 0; padding: 0; width: 100%; height: 100%; background-color: #181818; overflow: hidden; }}
                     .viewport {{ width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; }}
                     .zoom-container {{ transform: scale({st.session_state.zoom / 100}); transform-origin: center; display: flex; gap: 15px; align-items: center; justify-content: center; width: 100%; height: 100%; }}
-                    .pieza-box {{ background: #222; border-radius: 4px; border: 1px solid #333; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 4px; position: relative; }}
+                    .pieza-box {{ background: #222; border-radius: 4px; border: 1px solid #333; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 4px; position: relative; overflow: hidden; }}
                     .label {{ font-size: 9px; color: #aaa; margin-top: 2px; text-align: center; }}
                     .col-grande {{ width: 130px; height: 320px; }}
                     .col-derecha {{ display: flex; flex-direction: column; gap: 10px; width: 110px; height: 320px; justify-content: space-between; }}
@@ -390,7 +412,6 @@ if st.session_state.modo_vista == "Estudio":
                         let currentLeft = activeItem.offsetLeft + dx;
                         let currentTop = activeItem.offsetTop + dy;
 
-                        // Calcular porcentaje dentro de la zona
                         let percentX = (currentLeft / rect.width) * 100;
                         let percentY = (currentTop / rect.height) * 100;
 
