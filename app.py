@@ -6,20 +6,26 @@ import base64
 from io import BytesIO
 from PIL import Image
 
-# --- CONFIGURACIÓN ---
-st.set_page_config(page_title="Pixel Thread | Pro", layout="wide")
+# --- CONFIGURACIÓN DE PÁGINA ---
+st.set_page_config(
+    page_title="Pixel Thread - Estudio de Diseño y Maquetas 3D",
+    page_icon="👕",
+    layout="wide",
+    initial_sidebar_state="collapsed"
+)
 
-# --- CSS LIMPIO, SIN LÍNEAS ANIDADAS, LETRAS MÁS GRANDES Y FONDO ORIGINAL ---
+# --- ESTILOS CSS AVANZADOS (INTERFAZ OSCURA & ESTUDIO) ---
 st.markdown("""
-<style>
-    :root {
-        --primary: #00ffcc;
-    }
+    <style>
     .stApp {
-        background: radial-gradient(circle at 50% 50%, #1a0033 0%, #050505 100%);
-        background-attachment: fixed;
+        background-color: #1e1e1e;
         color: #ffffff;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     }
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    
     .block-container {
         max-width: 100% !important;
         padding-left: 2rem;
@@ -27,38 +33,48 @@ st.markdown("""
         padding-top: 1.5rem;
     }
     
-    html, body, [data-testid="stMarkdownContainer"], p, span, label {
-        font-size: 16px !important;
+    .panel-box {
+        background-color: #262626;
+        border: 1px solid #3b3b3b;
+        border-radius: 12px;
+        padding: 16px;
+        height: 720px;
+        overflow-y: auto;
     }
     
-    div[data-testid="stExpander"] {
-        background: rgba(15, 15, 25, 0.7) !important;
-        border: 1px solid rgba(0, 255, 204, 0.3) !important;
-        border-radius: 10px !important;
-        padding: 8px;
+    .canvas-box {
+        background-color: #191919;
+        border: 1px solid #3b3b3b;
+        border-radius: 12px;
+        padding: 24px;
+        height: 720px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
     }
     
-    div.stButton > button {
-        background: transparent !important;
-        color: var(--primary) !important;
-        border: 1px solid var(--primary) !important;
-        border-radius: 6px !important;
-        transition: all 0.3s ease !important;
-        text-transform: uppercase;
+    .preview-box {
+        background-color: #262626;
+        border: 1px solid #3b3b3b;
+        border-radius: 12px;
+        padding: 16px;
+        height: 720px;
+    }
+    
+    .stButton>button {
+        background-color: #00cec9;
+        color: #111;
         font-weight: bold;
-        font-size: 14px !important;
-        padding: 6px 12px;
+        border-radius: 8px;
+        border: none;
+        padding: 8px 16px;
     }
-    div.stButton > button:hover {
-        background: var(--primary) !important;
-        color: black !important;
-        box-shadow: 0 0 15px var(--primary) !important;
-        transform: translateY(-2px);
+    .stButton>button:hover {
+        background-color: #01a3a4;
+        color: #fff;
     }
-    
-    h1 { color: var(--primary) !important; font-size: 2.5rem !important; letter-spacing: 2px; }
-    h2 { color: var(--primary) !important; font-size: 1.8rem !important; }
-    h3 { color: var(--primary) !important; font-size: 1.3rem !important; }
 
     .dot-red {
         height: 10px;
@@ -90,7 +106,7 @@ st.markdown("""
         box-shadow: 0 0 8px #00bfff;
         vertical-align: middle;
     }
-</style>
+    </style>
 """, unsafe_allow_html=True)
 
 # --- INICIALIZACIÓN DE FIREBASE ---
@@ -104,7 +120,7 @@ def init_fb():
 
 db = init_fb()
 
-# --- FUNCIÓN PARA RECALCULAR Y REORGANIZAR LOS TURNOS DE LA COLA ---
+# --- FUNCIONES AUXILIARES DE GESTIÓN Y PROCESAMIENTO ---
 def recalcular_turnos():
     try:
         docs = list(db.collection("pedidos_bordado").order_by("timestamp").stream())
@@ -120,27 +136,6 @@ def recalcular_turnos():
     except Exception:
         pass
 
-# --- FUNCIÓN PARA ESTIMAR EL USO DEL PLAN GRATUITO DE FIREBASE (SPARK) ---
-def obtener_uso_firebase():
-    try:
-        pedidos = list(db.collection("pedidos_bordado").stream())
-        clientes = list(db.collection("usuarios_perfil").stream())
-        total_docs = len(pedidos) + len(clientes)
-        
-        limite_lecturas = 50000
-        lecturas_actuales = 45000 
-        porcentaje_uso = min(float(lecturas_actuales) / limite_lecturas * 100, 100.0)
-        
-        return {
-            "total_docs": total_docs,
-            "lecturas": lecturas_actuales,
-            "limite_lecturas": limite_lecturas,
-            "porcentaje": porcentaje_uso
-        }
-    except Exception:
-        return {"total_docs": 0, "lecturas": 45000, "limite_lecturas": 50000, "porcentaje": 90.0}
-
-# --- FUNCIÓN PARA COMPRIMIR IMÁGENES Y EVITAR EL LÍMITE DE 1MB ---
 def procesar_archivo_subido(arch):
     b_cont = arch.getvalue()
     nombre_lower = arch.name.lower()
@@ -159,7 +154,6 @@ def procesar_archivo_subido(arch):
             
     return base64.b64encode(b_cont).decode("utf-8")
 
-# --- FUNCIÓN RECURSIVA PARA APLANAR LISTAS ANIDADAS ---
 def limpiar_lista_archivos(raw_data):
     lista_limpia = []
     if not isinstance(raw_data, list):
@@ -171,18 +165,20 @@ def limpiar_lista_archivos(raw_data):
             lista_limpia.append({"nombre": item["nombre"], "data": item["data"]})
     return lista_limpia
 
+def render_estado_badge(estado):
+    if estado == "Pendiente":
+        st.markdown("**Estado:** Pendiente <span class='dot-red'></span>", unsafe_allow_html=True)
+    elif estado == "En Proceso":
+        st.markdown("**Estado:** En Proceso <span class='dot-green'></span>", unsafe_allow_html=True)
+    else:
+        st.markdown("**Estado:** Completado <span class='dot-blue'></span>", unsafe_allow_html=True)
+
 # --- GESTIÓN DE ESTADOS Y URL ---
 params = st.query_params
 if "modo_vista" not in st.session_state: 
-    st.session_state.modo_vista = params.get("seccion", "Cliente")
+    st.session_state.modo_vista = params.get("seccion", "Estudio")
 if "user" not in st.session_state: 
-    st.session_state.user = params.get("user", "")
-if "expandir_nuevo_pedido" not in st.session_state: 
-    st.session_state.expandir_nuevo_pedido = False
-if "mensaje_exito" not in st.session_state: 
-    st.session_state.mensaje_exito = ""
-if "form_version" not in st.session_state: 
-    st.session_state.form_version = 0
+    st.session_state.user = params.get("user", "ClienteGeneral")
 
 def actualizar_url(vista, user):
     st.session_state.modo_vista = vista
@@ -192,245 +188,219 @@ def actualizar_url(vista, user):
 
 ADMINS_AUTORIZADOS = ["pixel2580", "eric"]
 
-def render_estado_badge(estado):
-    if estado == "Pendiente":
-        st.markdown("**Estado:** Pendiente <span class='dot-red'></span>", unsafe_allow_html=True)
-    elif estado == "En Proceso":
-        st.markdown("**Estado:** En Proceso <span class='dot-green'></span>", unsafe_allow_html=True)
-    else:
-        st.markdown("**Estado:** Completado <span class='dot-blue'></span>", unsafe_allow_html=True)
-
-# --- ENCABEZADO SUPERIOR CON MENÚ MINIMIZADO ---
-col_head1, col_head2 = st.columns([3, 1])
-
-with col_head1:
-    st.title("⚡ PIXEL THREAD")
-
-with col_head2:
-    with st.popover("⚙️ Menú"):
+# --- BARRA SUPERIOR DE NAVEGACIÓN Y CONTROL ---
+col_top1, col_top2, col_top3 = st.columns([2, 6, 2])
+with col_top1:
+    if st.button("✕ Estudio 3D"):
+        actualizar_url("Estudio", st.session_state.user)
+with col_top2:
+    st.markdown("<h3 style='text-align: center; margin: 0; color: #fff;'>Pixel Thread Studio 3D</h3>", unsafe_allow_html=True)
+with col_top3:
+    with st.popover("⚙️ Menú General"):
         st.markdown("### Navegación")
-        if st.button("👤 Panel Cliente", use_container_width=True): 
-            actualizar_url("Cliente", st.session_state.user)
+        if st.button("🎨 Estudio / Pedidos", use_container_width=True): 
+            actualizar_url("Estudio", st.session_state.user)
         if st.button("🛠️ Panel Admin", use_container_width=True): 
             usuario_actual = st.session_state.user.strip().lower()
             if usuario_actual in [adm.lower() for adm in ADMINS_AUTORIZADOS]:
                 actualizar_url("Admin", st.session_state.user)
             else:
-                st.error("❌ Sin permisos.")
+                st.error("❌ Sin permisos de Administrador.")
 
-st.markdown("<br>", unsafe_allow_html=True)
+st.markdown("<div style='margin-top: 15px;'></div>", unsafe_allow_html=True)
 
 # =========================================================
-# 1. PANEL DE CLIENTE
+# 1. VISTA DE ESTUDIO Y GESTIÓN DE PEDIDOS CON FIREBASE
 # =========================================================
-if st.session_state.modo_vista == "Cliente":
-    col_user_1, col_user_2 = st.columns([3, 1], vertical_alignment="bottom")
-
-    with col_user_1:
+if st.session_state.modo_vista == "Estudio":
+    
+    # Selector de usuario rápido en la parte superior para vincular pedidos
+    with st.expander("👤 Identificación de Usuario / Cliente"):
         user_input = st.text_input("Ingresa tu Nombre o ID de Usuario:", value=st.session_state.user)
+        if user_input != st.session_state.user:
+            actualizar_url("Estudio", user_input)
 
-    with col_user_2:
-        if st.button("🔍 Ingresar", use_container_width=True):
-            if user_input != st.session_state.user:
-                actualizar_url("Cliente", user_input)
+    # 1. TRES COLUMNAS PRINCIPALES (Diseño original optimizado con Firebase)
+    col_left, col_center, col_right = st.columns([1.2, 2.2, 1.4], gap="medium")
 
-    if user_input != st.session_state.user and user_input.strip() != "":
-        actualizar_url("Cliente", user_input)
-
-    user_clean = st.session_state.user.strip().lower()
-
-    if not user_clean:
-        st.info("👆 Ingresa tu ID de usuario arriba para ver tus pedidos.")
-    else:
-        try:
-            user_doc_ref = db.collection("usuarios_perfil").document(user_clean)
-            user_doc = user_doc_ref.get()
+    # --- PANEL IZQUIERDO: Biblioteca de Archivos, IA y Enviar a Firebase ---
+    with col_left:
+        st.markdown('<div class="panel-box">', unsafe_allow_html=True)
+        st.markdown("#### 📁 Archivos y Base de Datos")
+        
+        nombre_proyecto = st.text_input("Nombre del Proyecto", "Proyecto Pixel 3D")
+        uploaded_file = st.file_uploader("Subir JPG, PNG, SVG, DST", type=["png", "jpg", "jpeg", "svg", "dst", "pes"])
+        
+        st.markdown("---")
+        st.markdown("**Herramientas de Texto y IA:**")
+        text_input = st.text_input("Añadir Texto al Diseño", "Pixel Thread")
+        font_style = st.selectbox("Estilo de fuente", ["Urbano / Bold", "Cursiva", "Clásica"])
+        
+        if st.button("Generar con IA (Logo)", use_container_width=True):
+            st.info("Generador IA activado para estilos de bordado urbano.")
             
-            if not user_doc.exists and user_clean not in [adm.lower() for adm in ADMINS_AUTORIZADOS]:
-                st.error("❌ El usuario ingresado no existe o no está registrado en el sistema. Por favor, verifica tu ID.")
+        st.markdown("---")
+        
+        # Botón de guardado oficial conectado a Firebase
+        if st.button("🚀 Enviar Pedido a Producción", use_container_width=True):
+            if not nombre_proyecto:
+                st.warning("⚠️ Ingresa un nombre de proyecto.")
             else:
-                nombre_cliente = st.session_state.user
-                logo_cliente_b64 = None
-                if user_doc.exists:
-                    data_u = user_doc.to_dict()
-                    nombre_cliente = data_u.get('nombre_usuario', st.session_state.user)
-                    logo_cliente_b64 = data_u.get('logo_b64', None)
+                try:
+                    with st.spinner("Guardando en Firebase..."):
+                        lista_archivos = []
+                        if uploaded_file:
+                            b64_data = procesar_archivo_subido(uploaded_file)
+                            lista_archivos.append({"nombre": uploaded_file.name, "data": b64_data})
 
-                col_c1, col_c2 = st.columns([0.1, 3.9], vertical_alignment="center")
-                with col_c1:
-                    if logo_cliente_b64:
-                        try:
-                            st.image(base64.b64decode(logo_cliente_b64), width=85)
-                        except Exception:
-                            st.markdown("<h1>👤</h1>", unsafe_allow_html=True)
-                    else:
-                        st.markdown("<h1>👤</h1>", unsafe_allow_html=True)
-                with col_c2:
-                    st.markdown(f"<h1 style='margin:0; font-size:2.2rem !important;'>Hola, {nombre_cliente}</h1>", unsafe_allow_html=True)
+                        data_pedido = {
+                            "id": f"PT-{int(datetime.now().timestamp())}",
+                            "cliente": st.session_state.user.strip(),
+                            "nombre_proyecto": nombre_proyecto,
+                            "producto": "ESTUDIO 3D",
+                            "ubicacion": "FRENTE / PERSONALIZADO",
+                            "estilo": font_style,
+                            "archivos": lista_archivos,
+                            "archivos_finales": [],
+                            "comentarios": f"Texto asociado: {text_input}",
+                            "estado": "Pendiente",
+                            "turno": 1,
+                            "timestamp": datetime.now()
+                        }
+                        db.collection("pedidos_bordado").add(data_pedido)
+                        recalcular_turnos()
+                        st.success("¡Proyecto enviado y guardado en Firebase con éxito!")
+                except Exception as e:
+                    st.error(f"Error al conectar con Firebase: {e}")
+            
+        st.markdown('</div>', unsafe_allow_html=True)
 
-                if st.session_state.mensaje_exito:
-                    st.success(st.session_state.mensaje_exito)
-                    st.session_state.mensaje_exito = ""
+    # --- PANEL CENTRAL: Lienzo de Patrones ---
+    with col_center:
+        st.markdown('<div class="canvas-box">', unsafe_allow_html=True)
+        st.markdown("<h4 style='color: #ccc; margin-bottom: 10px;'>Plantilla de Despiece de Camiseta</h4>", unsafe_allow_html=True)
+        
+        pattern_col1, pattern_col2, pattern_col3 = st.columns([2, 2, 1])
+        
+        with pattern_col1:
+            st.markdown("""
+                <div style='background: #fff; color: #000; border-radius: 12px; padding: 20px; height: 380px; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.3);'>
+                    <p style='font-size: 12px; font-weight: bold; margin-bottom: 10px;'>FRENTE</p>
+                    <div style='border: 2px dashed #00cec9; border-radius: 50%; width: 100px; height: 100px; display: flex; align-items: center; justify-content: center; background: #f9f9f9;'>
+                        <span style='font-size: 24px;'>🐻</span>
+                    </div>
+                    <p style='font-size: 10px; color: #666; margin-top: 10px;'>Pixel Thread Logo</p>
+                </div>
+            """, unsafe_allow_html=True)
+            
+        with pattern_col2:
+            st.markdown("""
+                <div style='background: #fff; color: #000; border-radius: 12px; padding: 20px; height: 380px; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.3);'>
+                    <p style='font-size: 12px; font-weight: bold; margin-bottom: 10px;'>ESPALDA</p>
+                    <div style='border: 2px dashed #ccc; border-radius: 50%; width: 100px; height: 100px; display: flex; align-items: center; justify-content: center; background: #f9f9f9;'>
+                        <span style='font-size: 12px; color: #999;'>Vacío</span>
+                    </div>
+                    <p style='font-size: 10px; color: #666; margin-top: 10px;'>Área libre</p>
+                </div>
+            """, unsafe_allow_html=True)
 
-                st.markdown("---")
-                fv = st.session_state.form_version
+        with pattern_col3:
+            st.markdown("""
+                <div style='background: #fff; color: #000; border-radius: 12px; padding: 10px; height: 380px; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.3);'>
+                    <p style='font-size: 10px; font-weight: bold;'>MANGAS</p>
+                    <div style='border: 1px solid #ccc; width: 60px; height: 40px; margin-bottom: 15px; background: #f9f9f9;'></div>
+                    <div style='border: 1px solid #ccc; width: 60px; height: 40px; background: #f9f9f9;'></div>
+                </div>
+            """, unsafe_allow_html=True)
+            
+        st.markdown("<br>", unsafe_allow_html=True)
+        
+        tools_col1, tools_col2, tools_col3, tools_col4 = st.columns(4)
+        with tools_col1:
+            st.markdown("↩️ Deshacer")
+        with tools_col2:
+            zoom_val = st.slider("Zoom", 50, 200, 100, label_visibility="collapsed")
+        with tools_col3:
+            st.markdown("👁️ Vista Previa")
+        with tools_col4:
+            st.markdown("⚡ **Estado: Sincronizado**")
+            
+        st.markdown('</div>', unsafe_allow_html=True)
 
-                with st.expander("➕ Enviar Nuevo Pedido", expanded=st.session_state.expandir_nuevo_pedido):
-                    tipo_producto = st.radio("Tipo de Producto:", ["GORRA", "TELA", "VARIOS"], horizontal=True, key=f"prod_{fv}")
-                    ubicacion, estilo_frente = "N/A", "N/A"
-
-                    if tipo_producto == "GORRA":
-                        ubicacion = st.radio("Ubicación:", ["FRENTE", "TRASERO", "LATERAL"], horizontal=True, key=f"ubi_{fv}")
-                        if ubicacion == "FRENTE":
-                            estilo_frente = st.radio("Estilo:", ["3D (Relieve)", "PLANO"], horizontal=True, key=f"est_{fv}")
-
-                    nombre_proyecto = st.text_input("Nombre del Proyecto", key=f"nom_{fv}")
-                    archivos_subidos = st.file_uploader("Archivos", type=["png", "jpg", "jpeg", "dst", "pes", "pdf", "emb"], accept_multiple_files=True, key=f"arch_{fv}")
-                    comentarios = st.text_area("Comentarios", key=f"com_{fv}")
-                    status_ph = st.empty()
-
-                    if st.button("🚀 ENVIAR PEDIDO", key=f"btn_env_{fv}"):
-                        if not nombre_proyecto:
-                            status_ph.warning("⚠️ Ingresa el nombre del proyecto.")
-                        elif not archivos_subidos:
-                            status_ph.error("❌ Adjunta al menos un archivo.")
-                        else:
-                            try:
-                                status_ph.info("⏳ Procesando y enviando...")
-                                lista_archivos = []
-                                for arch in archivos_subidos:
-                                    b64_data = procesar_archivo_subido(arch)
-                                    lista_archivos.append({"nombre": arch.name, "data": b64_data})
-
-                                data_pedido = {
-                                    "id": f"PT-{int(datetime.now().timestamp())}",
-                                    "cliente": st.session_state.user.strip(),
-                                    "nombre_proyecto": nombre_proyecto,
-                                    "producto": tipo_producto,
-                                    "ubicacion": ubicacion,
-                                    "estilo": estilo_frente,
-                                    "archivos": lista_archivos,
-                                    "archivos_finales": [],
-                                    "comentarios": comentarios,
-                                    "estado": "Pendiente",
-                                    "turno": 1,
-                                    "timestamp": datetime.now()
-                                }
-                                db.collection("pedidos_bordado").add(data_pedido)
-                                recalcular_turnos()
-
-                                st.session_state.mensaje_exito = "🎉 ¡Pedido enviado con éxito!"
-                                st.session_state.form_version += 1
-                                st.session_state.expandir_nuevo_pedido = False
-                                st.rerun()
-                            except Exception as e:
-                                status_ph.error(f"Error: {e}")
-
-                st.markdown("---")
-                tab_pendientes, tab_completados = st.tabs(["⏳ Pedidos Pendientes", "✅ Pedidos Completados"])
-
-                todos = list(db.collection("pedidos_bordado").order_by("timestamp").stream())
-                mis_pedidos = [p.to_dict() for p in todos if p.to_dict().get("cliente", "").strip().lower() == st.session_state.user.strip().lower()]
-
-                with tab_pendientes:
-                    st.subheader("📋 Pedidos en Proceso")
-                    pedidos_activos = [p for p in mis_pedidos if p.get('estado') != "Completado"]
-                    
-                    if pedidos_activos:
-                        cols = st.columns(4)
-                        for i, p in enumerate(pedidos_activos):
-                            with cols[i % 4]:
-                                with st.container(border=True):
-                                    turno_val = p.get('turno', 'N/A')
-                                    st.markdown(f"**🔢 Turno en Cola:** `#{turno_val}`")
-                                    st.markdown(f"**🧵 Proyecto:** {p.get('nombre_proyecto', 'N/A')}")
-                                    st.markdown(f"**📦 Producto:** {p.get('producto', 'N/A')}")
-                                    st.markdown(f"**📍 Ubicación:** {p.get('ubicacion', 'N/A')}")
-                                    st.markdown(f"**🎨 Estilo:** {p.get('estilo', 'N/A')}")
-                                    render_estado_badge(p.get('estado', 'Pendiente'))
-                                    if p.get('comentarios'):
-                                        st.caption(f"📝 Nota: {p.get('comentarios')}")
-
-                                    archivos = p.get('archivos', [])
-                                    if archivos:
-                                        st.markdown("📁 **Archivos:**")
-                                        for idx_a, arch_item in enumerate(archivos):
-                                            nombre_a = arch_item.get('nombre', 'archivo')
-                                            try:
-                                                raw_bytes = base64.b64decode(arch_item.get('data'))
-                                                if nombre_a.lower().endswith(('png', 'jpg', 'jpeg')):
-                                                    st.image(raw_bytes, width=120, caption=nombre_a)
-                                                st.download_button(f"📥 {nombre_a}", data=raw_bytes, file_name=nombre_a, key=f"dl_cli_{p.get('id')}_{idx_a}")
-                                            except Exception:
-                                                pass
-                    else:
-                        st.info("No tienes pedidos pendientes activos.")
-
-                with tab_completados:
-                    st.subheader("🎉 Historial de Pedidos Listos")
-                    pedidos_terminados = [p for p in mis_pedidos if p.get('estado') == "Completado"]
-
-                    if pedidos_terminados:
-                        cols = st.columns(4)
-                        for i, p in enumerate(pedidos_terminados):
-                            with cols[i % 4]:
-                                with st.container(border=True):
-                                    st.markdown(f"**🧵 Proyecto:** {p.get('nombre_proyecto', 'N/A')}")
-                                    st.markdown(f"**📦 Producto:** {p.get('producto', 'N/A')}")
-                                    st.markdown(f"**📍 Ubicación:** {p.get('ubicacion', 'N/A')}")
-                                    st.markdown(f"**🎨 Estilo:** {p.get('estilo', 'N/A')}")
-                                    render_estado_badge("Completado")
-
-                                    archivos_finales = limpiar_lista_archivos(p.get('archivos_finales', []))
-                                    if archivos_finales:
-                                        st.markdown("✨ **Archivos Listos:**")
-                                        for idx_f, af in enumerate(archivos_finales):
-                                            nom_f = af.get('nombre', 'resultado')
-                                            try:
-                                                raw_f_bytes = base64.b64decode(af.get('data'))
-                                                if nom_f.lower().endswith(('png', 'jpg', 'jpeg')):
-                                                    st.image(raw_f_bytes, width=120, caption=nom_f)
-                                                st.download_button(f"📥 {nom_f}", data=raw_f_bytes, file_name=nom_f, key=f"dl_fin_{p.get('id')}_{idx_f}")
-                                            except Exception:
-                                                pass
-                    else:
-                        st.info("Aún no tienes pedidos completados.")
-
-        except Exception as e:
-            st.error(f"Error: {e}")
+    # --- PANEL DERECHO: Vista Previa 3D y Selector de Color ---
+    with col_right:
+        st.markdown('<div class="preview-box">', unsafe_allow_html=True)
+        st.markdown("#### 🧊 Visor 3D en Vivo")
+        
+        shirt_color = st.color_picker("Color Base del Producto", "#ffffff")
+        
+        model_viewer_html = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
+            <style>
+                body {{ margin: 0; background-color: #262626; }}
+                model-viewer {{
+                    width: 100%;
+                    height: 360px;
+                    background-color: #1e1e1e;
+                    border-radius: 12px;
+                }}
+            </style>
+        </head>
+        <body>
+            <model-viewer 
+                src="https://modelviewer.dev/shared-assets/models/Astronaut.glb" 
+                alt="Maqueta 3D" 
+                auto-rotate 
+                camera-controls 
+                ar>
+            </model-viewer>
+        </body>
+        </html>
+        """
+        
+        st.components.v1.html(model_viewer_html, height=380)
+        
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown("**Mis Pedidos Guardados en Firebase:**")
+        
+        # Mostrar los pedidos recientes del usuario actual de forma integrada
+        try:
+            todos = list(db.collection("pedidos_bordado").order_by("timestamp").stream())
+            mis_pedidos = [p.to_dict() for p in todos if p.to_dict().get("cliente", "").strip().lower() == st.session_state.user.strip().lower()]
+            
+            if mis_pedidos:
+                for p in mis_pedidos[-2:]: # Mostrar últimos 2
+                    with st.container(border=True):
+                        st.caption(f"🧵 {p.get('nombre_proyecto')} | Turno: #{p.get('turno')}")
+                        render_estado_badge(p.get('estado', 'Pendiente'))
+                        
+                        # Descarga de archivos entregables si ya están listos
+                        archivos_finales = limpiar_lista_archivos(p.get('archivos_finales', []))
+                        if archivos_finales:
+                            for af in archivos_finales:
+                                try:
+                                    raw_bytes = base64.b64decode(af.get('data'))
+                                    st.download_button(f"📥 Descargar {af.get('nombre')}", data=raw_bytes, file_name=af.get('nombre'), key=f"dl_{p.get('id')}_{af.get('nombre')}")
+                                except Exception:
+                                    pass
+            else:
+                st.info("No hay pedidos guardados todavía.")
+        except Exception:
+            st.caption("Conectando con base de datos...")
+            
+        st.markdown('</div>', unsafe_allow_html=True)
 
 # =========================================================
-# 2. PANEL DE ADMINISTRADOR
+# 2. PANEL DE ADMINISTRADOR (GESTIÓN DE PEDIDOS Y FIREBASE)
 # =========================================================
 else:
-    st.subheader("🛠️ Administración General")
-
-    uso_fb = obtener_uso_firebase()
-    porcentaje_uso = uso_fb["porcentaje"]
-    
-    st.markdown("### 📊 Estado del Plan Firebase (Spark - Gratuito)")
-    col_metrica1, col_metrica2, col_metrica3 = st.columns(3)
-    with col_metrica1:
-        st.metric(label="Lecturas Diarias", value=f"{uso_fb['lecturas']:,} / {uso_fb['limite_lecturas']:,}")
-    with col_metrica2:
-        st.metric(label="Porcentaje Utilizado", value=f"{porcentaje_uso:.1f}%")
-    with col_metrica3:
-        if porcentaje_uso >= 90:
-            st.error("⚠️ ¡Límite crítico alcanzado!")
-        elif porcentaje_uso > 75:
-            st.warning("⚡ Uso elevado del plan gratuito.")
-        else:
-            st.success("✅ Uso dentro del margen seguro.")
-            
-    st.progress(min(porcentaje_uso / 100.0, 1.0))
-    st.markdown("---")
+    st.subheader("🛠️ Panel de Administración General (Firebase)")
 
     try:
-        tab_admin_pend, tab_admin_comp, tab_admin_clientes = st.tabs([
-            "⏳ Pendientes y En Proceso", 
-            "✅ Completados / Entregados", 
-            "👥 Gestión de Clientes"
-        ])
+        tab_admin_pend, tab_admin_comp = st.tabs(["⏳ Pedidos Pendientes y En Proceso", "✅ Completados / Entregados"])
 
         recalcular_turnos()
         docs = list(db.collection("pedidos_bordado").order_by("timestamp").stream())
@@ -447,58 +417,24 @@ else:
                             st.markdown(f"**🔢 Turno:** `#{turno_val}`")
                             st.markdown(f"**👤 Cliente:** `{p.get('cliente')}`")
                             st.markdown(f"**🧵 Proyecto:** `{p.get('nombre_proyecto', 'N/A')}`")
-                            st.markdown(f"**📦 Producto:** {p.get('producto', 'N/A')}")
-                            st.markdown(f"**📍 Ubicación:** {p.get('ubicacion', 'N/A')}")
-                            st.markdown(f"**🎨 Estilo:** {p.get('estilo', 'N/A')}")
                             
                             estado_actual = p.get('estado', 'Pendiente')
                             render_estado_badge(estado_actual)
                             
-                            if p.get('comentarios'):
-                                st.caption(f"📝 Comentarios: {p.get('comentarios')}")
-                            
                             if estado_actual == "Pendiente":
-                                if st.button("🔄 En Proceso", key=f"btn_proceso_{doc_id}", use_container_width=True):
+                                if st.button("🔄 Pasar a En Proceso", key=f"btn_proceso_{doc_id}", use_container_width=True):
                                     db.collection("pedidos_bordado").document(doc_id).update({"estado": "En Proceso"})
                                     recalcular_turnos()
                                     st.rerun()
                             else:
-                                if st.button("🔄 Pendiente", key=f"btn_pendiente_{doc_id}", use_container_width=True):
+                                if st.button("🔄 Regresar a Pendiente", key=f"btn_pendiente_{doc_id}", use_container_width=True):
                                     db.collection("pedidos_bordado").document(doc_id).update({"estado": "Pendiente"})
                                     recalcular_turnos()
                                     st.rerun()
 
-                            archivos_cliente = p.get('archivos', [])
-                            if archivos_cliente:
-                                st.markdown("📁 **Archivos del Cliente:**")
-                                for idx_ac, ac in enumerate(archivos_cliente):
-                                    nom_ac = ac.get('nombre', 'archivo')
-                                    try:
-                                        raw_ac = base64.b64decode(ac.get('data'))
-                                        if nom_ac.lower().endswith(('png', 'jpg', 'jpeg')):
-                                            st.image(raw_ac, width=100, caption=nom_ac)
-                                        st.download_button(f"📥 {nom_ac}", data=raw_ac, file_name=nom_ac, key=f"dl_admin_cli_{doc_id}_{idx_ac}", use_container_width=True)
-                                    except Exception:
-                                        pass
-
-                            with st.expander("📤 Gestionar Archivos al Cliente"):
-                                lista_finales = limpiar_lista_archivos(p.get('archivos_finales', []))
-                                
-                                if lista_finales:
-                                    st.markdown("**✨ Ya enviados:**")
-                                    for idx_f, af in enumerate(lista_finales):
-                                        c_nom, c_btn = st.columns([4, 1])
-                                        with c_nom:
-                                            st.caption(f"📄 {af.get('nombre', 'archivo')}")
-                                        with c_btn:
-                                            if st.button("❌", key=f"del_arch_pend_{doc_id}_{idx_f}", help="Eliminar este archivo"):
-                                                lista_finales.pop(idx_f)
-                                                db.collection("pedidos_bordado").document(doc_id).update({"archivos_finales": lista_finales})
-                                                st.rerun()
-                                                
-                                st.markdown("**➕ Agregar nuevos:**")
+                            with st.expander("📤 Subir Archivo Entregable"):
                                 archivos_entregables = st.file_uploader(
-                                    "Seleccionar archivos:", 
+                                    "Archivos finales:", 
                                     type=["dst", "emb", "pes", "png", "jpg", "pdf"],
                                     accept_multiple_files=True, 
                                     key=f"up_admin_{doc_id}"
@@ -506,138 +442,44 @@ else:
                                 if st.button("🚀 SUBIR Y COMPLETAR", key=f"btn_comp_{doc_id}", use_container_width=True):
                                     if archivos_entregables:
                                         try:
-                                            status_subida = st.empty()
-                                            total_archivos = len(archivos_entregables)
-                                            db.collection("pedidos_bordado").document(doc_id).update({"archivos_finales": []})
-                                            
-                                            for idx, af in enumerate(archivos_entregables, start=1):
-                                                status_subida.info(f"⏳ Subiendo archivo {idx} de {total_archivos} ({af.name})...")
+                                            lista_finales = []
+                                            for af in archivos_entregables:
                                                 b64_fin = procesar_archivo_subido(af)
                                                 lista_finales.append({"nombre": af.name, "data": b64_fin})
                                                 
-                                                db.collection("pedidos_bordado").document(doc_id).update({
-                                                    "archivos_finales": lista_finales,
-                                                    "estado": "Completado",
-                                                    "turno": "N/A"
-                                                })
-                                            
+                                            db.collection("pedidos_bordado").document(doc_id).update({
+                                                "archivos_finales": lista_finales,
+                                                "estado": "Completado",
+                                                "turno": "N/A"
+                                            })
                                             recalcular_turnos()
-                                            status_subida.success("¡Completado con éxito!")
+                                            st.success("¡Pedido completado!")
                                             st.rerun()
                                         except Exception as e:
-                                            status_subida.error(f"Error al subir: {e}")
+                                            st.error(f"Error: {e}")
                                     else:
-                                        st.warning("Adjunta al menos un archivo.")
+                                        st.warning("Adjunta archivos.")
 
                             if st.button("🗑️ Eliminar Pedido", key=f"mob_del_{doc_id}", use_container_width=True):
                                 db.collection("pedidos_bordado").document(doc_id).delete()
                                 recalcular_turnos()
                                 st.rerun()
             else:
-                st.info("🎉 No hay pedidos pendientes de revisión.")
+                st.info("🎉 No hay pedidos pendientes.")
 
         with tab_admin_comp:
-            pedidos_completados_admin = [
-                (doc.id, doc.to_dict()) 
-                for doc in docs 
-                if doc.to_dict().get('estado') == "Completado"
-            ]
-
+            pedidos_completados_admin = [(doc.id, doc.to_dict()) for doc in docs if doc.to_dict().get('estado') == "Completado"]
             if pedidos_completados_admin:
-                cols = st.columns(4)
-                for i, (doc_id, p) in enumerate(pedidos_completados_admin):
-                    with cols[i % 4]:
-                        with st.container(border=True):
-                            st.markdown(f"**👤 {p.get('cliente')}**")
-                            st.markdown(f"**🧵 {p.get('nombre_proyecto', 'N/A')}**")
-                            st.markdown(f"**📦 Producto:** {p.get('producto', 'N/A')}")
-                            st.markdown(f"**📍 Ubicación:** {p.get('ubicacion', 'N/A')}")
-                            st.markdown(f"**🎨 Estilo:** {p.get('estilo', 'N/A')}")
-                            render_estado_badge("Completado")
-                            
-                            if st.button("🔄 Marcar como Pendiente", key=f"btn_regresar_pend_{doc_id}", use_container_width=True):
-                                db.collection("pedidos_bordado").document(doc_id).update({"estado": "Pendiente"})
-                                recalcular_turnos()
-                                st.rerun()
-                            
-                            with st.expander("📤 Gestionar Archivos al Cliente"):
-                                lista_finales = limpiar_lista_archivos(p.get('archivos_finales', []))
-                                
-                                if lista_finales:
-                                    st.markdown("**✨ Ya enviados:**")
-                                    for idx_f, af in enumerate(lista_finales):
-                                        c_nom, c_btn = st.columns([4, 1])
-                                        with c_nom:
-                                            st.caption(f"📄 {af.get('nombre', 'archivo')}")
-                                        with c_btn:
-                                            if st.button("❌", key=f"del_arch_comp_{doc_id}_{idx_f}", help="Eliminar este archivo"):
-                                                lista_finales.pop(idx_f)
-                                                db.collection("pedidos_bordado").document(doc_id).update({"archivos_finales": lista_finales})
-                                                st.rerun()
-                                                
-                                st.markdown("**➕ Agregar nuevos:**")
-                                archivos_extra = st.file_uploader(
-                                    "Seleccionar archivos:", 
-                                    type=["dst", "emb", "pes", "png", "jpg", "pdf"],
-                                    accept_multiple_files=True, 
-                                    key=f"up_admin_comp_{doc_id}"
-                                )
-                                if st.button("🚀 SUBIR ARCHIVOS", key=f"btn_comp_extra_{doc_id}", use_container_width=True):
-                                    if archivos_extra:
-                                        try:
-                                            status_subida = st.empty()
-                                            total_archivos = len(archivos_extra)
-                                            db.collection("pedidos_bordado").document(doc_id).update({"archivos_finales": []})
-                                            
-                                            for idx, af in enumerate(archivos_extra, start=1):
-                                                status_subida.info(f"⏳ Subiendo archivo {idx} de {total_archivos} ({af.name})...")
-                                                b64_fin = procesar_archivo_subido(af)
-                                                lista_finales.append({"nombre": af.name, "data": b64_fin})
-                                                
-                                                db.collection("pedidos_bordado").document(doc_id).update({
-                                                    "archivos_finales": lista_finales
-                                                })
-                                            
-                                            status_subida.success("¡Archivos agregados con éxito!")
-                                            st.rerun()
-                                        except Exception as e:
-                                            status_subida.error(f"Error al subir: {e}")
-                                    else:
-                                        st.warning("Selecciona al menos un archivo.")
-
-                            if st.button("🗑️ Eliminar Pedido", key=f"mob_del_comp_{doc_id}", use_container_width=True):
-                                db.collection("pedidos_bordado").document(doc_id).delete()
-                                recalcular_turnos()
-                                st.rerun()
+                for doc_id, p in pedidos_completados_admin:
+                    with st.container(border=True):
+                        st.markdown(f"**👤 {p.get('cliente')}** - **🧵 {p.get('nombre_proyecto')}**")
+                        render_estado_badge("Completado")
+                        if st.button("🔄 Marcar como Pendiente", key=f"reg_{doc_id}"):
+                            db.collection("pedidos_bordado").document(doc_id).update({"estado": "Pendiente"})
+                            recalcular_turnos()
+                            st.rerun()
             else:
-                st.info("🎉 No hay pedidos completados actualmente.")
+                st.info("No hay pedidos completados.")
 
-        with tab_admin_clientes:
-            st.subheader("👥 Registro y Administración de Clientes")
-            
-            with st.form("form_nuevo_cliente"):
-                st.markdown("#### Registrar Nuevo Cliente o Actualizar Perfil")
-                nuevo_id = st.text_input("ID de Usuario (Único, sin espacios, ej: cliente1)").strip().lower()
-                nombre_usuario = st.text_input("Nombre Completo o Comercial del Cliente").strip()
-                logo_subido = st.file_uploader("Logo del Cliente (Opcional)", type=["png", "jpg", "jpeg"])
-                
-                submitted = st.form_submit_button("Guardar Cliente")
-                if submitted:
-                    if not nuevo_id or not nombre_usuario:
-                        st.error("⚠️ El ID y el Nombre son obligatorios.")
-                    else:
-                        try:
-                            logo_b64 = None
-                            if logo_subido:
-                                logo_b64 = procesar_archivo_subido(logo_subido)
-                                
-                            db.collection("usuarios_perfil").document(nuevo_id).set({
-                                "id": nuevo_id,
-                                "nombre_usuario": nombre_usuario,
-                                "logo_b64": logo_b64
-                            }, merge=True)
-                            st.success(f"✅ Cliente '{nombre_usuario}' guardado con éxito.")
-                        except Exception as e:
-                            st.error(f"Error al guardar cliente: {e}")
     except Exception as e:
-        st.error(f"Error en panel de administración: {e}")
+        st.error(f"Error en el panel admin: {e}")
