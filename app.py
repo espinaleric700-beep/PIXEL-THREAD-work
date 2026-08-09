@@ -225,7 +225,8 @@ if st.session_state.modo_vista == "Estudio":
                                     "tipo": tipo,
                                     "x": 50,
                                     "y": 50,
-                                    "escala": 100,  # Porcentaje de tamaño
+                                    "ancho": 80,  # Tamaño manual en pixeles base
+                                    "alto": 80,
                                     "rotacion": 0   # Grados
                                 }
                                 piezas[parte_destino]["elementos"].append(nuevo_elemento)
@@ -260,9 +261,9 @@ if st.session_state.modo_vista == "Estudio":
                         except Exception as e:
                             st.error(f"Error: {e}")
 
-                # Sección para ajustar escala y orientación de los elementos existentes
+                # Sección para ajustar tamaño manual y orientación
                 st.markdown("---")
-                st.markdown("<div style='font-size: 12px; font-weight: bold;'>Ajustar Elementos (Tamaño / Giro)</div>", unsafe_allow_html=True)
+                st.markdown("<div style='font-size: 12px; font-weight: bold;'>Ajuste Manual (Tamaño / Giro)</div>", unsafe_allow_html=True)
                 
                 elementos_totales = []
                 for p_key, p_val in piezas.items():
@@ -274,13 +275,15 @@ if st.session_state.modo_vista == "Estudio":
                     sel_idx = st.selectbox("Seleccionar Elemento", range(len(elementos_totales)), format_func=lambda i: f"{elementos_totales[i][0].upper()} - {elementos_totales[i][1]['id']}")
                     p_target, el_target = elementos_totales[sel_idx]
                     
-                    nueva_escala = st.slider("Escala / Tamaño (%)", 10, 300, int(el_target.get("escala", 100)), key=f"scl_{el_target['id']}")
+                    nuevo_ancho = st.slider("Ancho (px)", 20, 300, int(el_target.get("ancho", 80)), key=f"w_{el_target['id']}")
+                    nuevo_alto = st.slider("Alto (px)", 20, 300, int(el_target.get("alto", 80)), key=f"h_{el_target['id']}")
                     nueva_rot = st.slider("Rotación (Grados)", 0, 360, int(el_target.get("rotacion", 0)), key=f"rot_{el_target['id']}")
                     
-                    if st.button("💾 Aplicar Cambios al Elemento"):
+                    if st.button("💾 Aplicar Cambios"):
                         for el in piezas[p_target]["elementos"]:
                             if el["id"] == el_target["id"]:
-                                el["escala"] = nueva_escala
+                                el["ancho"] = nuevo_ancho
+                                el["alto"] = nuevo_alto
                                 el["rotacion"] = nueva_rot
                         db.collection("config_estudio").document("modelo_actual").update({"piezas": piezas})
                         st.success("¡Actualizado!")
@@ -298,7 +301,7 @@ if st.session_state.modo_vista == "Estudio":
                 st.markdown("##### Logo IA")
                 st.text_area("Prompt", "Oso urbano bordado")
 
-    # 3. Lienzo Central con Arrastre y Recorte Estricto (Overflow Hidden)
+    # 3. Lienzo Central con Arrastre, Redimensionamiento Manual y Recorte Estricto
     with col_centro:
         with st.container(border=True):
             
@@ -323,7 +326,7 @@ if st.session_state.modo_vista == "Estudio":
                 else:
                     html_base = "<div style='background-color: #ffffff; width: 75%; height: 85%; border-radius: 4px; opacity: 0.9;'></div>"
 
-                # Renderizar múltiples elementos con soporte de escala, rotación y recorte estricto dentro del contenedor
+                # Renderizar múltiples elementos con tamaño manual, rotación y manejadores de redimensionamiento
                 html_elementos = ""
                 for idx, elem in enumerate(elementos):
                     e_id = elem.get("id", f"elem_{idx}")
@@ -331,7 +334,8 @@ if st.session_state.modo_vista == "Estudio":
                     e_tipo = elem.get("tipo", "raster")
                     posX = elem.get("x", 50)
                     posY = elem.get("y", 50)
-                    escala = elem.get("escala", 100)
+                    ancho = elem.get("ancho", 80)
+                    alto = elem.get("alto", 80)
                     rotacion = elem.get("rotacion", 0)
 
                     contenido_elem = ""
@@ -343,9 +347,11 @@ if st.session_state.modo_vista == "Estudio":
 
                     html_elementos += f"""
                     <div class='draggable-item' id='item_{p_nombre_pieza}_{e_id}' 
-                         style='position: absolute; left: {posX}%; top: {posY}%; transform: translate(-50%, -50%) scale({escala / 100}) rotate({rotacion}deg); width: 70px; height: 70px; cursor: grab; z-index: 10; border: 1px dashed rgba(0,206,201,0.5); background: rgba(0,0,0,0.2);'
+                         style='position: absolute; left: {posX}%; top: {posY}%; transform: translate(-50%, -50%) rotate({rotacion}deg); width: {ancho}px; height: {alto}px; cursor: grab; z-index: 10; border: 1px dashed rgba(0,206,201,0.7); background: rgba(0,0,0,0.1);'
                          onmousedown='startDrag(event, "{p_nombre_pieza}", "{e_id}")'>
                         {contenido_elem}
+                        <div class='resize-handle' style='position: absolute; right: -4px; bottom: -4px; width: 10px; height: 10px; background: #00cec9; cursor: se-resize; z-index: 15;'
+                             onmousedown='startResize(event, "{p_nombre_pieza}", "{e_id}")'></div>
                     </div>
                     """
 
@@ -384,8 +390,11 @@ if st.session_state.modo_vista == "Estudio":
                     let activeItem = null;
                     let activeZone = null;
                     let startX = 0, startY = 0;
+                    let isResizing = false;
+                    let startWidth = 0, startHeight = 0;
 
                     function startDrag(e, piezaName, elemId) {{
+                        if (isResizing) return;
                         e.preventDefault();
                         activeItem = document.getElementById('item_' + piezaName + '_' + elemId);
                         activeZone = document.getElementById('zone_' + piezaName);
@@ -417,6 +426,44 @@ if st.session_state.modo_vista == "Estudio":
 
                         activeItem.style.left = percentX + '%';
                         activeItem.style.top = percentY + '%';
+                    }}
+
+                    function startResize(e, piezaName, elemId) {{
+                        e.stopPropagation();
+                        e.preventDefault();
+                        isResizing = true;
+                        activeItem = document.getElementById('item_' + piezaName + '_' + elemId);
+                        
+                        startX = e.clientX;
+                        startY = e.clientY;
+                        startWidth = activeItem.offsetWidth;
+                        startHeight = activeItem.offsetHeight;
+
+                        document.onmousemove = elementResize;
+                        document.onmouseup = closeResizeElement;
+                    }}
+
+                    function elementResize(e) {{
+                        e.preventDefault();
+                        if (!activeItem) return;
+
+                        const dx = e.clientX - startX;
+                        const dy = e.clientY - startY;
+
+                        let newWidth = Math.max(20, startWidth + dx);
+                        let newHeight = Math.max(20, startHeight + dy);
+
+                        activeItem.style.width = newWidth + 'px';
+                        activeItem.style.height = newHeight + 'px';
+                    }}
+
+                    function closeResizeElement() {{
+                        isResizing = false;
+                        if (activeItem) {{
+                            activeItem.style.cursor = 'grab';
+                        }}
+                        document.onmousemove = null;
+                        document.onmouseup = null;
                     }}
 
                     function closeDragElement() {{
@@ -613,7 +660,7 @@ else:
         recalcular_turnos()
         docs = list(db.collection("pedidos_bordado").order_by("timestamp").stream())
         for doc in docs:
-            p = doc.to_dict()
+            p = doc.to_dict() desde la base de datos
             with st.container(border=True):
                 st.write(f"**Cliente:** {p.get('cliente')} | **Proyecto:** {p.get('nombre_proyecto')} | **Estado:** {p.get('estado')}")
                 if st.button("Eliminar", key=f"del_{doc.id}"):
