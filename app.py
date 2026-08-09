@@ -14,11 +14,11 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# --- ESTILOS CSS AVANZADOS (INTERFAZ OSCURA & ESTUDIO) ---
+# --- ESTILOS CSS AVANZADOS (INTERFAZ ESTILO EDITOR PROFESIONAL) ---
 st.markdown("""
     <style>
     .stApp {
-        background-color: #1e1e1e;
+        background-color: #1a1a1a;
         color: #ffffff;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     }
@@ -28,39 +28,16 @@ st.markdown("""
     
     .block-container {
         max-width: 100% !important;
-        padding-left: 2rem;
-        padding-right: 2rem;
-        padding-top: 1.5rem;
+        padding-left: 1.5rem;
+        padding-right: 1.5rem;
+        padding-top: 1rem;
     }
     
-    .panel-box {
-        background-color: #262626;
-        border: 1px solid #3b3b3b;
-        border-radius: 12px;
-        padding: 16px;
-        height: 720px;
-        overflow-y: auto;
-    }
-    
-    .canvas-box {
-        background-color: #191919;
-        border: 1px solid #3b3b3b;
-        border-radius: 12px;
-        padding: 24px;
-        height: 720px;
+    /* Contenedores principales */
+    .editor-layout {
         display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        text-align: center;
-    }
-    
-    .preview-box {
-        background-color: #262626;
-        border: 1px solid #3b3b3b;
-        border-radius: 12px;
-        padding: 16px;
-        height: 720px;
+        gap: 16px;
+        height: 780px;
     }
     
     .stButton>button {
@@ -179,6 +156,8 @@ if "modo_vista" not in st.session_state:
     st.session_state.modo_vista = params.get("seccion", "Estudio")
 if "user" not in st.session_state: 
     st.session_state.user = params.get("user", "ClienteGeneral")
+if "herramienta_activa" not in st.session_state:
+    st.session_state.herramienta_activa = "Archivos"
 
 def actualizar_url(vista, user):
     st.session_state.modo_vista = vista
@@ -189,160 +168,187 @@ def actualizar_url(vista, user):
 ADMINS_AUTORIZADOS = ["pixel2580", "eric"]
 
 # --- BARRA SUPERIOR DE NAVEGACIÓN Y CONTROL ---
-col_top1, col_top2, col_top3 = st.columns([2, 6, 2])
+col_top1, col_top2, col_top3, col_top4 = st.columns([1, 4, 3, 2])
 with col_top1:
-    if st.button("✕ Estudio 3D"):
+    if st.button("✕ Salir"):
         actualizar_url("Estudio", st.session_state.user)
 with col_top2:
-    st.markdown("<h3 style='text-align: center; margin: 0; color: #fff;'>Pixel Thread Studio 3D</h3>", unsafe_allow_html=True)
+    st.markdown("<h4 style='margin: 0; color: #fff;'>Subir y Diseñar</h4>", unsafe_allow_html=True)
 with col_top3:
-    with st.popover("⚙️ Menú General"):
-        st.markdown("### Navegación")
-        if st.button("🎨 Estudio / Pedidos", use_container_width=True): 
-            actualizar_url("Estudio", st.session_state.user)
-        if st.button("🛠️ Panel Admin", use_container_width=True): 
-            usuario_actual = st.session_state.user.strip().lower()
-            if usuario_actual in [adm.lower() for adm in ADMINS_AUTORIZADOS]:
-                actualizar_url("Admin", st.session_state.user)
-            else:
-                st.error("❌ Sin permisos de Administrador.")
+    usuario_actual = st.session_state.user.strip().lower()
+    if usuario_actual in [adm.lower() for adm in ADMINS_AUTORIZADOS]:
+        if st.button("🛠️ Panel Admin"):
+            actualizar_url("Admin" if st.session_state.modo_vista != "Admin" else "Estudio", st.session_state.user)
+with col_top4:
+    if st.button("Guardar Proyecto", use_container_width=True):
+        st.session_state.guardar_trigger = True
 
-st.markdown("<div style='margin-top: 15px;'></div>", unsafe_allow_html=True)
+st.markdown("<div style='margin-top: 5px;'></div>", unsafe_allow_html=True)
 
 # =========================================================
-# 1. VISTA DE ESTUDIO Y GESTIÓN DE PEDIDOS CON FIREBASE
+# 1. VISTA DE ESTUDIO Y DISEÑO INTERactivo
 # =========================================================
 if st.session_state.modo_vista == "Estudio":
-    
-    with st.expander("👤 Identificación de Usuario / Cliente"):
-        user_input = st.text_input("Ingresa tu Nombre o ID de Usuario:", value=st.session_state.user)
-        if user_input != st.session_state.user:
-            actualizar_url("Estudio", user_input)
 
-    col_left, col_center, col_right = st.columns([1.2, 2.2, 1.4], gap="medium")
+    # Estructura principal en 3 columnas: Barra lateral | Lienzo Central | Panel Derecho 3D/Color
+    col_nav, col_sidebar_content, col_canvas, col_right = st.columns([0.6, 1.8, 4.6, 2.2], gap="small")
 
-    # --- PANEL IZQUIERDO ---
-    with col_left:
-        st.markdown('<div class="panel-box">', unsafe_allow_html=True)
-        st.markdown("#### 📁 Archivos y Base de Datos")
+    # --- 1. BARRA DE HERRAMIENTAS LATERAL IZQUIERDA (Iconos estilo Canva) ---
+    with col_nav:
+        st.markdown("<div style='background-color: #121212; border-radius: 12px; padding: 10px 4px; height: 740px; display: flex; flex-direction: column; align-items: center; gap: 15px;'>", unsafe_allow_html=True)
         
-        nombre_proyecto = st.text_input("Nombre del Proyecto", "Proyecto Pixel 3D")
-        uploaded_file = st.file_uploader("Subir JPG, PNG, SVG, DST", type=["png", "jpg", "jpeg", "svg", "dst", "pes"])
-        
-        st.markdown("---")
-        st.markdown("**Herramientas de Texto y IA:**")
-        text_input = st.text_input("Añadir Texto al Diseño", "Pixel Thread")
-        font_style = st.selectbox("Estilo de fuente", ["Urbano / Bold", "Cursiva", "Clásica"])
-        
-        if st.button("Generar con IA (Logo)", use_container_width=True):
-            st.info("Generador IA activado para estilos de bordado urbano.")
+        if st.button("📁\nArchivos", key="btn_h_archivos", use_container_width=True):
+            st.session_state.herramienta_activa = "Archivos"
+            st.rerun()
+        if st.button("🔲\nElementos", key="btn_h_elementos", use_container_width=True):
+            st.session_state.herramienta_activa = "Elementos"
+            st.rerun()
+        if st.button("T\nTexto", key="btn_h_texto", use_container_width=True):
+            st.session_state.herramienta_activa = "Texto"
+            st.rerun()
+        if st.button("✨\nLogo IA", key="btn_h_ia", use_container_width=True):
+            st.session_state.herramienta_activa = "IA"
+            st.rerun()
             
-        st.markdown("---")
-        
-        if st.button("🚀 Enviar Pedido a Producción", use_container_width=True):
-            if not nombre_proyecto:
-                st.warning("⚠️ Ingresa un nombre de proyecto.")
-            else:
-                try:
-                    with st.spinner("Guardando en Firebase..."):
-                        lista_archivos = []
-                        if uploaded_file:
-                            b64_data = procesar_archivo_subido(uploaded_file)
-                            lista_archivos.append({"nombre": uploaded_file.name, "data": b64_data})
+        st.markdown("</div>", unsafe_allow_html=True)
 
-                        data_pedido = {
-                            "id": f"PT-{int(datetime.now().timestamp())}",
-                            "cliente": st.session_state.user.strip(),
-                            "nombre_proyecto": nombre_proyecto,
-                            "producto": "ESTUDIO 3D",
-                            "ubicacion": "FRENTE / PERSONALIZADO",
-                            "estilo": font_style,
-                            "archivos": lista_archivos,
-                            "archivos_finales": [],
-                            "comentarios": f"Texto asociado: {text_input}",
-                            "estado": "Pendiente",
-                            "turno": 1,
-                            "timestamp": datetime.now()
-                        }
-                        db.collection("pedidos_bordado").add(data_pedido)
-                        recalcular_turnos()
-                        st.success("¡Proyecto enviado y guardado en Firebase con éxito!")
-                except Exception as e:
-                    st.error(f"Error al conectar con Firebase: {e}")
+    # --- 2. PANEL DE OPCIONES DESPLEGABLE SEGÚN HERRAMIENTA SELECCIONADA ---
+    with col_sidebar_content:
+        st.markdown("<div style='background-color: #1e1e1e; border: 1px solid #333; border-radius: 12px; padding: 15px; height: 740px; overflow-y: auto;'>", unsafe_allow_html=True)
+        
+        if st.session_state.herramienta_activa == "Archivos":
+            st.markdown("#### Archivos Subidos")
+            nombre_proyecto = st.text_input("Nombre del Proyecto", "Proyecto Pixel 3D")
+            uploaded_file = st.file_uploader("Subir JPG, PNG, SVG, DST", type=["png", "jpg", "jpeg", "svg", "dst", "pes"])
             
-        st.markdown('</div>', unsafe_allow_html=True)
+            st.markdown("---")
+            if st.button("🚀 Enviar a Producción", use_container_width=True):
+                if not nombre_proyecto:
+                    st.warning("⚠️ Ingresa un nombre de proyecto.")
+                else:
+                    try:
+                        with st.spinner("Guardando en Firebase..."):
+                            lista_archivos = []
+                            if uploaded_file:
+                                b64_data = procesar_archivo_subido(uploaded_file)
+                                lista_archivos.append({"nombre": uploaded_file.name, "data": b64_data})
 
-    # --- PANEL CENTRAL ---
-    with col_center:
-        st.markdown('<div class="canvas-box">', unsafe_allow_html=True)
-        st.markdown("<h4 style='color: #ccc; margin-bottom: 10px;'>Plantilla de Despiece de Camiseta</h4>", unsafe_allow_html=True)
+                            data_pedido = {
+                                "id": f"PT-{int(datetime.now().timestamp())}",
+                                "cliente": st.session_state.user.strip(),
+                                "nombre_proyecto": nombre_proyecto,
+                                "producto": "ESTUDIO 3D",
+                                "ubicacion": "FRENTE / PERSONALIZADO",
+                                "archivos": lista_archivos,
+                                "archivos_finales": [],
+                                "estado": "Pendiente",
+                                "turno": 1,
+                                "timestamp": datetime.now()
+                            }
+                            db.collection("pedidos_bordado").add(data_pedido)
+                            recalcular_turnos()
+                            st.success("¡Proyecto enviado a Firebase con éxito!")
+                    except Exception as e:
+                        st.error(f"Error al conectar con Firebase: {e}")
+
+        elif st.session_state.herramienta_activa == "Elementos":
+            st.markdown("#### Elementos Gráficos")
+            st.info("Selecciona gráficos predeterminados para tu diseño.")
+            st.markdown("🐻 Oso Urbano Pixel Thread")
+            st.markdown("🧢 Gorra y Estilos")
+
+        elif st.session_state.herramienta_activa == "Texto":
+            st.markdown("#### Añadir Texto")
+            text_input = st.text_input("Texto Personalizado", "Pixel Thread")
+            font_style = st.selectbox("Estilo de fuente", ["Urbano / Bold", "Cursiva", "Clásica"])
+
+        elif st.session_state.herramienta_activa == "IA":
+            st.markdown("#### Generador de Logos IA")
+            prompt_ia = st.text_area("Describe tu logo ideal:", "Logotipo urbano estilo bordado con oso y letras PT")
+            if st.button("Generar Diseño IA", use_container_width=True):
+                st.success("¡Generando concepto con IA!")
+
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    # --- 3. LIENZO CENTRAL (Plantilla de Despiece de Camiseta) ---
+    with col_canvas:
+        st.markdown("<div style='background-color: #242424; border: 1px solid #333; border-radius: 12px; padding: 20px; height: 740px; display: flex; flex-direction: column; align-items: center; justify-content: space-between;'>", unsafe_allow_html=True)
         
-        pattern_col1, pattern_col2, pattern_col3 = st.columns([2, 2, 1])
+        # Despiece central exacto
+        st.markdown("<div style='display: flex; gap: 20px; justify-content: center; align-items: center; height: 620px;'>", unsafe_allow_html=True)
         
-        with pattern_col1:
-            st.markdown("""
-                <div style='background: #fff; color: #000; border-radius: 12px; padding: 20px; height: 380px; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.3);'>
-                    <p style='font-size: 12px; font-weight: bold; margin-bottom: 10px;'>FRENTE</p>
-                    <div style='border: 2px dashed #00cec9; border-radius: 50%; width: 100px; height: 100px; display: flex; align-items: center; justify-content: center; background: #f9f9f9;'>
-                        <span style='font-size: 24px;'>🐻</span>
-                    </div>
-                    <p style='font-size: 10px; color: #666; margin-top: 10px;'>Pixel Thread Logo</p>
+        # Frente
+        st.markdown("""
+            <div style='background: #fff; color: #000; border-radius: 10px; padding: 15px; width: 170px; height: 480px; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.3);'>
+                <p style='font-size: 11px; font-weight: bold; margin-bottom: 10px;'>FRENTE</p>
+                <div style='border: 2px dashed #00cec9; border-radius: 50%; width: 90px; height: 90px; display: flex; align-items: center; justify-content: center; background: #f9f9f9;'>
+                    <span style='font-size: 20px;'>🐻</span>
                 </div>
-            """, unsafe_allow_html=True)
-            
-        with pattern_col2:
-            st.markdown("""
-                <div style='background: #fff; color: #000; border-radius: 12px; padding: 20px; height: 380px; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.3);'>
-                    <p style='font-size: 12px; font-weight: bold; margin-bottom: 10px;'>ESPALDA</p>
-                    <div style='border: 2px dashed #ccc; border-radius: 50%; width: 100px; height: 100px; display: flex; align-items: center; justify-content: center; background: #f9f9f9;'>
-                        <span style='font-size: 12px; color: #999;'>Vacío</span>
-                    </div>
-                    <p style='font-size: 10px; color: #666; margin-top: 10px;'>Área libre</p>
-                </div>
-            """, unsafe_allow_html=True)
+            </div>
+        """, unsafe_allow_html=True)
 
-        with pattern_col3:
-            st.markdown("""
-                <div style='background: #fff; color: #000; border-radius: 12px; padding: 10px; height: 380px; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.3);'>
-                    <p style='font-size: 10px; font-weight: bold;'>MANGAS</p>
-                    <div style='border: 1px solid #ccc; width: 60px; height: 40px; margin-bottom: 15px; background: #f9f9f9;'></div>
-                    <div style='border: 1px solid #ccc; width: 60px; height: 40px; background: #f9f9f9;'></div>
+        # Espalda
+        st.markdown("""
+            <div style='background: #fff; color: #000; border-radius: 10px; padding: 15px; width: 170px; height: 480px; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.3);'>
+                <p style='font-size: 11px; font-weight: bold; margin-bottom: 10px;'>ESPALDA</p>
+                <div style='border: 2px dashed #ccc; border-radius: 50%; width: 90px; height: 90px; display: flex; align-items: center; justify-content: center; background: #f9f9f9;'>
+                    <span style='font-size: 10px; color: #999;'>Vacío</span>
                 </div>
-            """, unsafe_allow_html=True)
-            
-        st.markdown("<br>", unsafe_allow_html=True)
+            </div>
+        """, unsafe_allow_html=True)
+
+        # Mangas y cuello
+        st.markdown("""
+            <div style='display: flex; flex-direction: column; gap: 10px; height: 480px; justify-content: center;'>
+                <div style='background: #fff; color: #000; border-radius: 10px; padding: 10px; width: 130px; height: 120px; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.3);'>
+                    <p style='font-size: 9px; font-weight: bold;'>CUELLO</p>
+                    <div style='border: 1px solid #ccc; width: 80px; height: 30px; background: #f9f9f9;'></div>
+                </div>
+                <div style='background: #fff; color: #000; border-radius: 10px; padding: 10px; width: 130px; height: 170px; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.3);'>
+                    <p style='font-size: 9px; font-weight: bold;'>MANGA IZQ</p>
+                    <div style='border: 1px solid #ccc; width: 80px; height: 70px; background: #f9f9f9;'></div>
+                </div>
+                <div style='background: #fff; color: #000; border-radius: 10px; padding: 10px; width: 130px; height: 170px; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.3);'>
+                    <p style='font-size: 9px; font-weight: bold;'>MANGA DER</p>
+                    <div style='border: 1px solid #ccc; width: 80px; height: 70px; background: #f9f9f9;'></div>
+                </div>
+            </div>
+        """, unsafe_allow_html=True)
         
-        tools_col1, tools_col2, tools_col3, tools_col4 = st.columns(4)
-        with tools_col1:
+        st.markdown("</div>", unsafe_allow_html=True)
+
+        # Barra de herramientas inferior del lienzo (Zoom, Deshacer, etc.)
+        b_tool1, b_tool2, b_tool3, b_tool4, b_tool5 = st.columns(5)
+        with b_tool1:
             st.markdown("↩️ Deshacer")
-        with tools_col2:
-            zoom_val = st.slider("Zoom", 50, 200, 100, label_visibility="collapsed")
-        with tools_col3:
+        with b_tool2:
+            st.markdown("🔍 Zoom 100%")
+        with b_tool3:
             st.markdown("👁️ Vista Previa")
-        with tools_col4:
-            st.markdown("⚡ **Estado: Sincronizado**")
-            
-        st.markdown('</div>', unsafe_allow_html=True)
+        with b_tool4:
+            st.markdown("⚡ Sincronizado")
+        with b_tool5:
+            st.markdown("✨ 50 pts")
 
-    # --- PANEL DERECHO (Visor 3D con Camiseta) ---
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    # --- 4. PANEL DERECHO (Visor 3D y Selector de Colores) ---
     with col_right:
-        st.markdown('<div class="preview-box">', unsafe_allow_html=True)
-        st.markdown("#### 🧊 Visor 3D en Vivo (Camiseta)")
+        st.markdown("<div style='background-color: #1e1e1e; border: 1px solid #333; border-radius: 12px; padding: 15px; height: 740px; display: flex; flex-direction: column; gap: 15px;'>", unsafe_allow_html=True)
         
-        shirt_color = st.color_picker("Color Base del Producto", "#ffffff")
-        
+        # Visor 3D de la camiseta
         model_viewer_html = """
         <!DOCTYPE html>
         <html>
         <head>
             <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
             <style>
-                body { margin: 0; background-color: #262626; overflow: hidden; }
+                body { margin: 0; background-color: #1e1e1e; overflow: hidden; }
                 model-viewer {
                     width: 100%;
-                    height: 360px;
-                    background-color: #191919;
-                    border-radius: 12px;
+                    height: 320px;
+                    background-color: #141414;
+                    border-radius: 10px;
                 }
             </style>
         </head>
@@ -357,36 +363,42 @@ if st.session_state.modo_vista == "Estudio":
         </body>
         </html>
         """
+        st.components.v1.html(model_viewer_html, height=330)
+
+        st.markdown("#### Color del Producto")
         
-        st.components.v1.html(model_viewer_html, height=380)
-        
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.markdown("**Mis Pedidos Guardados en Firebase:**")
-        
+        # Selector de colores en círculos exactos como en la referencia
+        col_c1, col_c2, col_c3, col_c4, col_c5, col_c6, col_c7 = st.columns(7)
+        with col_c1:
+            st.button("➕", key="col_add")
+        with col_c2:
+            st.button("⚪", key="col_white")
+        with col_c3:
+            st.button("⚫", key="col_black")
+        with col_c4:
+            st.button("🔘", key="col_gray")
+        with col_c5:
+            st.button("🔴", key="col_red")
+        with col_c6:
+            st.button("🟣", key="col_purple")
+        with col_c7:
+            st.button("🩷", key="col_pink")
+
+        st.markdown("---")
+        st.markdown("#### Mis Pedidos Guardados")
         try:
             todos = list(db.collection("pedidos_bordado").order_by("timestamp").stream())
             mis_pedidos = [p.to_dict() for p in todos if p.to_dict().get("cliente", "").strip().lower() == st.session_state.user.strip().lower()]
-            
             if mis_pedidos:
                 for p in mis_pedidos[-2:]:
-                    with st.container(border=True):
-                        st.caption(f"🧵 {p.get('nombre_proyecto')} | Turno: #{p.get('turno')}")
-                        render_estado_badge(p.get('estado', 'Pendiente'))
-                        
-                        archivos_finales = limpiar_lista_archivos(p.get('archivos_finales', []))
-                        if archivos_finales:
-                            for af in archivos_finales:
-                                try:
-                                    raw_bytes = base64.b64decode(af.get('data'))
-                                    st.download_button(f"📥 Descargar {af.get('nombre')}", data=raw_bytes, file_name=af.get('nombre'), key=f"dl_{p.get('id')}_{af.get('nombre')}")
-                                except Exception:
-                                    pass
+                    st.caption(f"🧵 {p.get('nombre_proyecto')} | Turno: #{p.get('turno')}")
+                    render_estado_badge(p.get('estado', 'Pendiente'))
             else:
-                st.info("No hay pedidos guardados todavía.")
+                st.info("Sin pedidos guardados.")
         except Exception:
-            st.caption("Conectando con base de datos...")
-            
-        st.markdown('</div>', unsafe_allow_html=True)
+            st.caption("Cargando base de datos...")
+
+        st.markdown("</div>", unsafe_allow_html=True)
 
 # =========================================================
 # 2. PANEL DE ADMINISTRADOR
