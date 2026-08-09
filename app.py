@@ -14,7 +14,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# --- ESTILOS CSS LIMPIOS PARA DISEÑO FLUIDO ---
+# --- ESTILOS CSS PARA BLOQUEAR EL DISEÑO EN UNA SOLA VISTA ---
 st.markdown("""
     <style>
     .stApp {
@@ -28,37 +28,70 @@ st.markdown("""
     
     .block-container {
         max-width: 100% !important;
-        padding: 0.4rem 1rem !important;
+        padding: 0.4rem 0.8rem !important;
     }
 
-    .panel-box {
+    /* Contenedor principal en fila única */
+    .layout-studio {
+        display: flex;
+        flex-direction: row;
+        gap: 12px;
+        height: 85vh;
+        width: 100%;
+    }
+
+    .box-icons {
+        width: 55px;
         background-color: #141414;
         border: 1px solid #2a2a2a;
-        border-radius: 12px;
+        border-radius: 10px;
+        padding: 10px 4px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .box-panel {
+        width: 250px;
+        background-color: #141414;
+        border: 1px solid #2a2a2a;
+        border-radius: 10px;
         padding: 12px;
-        height: 78vh;
         overflow-y: auto;
     }
 
-    .canvas-box {
+    .box-canvas {
+        flex-grow: 1;
         background-color: #212121;
         border: 1px solid #2a2a2a;
-        border-radius: 12px;
+        border-radius: 10px;
         padding: 12px;
-        height: 78vh;
         display: flex;
         flex-direction: column;
         justify-content: space-between;
         align-items: center;
     }
 
+    .box-right {
+        width: 270px;
+        background-color: #141414;
+        border: 1px solid #2a2a2a;
+        border-radius: 10px;
+        padding: 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        overflow-y: auto;
+    }
+
     .stButton>button {
         background-color: #00cec9;
         color: #111;
         font-weight: bold;
-        border-radius: 8px;
+        border-radius: 6px;
         border: none;
-        padding: 6px 12px;
+        padding: 4px 10px;
         width: 100%;
     }
     .stButton>button:hover {
@@ -150,128 +183,121 @@ st.markdown("<div style='margin-bottom: 6px;'></div>", unsafe_allow_html=True)
 # =========================================================
 if st.session_state.modo_vista == "Estudio":
 
-    # Estructura de 4 columnas nativas de Streamlit con proporciones exactas para que todo quede en pantalla
-    col_iconos, col_panel, col_centro, col_right = st.columns([0.6, 2.4, 4.8, 2.8], gap="small")
+    # Contenedor Flex en línea con HTML para evitar que Streamlit rompa las columnas
+    st.markdown("<div class='layout-studio'>", unsafe_allow_html=True)
 
-    # 1. Columna de Iconos Laterales
-    with col_iconos:
-        st.markdown("<div class='panel-box' style='display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 10px 2px;'>", unsafe_allow_html=True)
-        if st.button("📁", key="bi_arch"): st.session_state.herramienta_activa = "Archivos"; st.rerun()
-        if st.button("🔲", key="bi_elem"): st.session_state.herramienta_activa = "Elementos"; st.rerun()
-        if st.button("T", key="bi_text"): st.session_state.herramienta_activa = "Texto"; st.rerun()
-        if st.button("✨", key="bi_ia"): st.session_state.herramienta_activa = "IA"; st.rerun()
-        st.markdown("</div>", unsafe_allow_html=True)
+    # 1. Barra de Iconos
+    st.markdown("<div class='box-icons'>", unsafe_allow_html=True)
+    if st.button("📁", key="bi_arch"): st.session_state.herramienta_activa = "Archivos"; st.rerun()
+    if st.button("🔲", key="bi_elem"): st.session_state.herramienta_activa = "Elementos"; st.rerun()
+    if st.button("T", key="bi_text"): st.session_state.herramienta_activa = "Texto"; st.rerun()
+    if st.button("✨", key="bi_ia"): st.session_state.herramienta_activa = "IA"; st.rerun()
+    st.markdown("</div>", unsafe_allow_html=True)
 
-    # 2. Panel Desplegable de Herramientas
-    with col_panel:
-        st.markdown("<div class='panel-box'>", unsafe_allow_html=True)
-        if st.session_state.herramienta_activa == "Archivos":
-            st.markdown("<div style='font-size: 13px; font-weight: bold; margin-bottom: 8px;'>Archivos</div>", unsafe_allow_html=True)
-            nombre_proyecto = st.text_input("Nombre", "Proyecto Pixel 3D")
-            up_file = st.file_uploader("Cargar diseño", type=["png", "jpg", "jpeg", "svg", "dst"])
-            st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
-            if st.button("🚀 Enviar a Producción", key="btn_prod"):
-                try:
-                    lista_archivos = []
-                    if up_file:
-                        lista_archivos.append({"nombre": up_file.name, "data": procesar_archivo_subido(up_file)})
-                    db.collection("pedidos_bordado").add({
-                        "id": f"PT-{int(datetime.now().timestamp())}",
-                        "cliente": st.session_state.user.strip(),
-                        "nombre_proyecto": nombre_proyecto,
-                        "archivos": lista_archivos,
-                        "estado": "Pendiente",
-                        "turno": 1,
-                        "timestamp": datetime.now()
-                    })
-                    recalcular_turnos()
-                    st.success("¡Enviado!")
-                except Exception as e:
-                    st.error(f"Error: {e}")
-        elif st.session_state.herramienta_activa == "Elementos":
-            st.markdown("##### Elementos")
-            st.caption("Gráficos de Pixel Thread")
-        elif st.session_state.herramienta_activa == "Texto":
-            st.markdown("##### Texto")
-            st.text_input("Contenido", "Pixel Thread")
-        elif st.session_state.herramienta_activa == "IA":
-            st.markdown("##### Logo IA")
-            st.text_area("Prompt", "Oso urbano bordado")
-        st.markdown("</div>", unsafe_allow_html=True)
+    # 2. Panel de Herramientas
+    st.markdown("<div class='box-panel'>", unsafe_allow_html=True)
+    if st.session_state.herramienta_activa == "Archivos":
+        st.markdown("<div style='font-size: 13px; font-weight: bold; margin-bottom: 6px;'>Archivos</div>", unsafe_allow_html=True)
+        nombre_proyecto = st.text_input("Nombre", "Proyecto Pixel 3D")
+        up_file = st.file_uploader("Cargar diseño", type=["png", "jpg", "jpeg", "svg", "dst"])
+        st.markdown("<div style='margin-top: 8px;'></div>", unsafe_allow_html=True)
+        if st.button("🚀 Enviar a Producción", key="btn_prod"):
+            try:
+                lista_archivos = []
+                if up_file:
+                    lista_archivos.append({"nombre": up_file.name, "data": procesar_archivo_subido(up_file)})
+                db.collection("pedidos_bordado").add({
+                    "id": f"PT-{int(datetime.now().timestamp())}",
+                    "cliente": st.session_state.user.strip(),
+                    "nombre_proyecto": nombre_proyecto,
+                    "archivos": lista_archivos,
+                    "estado": "Pendiente",
+                    "turno": 1,
+                    "timestamp": datetime.now()
+                })
+                recalcular_turnos()
+                st.success("¡Enviado!")
+            except Exception as e:
+                st.error(f"Error: {e}")
+    elif st.session_state.herramienta_activa == "Elementos":
+        st.markdown("##### Elementos")
+        st.caption("Gráficos de Pixel Thread")
+    elif st.session_state.herramienta_activa == "Texto":
+        st.markdown("##### Texto")
+        st.text_input("Contenido", "Pixel Thread")
+    elif st.session_state.herramienta_activa == "IA":
+        st.markdown("##### Logo IA")
+        st.text_area("Prompt", "Oso urbano bordado")
+    st.markdown("</div>", unsafe_allow_html=True)
 
-    # 3. Lienzo Central (Patrones de la Camiseta + Barra de herramientas flotante inferior)
-    with col_centro:
-        st.markdown("""
-            <div class='canvas-box'>
-                <div style='display: flex; gap: 15px; width: 100%; justify-content: center; align-items: center; height: 66vh;'>
-                    <!-- Frente -->
-                    <div style='background: #fff; color: #000; border-radius: 8px; padding: 10px; width: 145px; height: 95%; display: flex; flex-direction: column; align-items: center; justify-content: center;'>
-                        <div style='border: 2px dashed #00cec9; border-radius: 50%; width: 65px; height: 65px; display: flex; align-items: center; justify-content: center;'>🐻</div>
-                    </div>
-                    <!-- Espalda -->
-                    <div style='background: #fff; color: #000; border-radius: 8px; padding: 10px; width: 145px; height: 95%; display: flex; flex-direction: column; align-items: center; justify-content: center;'>
-                        <div style='border: 2px dashed #ccc; border-radius: 50%; width: 65px; height: 65px; display: flex; align-items: center; justify-content: center;'></div>
-                    </div>
-                    <!-- Mangas y Cuello -->
-                    <div style='display: flex; flex-direction: column; gap: 8px; height: 95%; justify-content: center;'>
-                        <div style='background: #fff; color: #000; border-radius: 8px; width: 95px; height: 22%;'></div>
-                        <div style='background: #fff; color: #000; border-radius: 8px; width: 95px; height: 37%;'></div>
-                        <div style='background: #fff; color: #000; border-radius: 8px; width: 95px; height: 37%;'></div>
-                    </div>
+    # 3. Lienzo Central
+    st.markdown("""
+        <div class='box-canvas'>
+            <div style='display: flex; gap: 12px; width: 100%; justify-content: center; align-items: center; height: 72vh;'>
+                <div style='background: #fff; color: #000; border-radius: 6px; padding: 8px; width: 135px; height: 95%; display: flex; flex-direction: column; align-items: center; justify-content: center;'>
+                    <div style='border: 2px dashed #00cec9; border-radius: 50%; width: 55px; height: 55px; display: flex; align-items: center; justify-content: center;'>🐻</div>
                 </div>
-                <!-- Barra inferior flotante -->
-                <div style='background-color: #121212; border: 1px solid #2a2a2a; border-radius: 30px; padding: 6px 18px; display: flex; gap: 15px; align-items: center; font-size: 12px; color: #aaa;'>
-                    <span>🔲</span><span>✋</span><span>|</span><span>↩️</span><span>↪️</span><span>|</span><span>- 100% +</span><span>|</span><span>🔄 👁️</span><span>|</span><span>⚡ 50</span>
+                <div style='background: #fff; color: #000; border-radius: 6px; padding: 8px; width: 135px; height: 95%; display: flex; flex-direction: column; align-items: center; justify-content: center;'>
+                    <div style='border: 2px dashed #ccc; border-radius: 50%; width: 55px; height: 55px; display: flex; align-items: center; justify-content: center;'></div>
+                </div>
+                <div style='display: flex; flex-direction: column; gap: 6px; height: 95%; justify-content: center;'>
+                    <div style='background: #fff; color: #000; border-radius: 6px; width: 85px; height: 22%;'></div>
+                    <div style='background: #fff; color: #000; border-radius: 6px; width: 85px; height: 37%;'></div>
+                    <div style='background: #fff; color: #000; border-radius: 6px; width: 85px; height: 37%;'></div>
                 </div>
             </div>
-        """, unsafe_allow_html=True)
+            <div style='background-color: #121212; border: 1px solid #2a2a2a; border-radius: 20px; padding: 4px 14px; display: flex; gap: 12px; align-items: center; font-size: 11px; color: #aaa;'>
+                <span>🔲</span><span>✋</span><span>|</span><span>↩️</span><span>↪️</span><span>|</span><span>- 100% +</span><span>|</span><span>🔄 👁️</span><span>|</span><span>⚡ 50</span>
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
 
-    # 4. Panel Derecho (Visor 3D y Selector de Colores)
-    with col_right:
-        st.markdown("<div class='panel-box' style='display: flex; flex-direction: column; gap: 10px;'>", unsafe_allow_html=True)
-        
-        model_html = """
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
-            <style>
-                body { margin: 0; background-color: #141414; }
-                model-viewer { width: 100%; height: 180px; background-color: #141414; border-radius: 8px; }
-            </style>
-        </head>
-        <body>
-            <model-viewer src="https://modelviewer.dev/shared-assets/models/Astronaut.glb" auto-rotate camera-controls interaction-prompt="none"></model-viewer>
-        </body>
-        </html>
-        """
-        st.components.v1.html(model_html, height=190)
+    # 4. Panel Derecho (Visor 3D y Colores)
+    st.markdown("<div class='box-right'>", unsafe_allow_html=True)
+    
+    model_html = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
+        <style>
+            body { margin: 0; background-color: #141414; }
+            model-viewer { width: 100%; height: 160px; background-color: #141414; border-radius: 6px; }
+        </style>
+    </head>
+    <body>
+        <model-viewer src="https://modelviewer.dev/shared-assets/models/Astronaut.glb" auto-rotate camera-controls interaction-prompt="none"></model-viewer>
+    </body>
+    </html>
+    """
+    st.components.v1.html(model_html, height=170)
 
-        st.markdown("<div style='font-size: 13px; font-weight: bold;'>Color</div>", unsafe_allow_html=True)
-        cc1, cc2, cc3, cc4, cc5, cc6, cc7 = st.columns(7)
-        with cc1: st.button("➕", key="c_add")
-        with cc2: st.button("⚪", key="c_wh")
-        with cc3: st.button("⚫", key="c_bl")
-        with cc4: st.button("🔘", key="c_gr")
-        with cc5: st.button("🔴", key="c_re")
-        with cc6: st.button("🟣", key="c_pu")
-        with cc7: st.button("🩷", key="c_pi")
+    st.markdown("<div style='font-size: 12px; font-weight: bold;'>Color</div>", unsafe_allow_html=True)
+    cc1, cc2, cc3, cc4, cc5, cc6, cc7 = st.columns(7)
+    with cc1: st.button("➕", key="c_add")
+    with cc2: st.button("⚪", key="c_wh")
+    with cc3: st.button("⚫", key="c_bl")
+    with cc4: st.button("🔘", key="c_gr")
+    with cc5: st.button("🔴", key="c_re")
+    with cc6: st.button("🟣", key="c_pu")
+    with cc7: st.button("🩷", key="c_pi")
 
-        st.markdown("---")
-        st.markdown("<div style='font-size: 13px; font-weight: bold;'>Mis Pedidos</div>", unsafe_allow_html=True)
-        try:
-            docs_p = list(db.collection("pedidos_bordado").order_by("timestamp").stream())
-            mis_p = [p.to_dict() for p in docs_p if p.to_dict().get("cliente", "").strip().lower() == st.session_state.user.strip().lower()]
-            if mis_p:
-                p_rec = mis_p[-1]
-                st.caption(f"🧵 {p_rec.get('nombre_proyecto')} | Turno: #{p_rec.get('turno')}")
-                st.caption(f"Estado: {p_rec.get('estado')}")
-            else:
-                st.caption("Sin pedidos recientes.")
-        except Exception:
-            pass
+    st.markdown("<hr style='margin: 4px 0; border-color: #333;'>", unsafe_allow_html=True)
+    st.markdown("<div style='font-size: 12px; font-weight: bold;'>Mis Pedidos</div>", unsafe_allow_html=True)
+    try:
+        docs_p = list(db.collection("pedidos_bordado").order_by("timestamp").stream())
+        mis_p = [p.to_dict() for p in docs_p if p.to_dict().get("cliente", "").strip().lower() == st.session_state.user.strip().lower()]
+        if mis_p:
+            p_rec = mis_p[-1]
+            st.caption(f"🧵 {p_rec.get('nombre_proyecto')} | Turno: #{p_rec.get('turno')}")
+            st.caption(f"Estado: {p_rec.get('estado')}")
+        else:
+            st.caption("Sin pedidos recientes.")
+    except Exception:
+        pass
 
-        st.markdown("</div>", unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True) # Cierre box-right
+    st.markdown("</div>", unsafe_allow_html=True) # Cierre layout-studio
 
 # =========================================================
 # VISTA DE ADMIN
