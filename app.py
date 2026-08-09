@@ -225,9 +225,9 @@ if st.session_state.modo_vista == "Estudio":
                                     "tipo": tipo,
                                     "x": 50,
                                     "y": 50,
-                                    "ancho": 80,  # Tamaño manual en pixeles base
+                                    "ancho": 80,
                                     "alto": 80,
-                                    "rotacion": 0   # Grados
+                                    "rotacion": 0
                                 }
                                 piezas[parte_destino]["elementos"].append(nuevo_elemento)
                                 
@@ -660,7 +660,7 @@ else:
         recalcular_turnos()
         docs = list(db.collection("pedidos_bordado").order_by("timestamp").stream())
         for doc in docs:
-            p = doc.to_dict() desde la base de datos
+            p = doc.to_dict()
             with st.container(border=True):
                 st.write(f"**Cliente:** {p.get('cliente')} | **Proyecto:** {p.get('nombre_proyecto')} | **Estado:** {p.get('estado')}")
                 if st.button("Eliminar", key=f"del_{doc.id}"):
