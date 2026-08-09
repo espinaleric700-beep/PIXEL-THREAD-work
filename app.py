@@ -104,9 +104,14 @@ def obtener_configuracion_activa():
         pass
     return {
         "nombre_modelo": "Camisa Estándar",
-        "patron_base64": "",
-        "tipo_patron": "raster",
-        "modelo_3d_url": "https://modelviewer.dev/shared-assets/models/Astronaut.glb"
+        "modelo_3d_url": "https://modelviewer.dev/shared-assets/models/Astronaut.glb",
+        "piezas": {
+            "frente": {"b64": "", "tipo": "raster"},
+            "espalda": {"b64": "", "tipo": "raster"},
+            "cuello": {"b64": "", "tipo": "raster"},
+            "manga_izq": {"b64": "", "tipo": "raster"},
+            "manga_der": {"b64": "", "tipo": "raster"}
+        }
     }
 
 # --- ESTADOS ---
@@ -154,8 +159,7 @@ st.markdown("<div style='margin-bottom: 6px;'></div>", unsafe_allow_html=True)
 if st.session_state.modo_vista == "Estudio":
 
     config_actual = obtener_configuracion_activa()
-    patron_b64 = config_actual.get("patron_base64", "")
-    tipo_patron = config_actual.get("tipo_patron", "raster")
+    piezas = config_actual.get("piezas", {})
     url_3d = config_actual.get("modelo_3d_url", "https://modelviewer.dev/shared-assets/models/Astronaut.glb")
 
     col_iconos, col_panel, col_centro, col_right = st.columns([0.5, 2.3, 4.7, 2.5], gap="medium")
@@ -204,59 +208,94 @@ if st.session_state.modo_vista == "Estudio":
                 st.markdown("##### Logo IA")
                 st.text_area("Prompt", "Oso urbano bordado")
 
-    # 3. Lienzo Central Robusto para SVG
+    # 3. Lienzo Central Organizado por Piezas (Frente, Espalda, Cuello, Mangas)
     with col_centro:
         with st.container(border=True):
-            if patron_b64:
-                if tipo_patron == "svg":
-                    try:
-                        svg_raw = base64.b64decode(patron_b64).decode("utf-8", errors="ignore")
-                        # Aseguramos que el SVG escala bien inyectándole atributos de tamaño si carece de ellos
-                        if "<svg" in svg_raw and "width=" not in svg_raw:
-                            svg_raw = svg_raw.replace("<svg", '<svg width="100%" height="100%"')
-                        contenido_html = f"""
-                        <div style="display: flex; justify-content: center; align-items: center; width: 100%; height: 100%;">
-                            {svg_raw}
-                        </div>
-                        """
-                    except Exception:
-                        contenido_html = "<div style='color: #ff4d4d; text-align: center;'>Error al procesar el SVG guardado. Sube uno nuevo desde Admin.</div>"
+            
+            def render_pieza_html(p_data, p_tipo):
+                if not p_data:
+                    return "<div style='color: #666; font-size: 10px; border: 1px dashed #444; width:100%; height:100%; display:flex; align-items:center; justify-content:center;'>Vacío</div>"
+                if p_tipo == "svg":
+                    if "<svg" in p_data and "width=" not in p_data:
+                        p_data = p_data.replace("<svg", '<svg width="100%" height="100%"')
+                    return f"<div style='width:100%; height:100%; display:flex; justify-content:center; align-items:center;'>{base64.b64decode(p_data).decode('utf-8', errors='ignore')}</div>"
                 else:
-                    contenido_html = f"""
-                    <div style="display: flex; justify-content: center; align-items: center; width: 100%; height: 100%;">
-                        <img src="data:image/jpeg;base64,{patron_b64}" style="max-height: 100%; max-width: 100%; object-fit: contain; border-radius: 6px;" />
-                    </div>
-                    """
-            else:
-                contenido_html = """
-                <div style="display: flex; justify-content: center; align-items: center; width: 100%; height: 100%;">
-                    <div style="background: #fff; color: #000; border-radius: 6px; padding: 12px; width: 150px; height: 180px; display: flex; align-items: center; justify-content: center;">
-                        <svg viewBox="0 0 100 120" style="width: 80%; height: 80%; fill: #fff; stroke: #000; stroke-width: 2;"><path d="M 30,10 Q 50,25 70,10 L 85,25 L 75,45 L 85,115 L 15,115 L 25,45 L 15,25 Z"/></svg>
-                    </div>
-                </div>
-                """
+                    return f"<div style='width:100%; height:100%; display:flex; justify-content:center; align-items:center;'><img src='data:image/jpeg;base64,{p_data}' style='max-width:100%; max-height:100%; object-contain;'/></div>"
 
-            canvas_wrapper_html = f"""
+            f_b64 = piezas.get("frente", {}).get("b64", "")
+            f_tipo = piezas.get("frente", {}).get("tipo", "raster")
+            
+            e_b64 = piezas.get("espalda", {}).get("b64", "")
+            e_tipo = piezas.get("espalda", {}).get("tipo", "raster")
+            
+            c_b64 = piezas.get("cuello", {}).get("b64", "")
+            c_tipo = piezas.get("cuello", {}).get("tipo", "raster")
+            
+            mi_b64 = piezas.get("manga_izq", {}).get("b64", "")
+            mi_tipo = piezas.get("manga_izq", {}).get("tipo", "raster")
+            
+            md_b64 = piezas.get("manga_der", {}).get("b64", "")
+            md_tipo = piezas.get("manga_der", {}).get("tipo", "raster")
+
+            canvas_layout_html = f"""
             <!DOCTYPE html>
             <html>
             <head>
                 <style>
                     body, html {{ margin: 0; padding: 0; width: 100%; height: 100%; background-color: #181818; overflow: hidden; }}
                     .viewport {{ width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; }}
-                    .zoom-container {{ transform: scale({st.session_state.zoom / 100}); transform-origin: center; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; }}
-                    svg {{ max-width: 100%; max-height: 100%; }}
+                    .zoom-container {{ transform: scale({st.session_state.zoom / 100}); transform-origin: center; display: flex; gap: 15px; align-items: center; justify-content: center; width: 100%; height: 100%; }}
+                    .pieza-box {{ background: #222; border-radius: 4px; border: 1px solid #333; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 4px; }}
+                    .label {{ font-size: 9px; color: #aaa; margin-top: 2px; text-align: center; }}
+                    .col-grande {{ width: 130px; height: 320px; }}
+                    .col-derecha {{ display: flex; flex-direction: column; gap: 10px; width: 110px; height: 320px; justify-content: space-between; }}
+                    .sub-pieza {{ width: 100%; flex: 1; }}
                 </style>
             </head>
             <body>
                 <div class="viewport">
                     <div class="zoom-container">
-                        {contenido_html}
+                        <!-- Frente -->
+                        <div class="pieza-box col-grande">
+                            <div style="width:100%; height: 92%;">
+                                {render_pieza_html(f_b64, f_tipo)}
+                            </div>
+                            <div class="label">Frente</div>
+                        </div>
+                        <!-- Espalda -->
+                        <div class="pieza-box col-grande">
+                            <div style="width:100%; height: 92%;">
+                                {render_pieza_html(e_b64, e_tipo)}
+                            </div>
+                            <div class="label">Espalda</div>
+                        </div>
+                        <!-- Columna Derecha: Cuello y Mangas -->
+                        <div class="col-derecha">
+                            <div class="pieza-box sub-pieza" style="height: 28%;">
+                                <div style="width:100%; height: 85%;">
+                                    {render_pieza_html(c_b64, c_tipo)}
+                                </div>
+                                <div class="label">Cuello</div>
+                            </div>
+                            <div class="pieza-box sub-pieza" style="height: 33%;">
+                                <div style="width:100%; height: 85%;">
+                                    {render_pieza_html(mi_b64, mi_tipo)}
+                                </div>
+                                <div class="label">Manga Izquierda</div>
+                            </div>
+                            <div class="pieza-box sub-pieza" style="height: 33%;">
+                                <div style="width:100%; height: 85%;">
+                                    {render_pieza_html(md_b64, md_tipo)}
+                                </div>
+                                <div class="label">Manga Derecha</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </body>
             </html>
             """
-            st.components.v1.html(canvas_wrapper_html, height=450)
+            st.components.v1.html(canvas_layout_html, height=450)
 
             st.markdown("<div style='margin-top: 8px;'></div>", unsafe_allow_html=True)
             tb1, tb2, tb3, tb4, tb5, tb6, tb7, tb8, tb9, tb10 = st.columns([1, 1, 1, 1, 1, 1, 1.2, 1, 1, 1.2])
@@ -333,41 +372,71 @@ if st.session_state.modo_vista == "Estudio":
 else:
     st.subheader("🛠️ Panel de Administración")
     
-    with st.expander("👕 Configurar Patrón y Modelo 3D del Estudio", expanded=True):
+    with st.expander("👕 Configurar Patrón por Piezas y Modelo 3D del Estudio", expanded=True):
         config_actual = obtener_configuracion_activa()
         nuevo_nombre = st.text_input("Nombre del Modelo / Prenda", config_actual.get("nombre_modelo", "Camisa Estándar"))
         nueva_url_3d = st.text_input("URL del Modelo 3D (.glb)", config_actual.get("modelo_3d_url", ""))
-        nuevo_archivo_patron = st.file_uploader("Subir Patrón en SVG o Imagen (PNG, JPG)", type=["svg", "png", "jpg", "jpeg"])
+        
+        st.markdown("---")
+        st.markdown("##### Subir Archivos para Cada Parte del Patrón")
+        
+        up_frente = st.file_uploader("Frente", type=["svg", "png", "jpg", "jpeg"], key="up_f")
+        up_espalda = st.file_uploader("Espalda", type=["svg", "png", "jpg", "jpeg"], key="up_e")
+        up_cuello = st.file_uploader("Cuello", type=["svg", "png", "jpg", "jpeg"], key="up_c")
+        up_manga_izq = st.file_uploader("Manga Izquierda", type=["svg", "png", "jpg", "jpeg"], key="up_mi")
+        up_manga_der = st.file_uploader("Manga Derecha", type=["svg", "png", "jpg", "jpeg"], key="up_md")
         
         col_btn1, col_btn2 = st.columns(2)
         with col_btn1:
-            if st.button("💾 Guardar Configuración de Prenda"):
+            if st.button("💾 Guardar Configuración de Piezas"):
                 try:
-                    patron_b64 = config_actual.get("patron_base64", "")
-                    tipo_patron = config_actual.get("tipo_patron", "raster")
+                    piezas_actuales = config_actual.get("piezas", {
+                        "frente": {"b64": "", "tipo": "raster"},
+                        "espalda": {"b64": "", "tipo": "raster"},
+                        "cuello": {"b64": "", "tipo": "raster"},
+                        "manga_izq": {"b64": "", "tipo": "raster"},
+                        "manga_der": {"b64": "", "tipo": "raster"}
+                    })
                     
-                    if nuevo_archivo_patron:
-                        patron_b64, tipo_patron = procesar_archivo_subido(nuevo_archivo_patron)
+                    if up_frente:
+                        b64, tipo = procesar_archivo_subido(up_frente)
+                        piezas_actuales["frente"] = {"b64": b64, "tipo": tipo}
+                    if up_espalda:
+                        b64, tipo = procesar_archivo_subido(up_espalda)
+                        piezas_actuales["espalda"] = {"b64": b64, "tipo": tipo}
+                    if up_cuello:
+                        b64, tipo = procesar_archivo_subido(up_cuello)
+                        piezas_actuales["cuello"] = {"b64": b64, "tipo": tipo}
+                    if up_manga_izq:
+                        b64, tipo = procesar_archivo_subido(up_manga_izq)
+                        piezas_actuales["manga_izq"] = {"b64": b64, "tipo": tipo}
+                    if up_manga_der:
+                        b64, tipo = procesar_archivo_subido(up_manga_der)
+                        piezas_actuales["manga_der"] = {"b64": b64, "tipo": tipo}
                     
                     db.collection("config_estudio").document("modelo_actual").set({
                         "nombre_modelo": nuevo_nombre,
                         "modelo_3d_url": nueva_url_3d,
-                        "patron_base64": patron_b64,
-                        "tipo_patron": tipo_patron,
+                        "piezas": piezas_actuales,
                         "actualizado": datetime.now()
                     })
-                    st.success("¡Configuración actualizada con éxito!")
+                    st.success("¡Todas las piezas del patrón fueron guardadas con éxito!")
                     st.rerun()
                 except Exception as e:
                     st.error(f"Error al guardar: {e}")
         with col_btn2:
-            if st.button("🗑️ Limpiar Patrón Actual"):
+            if st.button("🗑️ Limpiar Todas las Piezas"):
                 try:
                     db.collection("config_estudio").document("modelo_actual").update({
-                        "patron_base64": "",
-                        "tipo_patron": "raster"
+                        "piezas": {
+                            "frente": {"b64": "", "tipo": "raster"},
+                            "espalda": {"b64": "", "tipo": "raster"},
+                            "cuello": {"b64": "", "tipo": "raster"},
+                            "manga_izq": {"b64": "", "tipo": "raster"},
+                            "manga_der": {"b64": "", "tipo": "raster"}
+                        }
                     })
-                    st.success("¡Patrón limpiado correctamente!")
+                    st.success("¡Patrones limpiados correctamente!")
                     st.rerun()
                 except Exception as e:
                     st.error(f"Error: {e}")
