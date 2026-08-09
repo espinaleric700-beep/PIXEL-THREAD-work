@@ -197,11 +197,11 @@ if st.session_state.modo_vista == "Estudio":
                 st.markdown("##### Logo IA")
                 st.text_area("Prompt", "Oso urbano bordado")
 
-    # 3. Lienzo Central Corregido (Sin código expuesto y con tu patrón limpio)
+    # 3. Lienzo Central
     with col_centro:
         with st.container(border=True):
             if patron_b64:
-                contenido_lienzo = f"<img src='data:image/jpeg;base64,{patron_b64}' style='max-height: 100%; max-width: 100%; object-fit: contain; border-radius: 6px;'/>"
+                contenido_lienzo = f"<img src='data:image/svg+xml;base64,{patron_b64}' style='max-height: 100%; max-width: 100%; object-fit: contain; border-radius: 6px;' onerror=\"this.onerror=null;this.src='data:image/jpeg;base64,{patron_b64}';\"/>"
             else:
                 contenido_lienzo = """
                     <div style='display: flex; gap: 12px; width: 100%; justify-content: center; align-items: center; height: 100%;'>
@@ -298,7 +298,9 @@ else:
         config_actual = obtener_configuracion_activa()
         nuevo_nombre = st.text_input("Nombre del Modelo / Prenda", config_actual.get("nombre_modelo", "Camisa Estándar"))
         nueva_url_3d = st.text_input("URL del Modelo 3D (.glb)", config_actual.get("modelo_3d_url", ""))
-        nuevo_archivo_patron = st.file_uploader("Subir Imagen del Patrón Completo (PNG / JPG)", type=["png", "jpg", "jpeg"])
+        
+        # Actualizado para aceptar archivos .svg además de imágenes rasterizadas
+        nuevo_archivo_patron = st.file_uploader("Subir Imagen o Patrón Vectorial (SVG, PNG, JPG)", type=["svg", "png", "jpg", "jpeg"])
         
         if st.button("💾 Guardar Configuración de Prenda"):
             try:
@@ -312,7 +314,7 @@ else:
                     "patron_base64": patron_b64,
                     "actualizado": datetime.now()
                 })
-                st.success("¡Configuración de patrón y modelo 3D actualizada con éxito!")
+                st.success("¡Configuración de patrón SVG y modelo 3D actualizada con éxito!")
             except Exception as e:
                 st.error(f"Error al guardar: {e}")
 
