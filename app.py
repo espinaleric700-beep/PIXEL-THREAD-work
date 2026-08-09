@@ -197,14 +197,12 @@ if st.session_state.modo_vista == "Estudio":
                 st.markdown("##### Logo IA")
                 st.text_area("Prompt", "Oso urbano bordado")
 
-    # 3. Lienzo Central con tu Patrón Subido y Barra Interactiva
+    # 3. Lienzo Central Corregido (Sin código expuesto y con tu patrón limpio)
     with col_centro:
         with st.container(border=True):
-            contenido_lienzo = ""
             if patron_b64:
-                contenido_lienzo = f"<img src='data:image/jpeg;base64,{patron_b64}' style='max-height: 90%; max-width: 90%; object-fit: contain; border-radius: 6px;'/>"
+                contenido_lienzo = f"<img src='data:image/jpeg;base64,{patron_b64}' style='max-height: 100%; max-width: 100%; object-fit: contain; border-radius: 6px;'/>"
             else:
-                # Patrón por defecto si no se ha subido ninguno
                 contenido_lienzo = """
                     <div style='display: flex; gap: 12px; width: 100%; justify-content: center; align-items: center; height: 100%;'>
                         <div style='background: #fff; color: #000; border-radius: 6px; padding: 12px; width: 150px; height: 100%; display: flex; align-items: center; justify-content: center;'>
@@ -214,8 +212,10 @@ if st.session_state.modo_vista == "Estudio":
                 """
 
             st.markdown(f"""
-                <div style='display: flex; justify-content: center; align-items: center; height: 58vh; transform: scale({st.session_state.zoom / 100}); transform-origin: center; background: #1e1e1e; border-radius: 8px;'>
-                    {contenido_lienzo}
+                <div style='display: flex; justify-content: center; align-items: center; height: 58vh; background: #181818; border-radius: 8px; overflow: hidden; padding: 10px;'>
+                    <div style='transform: scale({st.session_state.zoom / 100}); transform-origin: center; display: flex; justify-content: center; align-items: center; width: 100%; height: 100%;'>
+                        {contenido_lienzo}
+                    </div>
                 </div>
             """, unsafe_allow_html=True)
 
@@ -244,7 +244,7 @@ if st.session_state.modo_vista == "Estudio":
             with tb10:
                 if st.button("⚡ 50", key="t_bolt", help="Acción rápida"): pass
 
-    # 4. Panel Derecho (Visor 3D Dinámico y Colores)
+    # 4. Panel Derecho (Visor 3D y Colores)
     with col_right:
         with st.container(border=True):
             model_html = f"""
@@ -289,7 +289,7 @@ if st.session_state.modo_vista == "Estudio":
                 pass
 
 # =========================================================
-# VISTA DE ADMIN (CON GESTIÓN DE PATRÓN Y MODELO 3D)
+# VISTA DE ADMIN
 # =========================================================
 else:
     st.subheader("🛠️ Panel de Administración")
