@@ -214,16 +214,14 @@ st.markdown("<div style='margin-top: 15px;'></div>", unsafe_allow_html=True)
 # =========================================================
 if st.session_state.modo_vista == "Estudio":
     
-    # Selector de usuario rápido en la parte superior para vincular pedidos
     with st.expander("👤 Identificación de Usuario / Cliente"):
         user_input = st.text_input("Ingresa tu Nombre o ID de Usuario:", value=st.session_state.user)
         if user_input != st.session_state.user:
             actualizar_url("Estudio", user_input)
 
-    # 1. TRES COLUMNAS PRINCIPALES (Diseño original optimizado con Firebase)
     col_left, col_center, col_right = st.columns([1.2, 2.2, 1.4], gap="medium")
 
-    # --- PANEL IZQUIERDO: Biblioteca de Archivos, IA y Enviar a Firebase ---
+    # --- PANEL IZQUIERDO ---
     with col_left:
         st.markdown('<div class="panel-box">', unsafe_allow_html=True)
         st.markdown("#### 📁 Archivos y Base de Datos")
@@ -241,7 +239,6 @@ if st.session_state.modo_vista == "Estudio":
             
         st.markdown("---")
         
-        # Botón de guardado oficial conectado a Firebase
         if st.button("🚀 Enviar Pedido a Producción", use_container_width=True):
             if not nombre_proyecto:
                 st.warning("⚠️ Ingresa un nombre de proyecto.")
@@ -275,7 +272,7 @@ if st.session_state.modo_vista == "Estudio":
             
         st.markdown('</div>', unsafe_allow_html=True)
 
-    # --- PANEL CENTRAL: Lienzo de Patrones ---
+    # --- PANEL CENTRAL ---
     with col_center:
         st.markdown('<div class="canvas-box">', unsafe_allow_html=True)
         st.markdown("<h4 style='color: #ccc; margin-bottom: 10px;'>Plantilla de Despiece de Camiseta</h4>", unsafe_allow_html=True)
@@ -327,13 +324,14 @@ if st.session_state.modo_vista == "Estudio":
             
         st.markdown('</div>', unsafe_allow_html=True)
 
-    # --- PANEL DERECHO: Vista Previa 3D y Selector de Color ---
+    # --- PANEL DERECHO (Visor 3D actualizado con Camiseta) ---
     with col_right:
         st.markdown('<div class="preview-box">', unsafe_allow_html=True)
-        st.markdown("#### 🧊 Visor 3D en Vivo")
+        st.markdown("#### 🧊 Visor 3D en Vivo (Camiseta)")
         
         shirt_color = st.color_picker("Color Base del Producto", "#ffffff")
         
+        # Modelo 3D de camiseta (enlace estándar de modelo de playera 3D compatible con model-viewer)
         model_viewer_html = f"""
         <!DOCTYPE html>
         <html>
@@ -351,8 +349,8 @@ if st.session_state.modo_vista == "Estudio":
         </head>
         <body>
             <model-viewer 
-                src="https://modelviewer.dev/shared-assets/models/Astronaut.glb" 
-                alt="Maqueta 3D" 
+                src="https://modelviewer.dev/shared-assets/models/ShopifyTshirt.glb" 
+                alt="Maqueta 3D de Camiseta" 
                 auto-rotate 
                 camera-controls 
                 ar>
@@ -366,18 +364,16 @@ if st.session_state.modo_vista == "Estudio":
         st.markdown("<br>", unsafe_allow_html=True)
         st.markdown("**Mis Pedidos Guardados en Firebase:**")
         
-        # Mostrar los pedidos recientes del usuario actual de forma integrada
         try:
             todos = list(db.collection("pedidos_bordado").order_by("timestamp").stream())
             mis_pedidos = [p.to_dict() for p in todos if p.to_dict().get("cliente", "").strip().lower() == st.session_state.user.strip().lower()]
             
             if mis_pedidos:
-                for p in mis_pedidos[-2:]: # Mostrar últimos 2
+                for p in mis_pedidos[-2:]:
                     with st.container(border=True):
                         st.caption(f"🧵 {p.get('nombre_proyecto')} | Turno: #{p.get('turno')}")
                         render_estado_badge(p.get('estado', 'Pendiente'))
                         
-                        # Descarga de archivos entregables si ya están listos
                         archivos_finales = limpiar_lista_archivos(p.get('archivos_finales', []))
                         if archivos_finales:
                             for af in archivos_finales:
@@ -394,7 +390,7 @@ if st.session_state.modo_vista == "Estudio":
         st.markdown('</div>', unsafe_allow_html=True)
 
 # =========================================================
-# 2. PANEL DE ADMINISTRADOR (GESTIÓN DE PEDIDOS Y FIREBASE)
+# 2. PANEL DE ADMINISTRADOR
 # =========================================================
 else:
     st.subheader("🛠️ Panel de Administración General (Firebase)")
@@ -468,7 +464,7 @@ else:
                 st.info("🎉 No hay pedidos pendientes.")
 
         with tab_admin_comp:
-            pedidos_completados_admin = [(doc.id, doc.to_dict()) for doc in docs if doc.to_dict().get('estado') == "Completado"]
+            pedidos_completados_admin = [(doc.id, doc.to_dict()) for doc in docs if doc.to_dict().get('estado'] == "Completado"]
             if pedidos_completados_admin:
                 for doc_id, p in pedidos_completados_admin:
                     with st.container(border=True):
