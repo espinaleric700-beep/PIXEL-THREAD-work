@@ -111,11 +111,11 @@ def obtener_configuracion_activa():
         "nombre_modelo": "Camisa Estándar",
         "modelo_3d_url": "https://modelviewer.dev/shared-assets/models/Astronaut.glb",
         "piezas": {
-            "frente": {"b64": "", "tipo": "raster"},
-            "espalda": {"b64": "", "tipo": "raster"},
-            "cuello": {"b64": "", "tipo": "raster"},
-            "manga_izq": {"b64": "", "tipo": "raster"},
-            "manga_der": {"b64": "", "tipo": "raster"}
+            "frente": {"b64": "", "tipo": "raster", "elementos": []},
+            "espalda": {"b64": "", "tipo": "raster", "elementos": []},
+            "cuello": {"b64": "", "tipo": "raster", "elementos": []},
+            "manga_izq": {"b64": "", "tipo": "raster", "elementos": []},
+            "manga_der": {"b64": "", "tipo": "raster", "elementos": []}
         }
     }
 
@@ -214,16 +214,25 @@ if st.session_state.modo_vista == "Estudio":
                         if up_file:
                             try:
                                 b64, tipo = procesar_archivo_subido(up_file)
-                                # Guardamos el diseño en la capa de diseño de la pieza seleccionada
                                 if parte_destino not in piezas:
-                                    piezas[parte_destino] = {}
-                                piezas[parte_destino]["diseno_b64"] = b64
-                                piezas[parte_destino]["diseno_tipo"] = tipo
+                                    piezas[parte_destino] = {"b64": "", "tipo": "raster", "elementos": []}
+                                if "elementos" not in piezas[parte_destino]:
+                                    piezas[parte_destino]["elementos"] = []
+                                
+                                # Agregamos el nuevo elemento a la lista con posición inicial centrada (x: 50%, y: 50%)
+                                nuevo_elemento = {
+                                    "id": f"elem_{int(datetime.now().timestamp())}",
+                                    "b64": b64,
+                                    "tipo": tipo,
+                                    "x": 50,  # porcentaje
+                                    "y": 50   # porcentaje
+                                }
+                                piezas[parte_destino]["elementos"].append(nuevo_elemento)
                                 
                                 db.collection("config_estudio").document("modelo_actual").update({
                                     "piezas": piezas
                                 })
-                                st.success("¡Diseño montado sobre el patrón!")
+                                st.success("¡Imagen agregada al patrón! Puedes arrastrarla.")
                                 st.rerun()
                             except Exception as e:
                                 st.error(f"Error: {e}")
@@ -260,24 +269,30 @@ if st.session_state.modo_vista == "Estudio":
                 st.markdown("##### Logo IA")
                 st.text_area("Prompt", "Oso urbano bordado")
 
-    # 3. Lienzo Central con Superposición de Capas (Patrón Base + Diseño Encima)
+    # 3. Lienzo Central con Arrastre Libre (Drag & Drop de múltiples elementos)
     with col_centro:
         with st.container(border=True):
             
-            def render_capas_pieza(p_dict):
+            def render_capas_pieza(p_dict, p_nombre_pieza):
                 if not isinstance(p_dict, dict):
-                    # Compatibilidad si la estructura antigua era solo un string
                     base_b64 = p_dict
-                    diseno_b64 = ""
                     base_tipo = "raster"
-                    diseno_tipo = "raster"
+                    elementos = []
                 else:
                     base_b64 = p_dict.get("b64", "")
                     base_tipo = p_dict.get("tipo", "raster")
-                    diseno_b64 = p_dict.get("diseno_b64", "")
-                    diseno_tipo = p_dict.get("diseno_tipo", "raster")
+                    elementos = p_dict.get("elementos", [])
+                    # Retrocompatibilidad si existía un diseño único anterior
+                    if not elementos and p_dict.get("diseno_b64"):
+                        elementos = [{
+                            "id": "legacy",
+                            "b64": p_dict.get("diseno_b64"),
+                            "tipo": p_dict.get("diseno_tipo", "raster"),
+                            "x": 50,
+                            "y": 50
+                        }]
 
-                # HTML del Patrón Base (Fondo)
+                # Patrón Base (Fondo)
                 html_base = ""
                 if base_b64:
                     if base_tipo == "svg":
@@ -286,28 +301,39 @@ if st.session_state.modo_vista == "Estudio":
                         mime = "image/png" if base_tipo == "png_trans" else "image/jpeg"
                         html_base = f"<div style='width:100%; height:100%; display:flex; justify-content:center; align-items:center;'><img src='data:{mime};base64,{base_b64}' style='max-width:100%; max-height:100%; object-fit:contain;'/></div>"
                 else:
-                    # Patrón silueta blanca por defecto si no hay base configurada
                     html_base = "<div style='background-color: #ffffff; width: 75%; height: 85%; border-radius: 4px; opacity: 0.9;'></div>"
 
-                # HTML del Diseño Superpuesto (Encima)
-                html_diseno = ""
-                if diseno_b64:
-                    if diseno_tipo == "svg":
-                        html_diseno = f"<div style='width:50%; height:50%; display:flex; justify-content:center; align-items:center;'>{base64.b64decode(diseno_b64).decode('utf-8', errors='ignore')}</div>"
-                    else:
-                        mime_d = "image/png" if diseno_tipo == "png_trans" else "image/jpeg"
-                        html_diseno = f"<img src='data:{mime_d};base64,{diseno_b64}' style='max-width:60%; max-height:60%; object-fit:contain;'/>"
+                # Renderizar múltiples elementos con capacidad de arrastre (Draggable via JS)
+                html_elementos = ""
+                for idx, elem in enumerate(elementos):
+                    e_id = elem.get("id", f"elem_{idx}")
+                    e_b64 = elem.get("b64", "")
+                    e_tipo = elem.get("tipo", "raster")
+                    posX = elem.get("x", 50)
+                    posY = elem.get("y", 50)
 
-                # Contenedor con posiciones absolutas para montar el diseño encima del patrón
+                    contenido_elem = ""
+                    if e_tipo == "svg":
+                        contenido_elem = base64.b64decode(e_b64).decode('utf-8', errors='ignore')
+                    else:
+                        mime_e = "image/png" if e_tipo == "png_trans" else "image/jpeg"
+                        contenido_elem = f"<img src='data:{mime_e};base64,{e_b64}' style='width: 100%; height: 100%; object-fit: contain; pointer-events: none;'/>"
+
+                    html_elementos += f"""
+                    <div class='draggable-item' id='item_{p_nombre_pieza}_{e_id}' 
+                         style='position: absolute; left: {posX}%; top: {posY}%; transform: translate(-50%, -50%); width: 70px; height: 70px; cursor: grab; z-index: 10; border: 1px dashed rgba(0,206,201,0.5); background: rgba(0,0,0,0.2);'
+                         onmousedown='startDrag(event, "{p_nombre_pieza}", "{e_id}")'>
+                        {contenido_elem}
+                    </div>
+                    """
+
                 return f"""
-                <div style='position: relative; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center;'>
-                    <!-- Capa Fondo (Patrón) -->
+                <div class='drop-zone' id='zone_{p_nombre_pieza}' style='position: relative; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center;'>
                     <div style='position: absolute; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; z-index: 1;'>
                         {html_base}
                     </div>
-                    <!-- Capa Encima (Diseño del cliente) -->
-                    <div style='position: absolute; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; z-index: 2;'>
-                        {html_diseno}
+                    <div style='position: absolute; width: 100%; height: 100%; z-index: 5; overflow: hidden;'>
+                        {html_elementos}
                     </div>
                 </div>
                 """
@@ -332,6 +358,54 @@ if st.session_state.modo_vista == "Estudio":
                     .col-derecha {{ display: flex; flex-direction: column; gap: 10px; width: 110px; height: 320px; justify-content: space-between; }}
                     .sub-pieza {{ width: 100%; flex: 1; }}
                 </style>
+                <script>
+                    let activeItem = null;
+                    let activeZone = null;
+                    let startX = 0, startY = 0;
+
+                    function startDrag(e, piezaName, elemId) {{
+                        e.preventDefault();
+                        activeItem = document.getElementById('item_' + piezaName + '_' + elemId);
+                        activeZone = document.getElementById('zone_' + piezaName);
+                        activeItem.style.cursor = 'grabbing';
+                        
+                        startX = e.clientX;
+                        startY = e.clientY;
+
+                        document.onmousemove = elementDrag;
+                        document.onmouseup = closeDragElement;
+                    }}
+
+                    function elementDrag(e) {{
+                        e.preventDefault();
+                        if (!activeItem || !activeZone) return;
+
+                        const rect = activeZone.getBoundingClientRect();
+                        const dx = e.clientX - startX;
+                        const dy = e.clientY - startY;
+
+                        startX = e.clientX;
+                        startY = e.clientY;
+
+                        let currentLeft = activeItem.offsetLeft + dx;
+                        let currentTop = activeItem.offsetTop + dy;
+
+                        // Calcular porcentaje dentro de la zona
+                        let percentX = (currentLeft / rect.width) * 100;
+                        let percentY = (currentTop / rect.height) * 100;
+
+                        activeItem.style.left = percentX + '%';
+                        activeItem.style.top = percentY + '%';
+                    }}
+
+                    function closeDragElement() {{
+                        if (activeItem) {{
+                            activeItem.style.cursor = 'grab';
+                        }}
+                        document.onmousemove = null;
+                        document.onmouseup = null;
+                    }}
+                </script>
             </head>
             <body>
                 <div class="viewport">
@@ -339,14 +413,14 @@ if st.session_state.modo_vista == "Estudio":
                         <!-- Frente -->
                         <div class="pieza-box col-grande">
                             <div style="width:100%; height: 92%;">
-                                {render_capas_pieza(p_frente)}
+                                {render_capas_pieza(p_frente, "frente")}
                             </div>
                             <div class="label">Frente</div>
                         </div>
                         <!-- Espalda -->
                         <div class="pieza-box col-grande">
                             <div style="width:100%; height: 92%;">
-                                {render_capas_pieza(p_espalda)}
+                                {render_capas_pieza(p_espalda, "espalda")}
                             </div>
                             <div class="label">Espalda</div>
                         </div>
@@ -354,19 +428,19 @@ if st.session_state.modo_vista == "Estudio":
                         <div class="col-derecha">
                             <div class="pieza-box sub-pieza" style="height: 28%;">
                                 <div style="width:100%; height: 85%;">
-                                    {render_capas_pieza(p_cuello)}
+                                    {render_capas_pieza(p_cuello, "cuello")}
                                 </div>
                                 <div class="label">Cuello</div>
                             </div>
                             <div class="pieza-box sub-pieza" style="height: 33%;">
                                 <div style="width:100%; height: 85%;">
-                                    {render_capas_pieza(p_manga_izq)}
+                                    {render_capas_pieza(p_manga_izq, "manga_izq")}
                                 </div>
                                 <div class="label">Manga Izquierda</div>
                             </div>
                             <div class="pieza-box sub-pieza" style="height: 33%;">
                                 <div style="width:100%; height: 85%;">
-                                    {render_capas_pieza(p_manga_der)}
+                                    {render_capas_pieza(p_manga_der, "manga_der")}
                                 </div>
                                 <div class="label">Manga Derecha</div>
                             </div>
@@ -477,7 +551,7 @@ else:
                         if up_f:
                             b64, tipo = procesar_archivo_subido(up_f)
                             if key_name not in piezas_actuales:
-                                piezas_actuales[key_name] = {}
+                                piezas_actuales[key_name] = {"b64": "", "tipo": "raster", "elementos": []}
                             piezas_actuales[key_name]["b64"] = b64
                             piezas_actuales[key_name]["tipo"] = tipo
 
@@ -498,17 +572,16 @@ else:
                 except Exception as e:
                     st.error(f"Error al guardar: {e}")
         with col_btn2:
-            if st.button("🗑️ Limpiar Diseños Superpuestos"):
+            if st.button("🗑️ Limpiar Elementos de Diseño"):
                 try:
                     piezas_actuales = config_actual.get("piezas", {})
                     for p in piezas_actuales.values():
                         if isinstance(p, dict):
-                            p.pop("diseno_b64", None)
-                            p.pop("diseno_tipo", None)
+                            p["elementos"] = []
                     db.collection("config_estudio").document("modelo_actual").update({
                         "piezas": piezas_actuales
                     })
-                    st.success("¡Diseños superpuestos limpiados correctamente!")
+                    st.success("¡Elementos de diseño limpiados correctamente!")
                     st.rerun()
                 except Exception as e:
                     st.error(f"Error: {e}")
