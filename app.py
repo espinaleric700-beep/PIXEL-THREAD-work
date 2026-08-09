@@ -99,6 +99,12 @@ if "user" not in st.session_state:
 if "herramienta_activa" not in st.session_state:
     st.session_state.herramienta_activa = "Archivos"
 
+# Estados para la barra de herramientas del lienzo
+if "zoom" not in st.session_state:
+    st.session_state.zoom = 100
+if "herramienta_lienzo" not in st.session_state:
+    st.session_state.herramienta_lienzo = "cursor"
+
 def actualizar_url(vista, user):
     st.session_state.modo_vista = vista
     st.session_state.user = user
@@ -129,7 +135,6 @@ st.markdown("<div style='margin-bottom: 6px;'></div>", unsafe_allow_html=True)
 # =========================================================
 if st.session_state.modo_vista == "Estudio":
 
-    # Columnas nativas principales distribuidas de manera fluida
     col_iconos, col_panel, col_centro, col_right = st.columns([0.5, 2.3, 4.7, 2.5], gap="medium")
 
     # 1. Barra de Iconos Laterales
@@ -175,27 +180,63 @@ if st.session_state.modo_vista == "Estudio":
                 st.markdown("##### Logo IA")
                 st.text_area("Prompt", "Oso urbano bordado")
 
-    # 3. Lienzo Central
+    # 3. Lienzo Central con Patrones de Camisa y Barra de Herramientas Funcional
     with col_centro:
         with st.container(border=True):
-            st.markdown("""
-                <div style='display: flex; gap: 12px; width: 100%; justify-content: center; align-items: center; height: 60vh;'>
-                    <div style='background: #fff; color: #000; border-radius: 6px; padding: 8px; width: 135px; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center;'>
-                        <div style='border: 2px dashed #00cec9; border-radius: 50%; width: 55px; height: 55px; display: flex; align-items: center; justify-content: center;'>🐻</div>
+            st.markdown(f"""
+                <div style='display: flex; gap: 12px; width: 100%; justify-content: center; align-items: center; height: 58vh; transform: scale({st.session_state.zoom / 100}); transform-origin: center;'>
+                    <!-- Patrón Frente -->
+                    <div style='background: #fff; color: #000; border-radius: 6px; padding: 12px; width: 150px; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: space-between;'>
+                        <svg viewBox="0 0 100 120" style="width: 100%; height: 100%; fill: #fff; stroke: #000; stroke-width: 2;">
+                            <path d="M 30,10 Q 50,25 70,10 L 85,25 L 75,45 L 85,115 L 15,115 L 25,45 L 15,25 Z"/>
+                        </svg>
                     </div>
-                    <div style='background: #fff; color: #000; border-radius: 6px; padding: 8px; width: 135px; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center;'>
-                        <div style='border: 2px dashed #ccc; border-radius: 50%; width: 55px; height: 55px; display: flex; align-items: center; justify-content: center;'></div>
+                    <!-- Patrón Espalda -->
+                    <div style='background: #fff; color: #000; border-radius: 6px; padding: 12px; width: 150px; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: space-between;'>
+                        <svg viewBox="0 0 100 120" style="width: 100%; height: 100%; fill: #fff; stroke: #000; stroke-width: 2;">
+                            <path d="M 30,15 Q 50,10 70,15 L 85,25 L 75,45 L 85,115 L 15,115 L 25,45 L 15,25 Z"/>
+                        </svg>
                     </div>
-                    <div style='display: flex; flex-direction: column; gap: 6px; height: 100%; justify-content: center;'>
-                        <div style='background: #fff; color: #000; border-radius: 6px; width: 85px; height: 25%;'></div>
-                        <div style='background: #fff; color: #000; border-radius: 6px; width: 85px; height: 35%;'></div>
-                        <div style='background: #fff; color: #000; border-radius: 6px; width: 85px; height: 35%;'></div>
+                    <!-- Patrones de Mangas y Cuello -->
+                    <div style='display: flex; flex-direction: column; gap: 8px; height: 100%; justify-content: center; width: 95px;'>
+                        <div style='background: #fff; color: #000; border-radius: 6px; height: 18%; display: flex; align-items: center; justify-content: center;'>
+                            <svg viewBox="0 0 100 30" style="width: 80%; fill: #fff; stroke: #000; stroke-width: 2;"><rect x="5" y="5" width="90" height="20" rx="3"/></svg>
+                        </div>
+                        <div style='background: #fff; color: #000; border-radius: 6px; height: 39%; display: flex; align-items: center; justify-content: center;'>
+                            <svg viewBox="0 0 100 60" style="width: 80%; fill: #fff; stroke: #000; stroke-width: 2;"><path d="M 10,50 Q 50,10 90,50 Z"/></svg>
+                        </div>
+                        <div style='background: #fff; color: #000; border-radius: 6px; height: 39%; display: flex; align-items: center; justify-content: center;'>
+                            <svg viewBox="0 0 100 60" style="width: 80%; fill: #fff; stroke: #000; stroke-width: 2;"><path d="M 10,50 Q 50,10 90,50 Z"/></svg>
+                        </div>
                     </div>
-                </div>
-                <div style='background-color: #121212; border: 1px solid #2a2a2a; border-radius: 20px; padding: 4px 14px; display: flex; gap: 12px; align-items: center; justify-content: center; font-size: 11px; color: #aaa; margin-top: 10px;'>
-                    <span>🔲</span><span>✋</span><span>|</span><span>↩️</span><span>↪️</span><span>|</span><span>- 100% +</span><span>|</span><span>🔄 👁️</span><span>|</span><span>⚡ 50</span>
                 </div>
             """, unsafe_allow_html=True)
+
+            # Barra de herramientas interactiva inferior
+            st.markdown("<div style='margin-top: 8px;'></div>", unsafe_allow_html=True)
+            tb1, tb2, tb3, tb4, tb5, tb6, tb7, tb8, tb9, tb10 = st.columns([1, 1, 1, 1, 1, 1, 1.2, 1, 1, 1.2])
+            with tb1:
+                if st.button("🎯", key="t_cursor", help="Cursor"): st.session_state.herramienta_lienzo = "cursor"
+            with tb2:
+                if st.button("✋", key="t_hand", help="Mover"): st.session_state.herramienta_lienzo = "hand"
+            with tb3:
+                if st.button("↩️", key="t_undo", help="Deshacer"): pass
+            with tb4:
+                if st.button("↪️", key="t_redo", help="Rehacer"): pass
+            with tb5:
+                if st.button("➖", key="t_zoom_out", help="Alejar"): 
+                    if st.session_state.zoom > 50: st.session_state.zoom -= 10; st.rerun()
+            with tb6:
+                st.markdown(f"<div style='text-align: center; font-size: 11px; padding-top: 6px; color: #fff;'>{st.session_state.zoom}%</div>", unsafe_allow_html=True)
+            with tb7:
+                if st.button("➕", key="t_zoom_in", help="Acercar"): 
+                    if st.session_state.zoom < 200: st.session_state.zoom += 10; st.rerun()
+            with tb8:
+                if st.button("🔄", key="t_rot", help="Rotar"): pass
+            with tb9:
+                if st.button("👁️", key="t_view", help="Vista previa"): pass
+            with tb10:
+                if st.button("⚡ 50", key="t_bolt", help="Acción rápida"): pass
 
     # 4. Panel Derecho (Visor 3D y Colores)
     with col_right:
