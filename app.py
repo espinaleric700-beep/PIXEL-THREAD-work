@@ -78,11 +78,9 @@ def procesar_archivo_subido(arch):
     b_cont = arch.getvalue()
     nombre_lower = arch.name.lower()
     
-    # Si es SVG, se maneja directamente como texto/vector sin pasar por PIL
     if nombre_lower.endswith('svg'):
         return base64.b64encode(b_cont).decode("utf-8"), "svg"
     
-    # Para imágenes PNG / JPG / JPEG
     if nombre_lower.endswith(('png', 'jpg', 'jpeg')):
         try:
             img = Image.open(BytesIO(b_cont))
@@ -206,28 +204,53 @@ if st.session_state.modo_vista == "Estudio":
                 st.markdown("##### Logo IA")
                 st.text_area("Prompt", "Oso urbano bordado")
 
-    # 3. Lienzo Central (Soporte dinámico correcto para SVG o Raster)
+    # 3. Lienzo Central con Visor HTML Seguro para SVG y Raster
     with col_centro:
         with st.container(border=True):
             if patron_b64:
-                mime_type = "image/svg+xml" if tipo_patron == "svg" else "image/jpeg"
-                contenido_lienzo = f"<img src='data:{mime_type};base64,{patron_b64}' style='max-height: 100%; max-width: 100%; object-fit: contain; border-radius: 6px;'/>"
-            else:
-                contenido_lienzo = """
-                    <div style='display: flex; gap: 12px; width: 100%; justify-content: center; align-items: center; height: 100%;'>
-                        <div style='background: #fff; color: #000; border-radius: 6px; padding: 12px; width: 150px; height: 100%; display: flex; align-items: center; justify-content: center;'>
-                            <svg viewBox="0 0 100 120" style="width: 80%; height: 80%; fill: #fff; stroke: #000; stroke-width: 2;"><path d="M 30,10 Q 50,25 70,10 L 85,25 L 75,45 L 85,115 L 15,115 L 25,45 L 15,25 Z"/></svg>
+                if tipo_patron == "svg":
+                    # Decodificar el contenido SVG para inyectarlo directamente como marcado vectorial
+                    svg_raw = base64.b64decode(patron_b64).decode("utf-8", errors="ignore")
+                    contenido_html = f"""
+                    <div style="display: flex; justify-content: center; align-items: center; width: 100%; height: 100%; background: #181818;">
+                        <div style="transform: scale({st.session_state.zoom / 100}); transform-origin: center; display: flex; justify-content: center; align-items: center; max-width: 90%; max-height: 90%;">
+                            {svg_raw}
                         </div>
                     </div>
-                """
-
-            st.markdown(f"""
-                <div style='display: flex; justify-content: center; align-items: center; height: 58vh; background: #181818; border-radius: 8px; overflow: hidden; padding: 10px;'>
-                    <div style='transform: scale({st.session_state.zoom / 100}); transform-origin: center; display: flex; justify-content: center; align-items: center; width: 100%; height: 100%;'>
-                        {contenido_lienzo}
+                    """
+                else:
+                    contenido_html = f"""
+                    <div style="display: flex; justify-content: center; align-items: center; width: 100%; height: 100%; background: #181818;">
+                        <img src="data:image/jpeg;base64,{patron_b64}" style="transform: scale({st.session_state.zoom / 100}); max-height: 90%; max-width: 90%; object-fit: contain; border-radius: 6px;" />
+                    </div>
+                    """
+            else:
+                contenido_html = """
+                <div style="display: flex; justify-content: center; align-items: center; width: 100%; height: 100%; background: #181818;">
+                    <div style="background: #fff; color: #000; border-radius: 6px; padding: 12px; width: 150px; height: 180px; display: flex; align-items: center; justify-content: center;">
+                        <svg viewBox="0 0 100 120" style="width: 80%; height: 80%; fill: #fff; stroke: #000; stroke-width: 2;"><path d="M 30,10 Q 50,25 70,10 L 85,25 L 75,45 L 85,115 L 15,115 L 25,45 L 15,25 Z"/></svg>
                     </div>
                 </div>
-            """, unsafe_allow_html=True)
+                """
+
+            canvas_wrapper_html = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <style>
+                    body, html {{ margin: 0; padding: 0; width: 100%; height: 100%; background-color: #181818; overflow: hidden; }}
+                    .container {{ width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; }}
+                    svg {{ max-width: 100%; max-height: 100%; }}
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    {contenido_html}
+                </div>
+            </body>
+            </html>
+            """
+            st.components.v1.html(canvas_wrapper_html, height=450)
 
             st.markdown("<div style='margin-top: 8px;'></div>", unsafe_allow_html=True)
             tb1, tb2, tb3, tb4, tb5, tb6, tb7, tb8, tb9, tb10 = st.columns([1, 1, 1, 1, 1, 1, 1.2, 1, 1, 1.2])
@@ -321,11 +344,11 @@ else:
                 db.collection("config_estudio").document("modelo_actual").set({
                     "nombre_modelo": nuevo_nombre,
                     "modelo_3d_url": nueva_url_3d,
-                    "patron_base64": patron_b64,
+                    "patron_b64": patron_b64,
                     "tipo_patron": tipo_patron,
                     "actualizado": datetime.now()
                 })
-                st.success("¡Configuración actualizada correctamente con soporte SVG nativo!")
+                st.success("¡Configuración actualizada con visor SVG directo!")
             except Exception as e:
                 st.error(f"Error al guardar: {e}")
 
