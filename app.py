@@ -14,7 +14,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# --- ESTILOS CSS FORZADOS PARA DISEÑO FIJO EN UNA SOLA VISTA ---
+# --- ESTILOS CSS GENERALES ---
 st.markdown("""
     <style>
     .stApp {
@@ -31,20 +31,12 @@ st.markdown("""
         padding: 0.5rem 1rem !important;
     }
     
-    /* Contenedor Grid Principal de 4 Columnas Exactas */
-    .grid-editor-container {
-        display: grid;
-        grid-template-columns: 70px 280px 1fr 320px;
-        gap: 12px;
-        height: 82vh;
-        align-items: stretch;
-    }
-
     .panel-box {
         background-color: #1e1e1e;
         border: 1px solid #333;
         border-radius: 8px;
         padding: 12px;
+        height: 75vh;
         overflow-y: auto;
     }
 
@@ -53,6 +45,7 @@ st.markdown("""
         border: 1px solid #333;
         border-radius: 8px;
         padding: 12px;
+        height: 75vh;
         display: flex;
         flex-direction: column;
         justify-content: space-between;
@@ -157,12 +150,10 @@ st.markdown("<div style='margin-bottom: 6px;'></div>", unsafe_allow_html=True)
 # =========================================================
 if st.session_state.modo_vista == "Estudio":
 
-    # Renderizado mediante contenedor HTML Grid para asegurar que ninguna columna salte de línea
-    st.markdown("<div class='grid-editor-container'>", unsafe_allow_html=True)
+    # Estructura limpia basada 100% en columnas nativas de Streamlit proporcionales
+    col1, col2, col3, col4 = st.columns([0.5, 2.2, 4.3, 3.0])
 
     # 1. Columna de Iconos Laterales
-    col1, col2, col3, col4 = st.columns([0.4, 1.8, 3.2, 2.2])
-
     with col1:
         st.markdown("<div class='panel-box' style='display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 8px 2px;'>", unsafe_allow_html=True)
         if st.button("📁", key="bi_arch"): st.session_state.herramienta_activa = "Archivos"; st.rerun()
@@ -212,28 +203,28 @@ if st.session_state.modo_vista == "Estudio":
     with col3:
         st.markdown("""
             <div class='canvas-box'>
-                <div style='display: flex; gap: 8px; width: 100%; justify-content: center; align-items: center; height: 72vh;'>
-                    <div style='background: #fff; color: #000; border-radius: 6px; padding: 10px; width: 130px; height: 95%; display: flex; flex-direction: column; align-items: center; justify-content: center;'>
+                <div style='display: flex; gap: 8px; width: 100%; justify-content: center; align-items: center; height: 62vh;'>
+                    <div style='background: #fff; color: #000; border-radius: 6px; padding: 10px; width: 120px; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center;'>
                         <span style='font-size: 10px; font-weight: bold;'>FRENTE</span>
-                        <div style='border: 2px dashed #00cec9; border-radius: 50%; width: 65px; height: 65px; display: flex; align-items: center; justify-content: center; margin-top: 10px;'>🐻</div>
+                        <div style='border: 2px dashed #00cec9; border-radius: 50%; width: 55px; height: 55px; display: flex; align-items: center; justify-content: center; margin-top: 10px;'>🐻</div>
                     </div>
-                    <div style='background: #fff; color: #000; border-radius: 6px; padding: 10px; width: 130px; height: 95%; display: flex; flex-direction: column; align-items: center; justify-content: center;'>
+                    <div style='background: #fff; color: #000; border-radius: 6px; padding: 10px; width: 120px; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center;'>
                         <span style='font-size: 10px; font-weight: bold;'>ESPALDA</span>
-                        <div style='border: 2px dashed #ccc; border-radius: 50%; width: 65px; height: 65px; display: flex; align-items: center; justify-content: center; margin-top: 10px;'></div>
+                        <div style='border: 2px dashed #ccc; border-radius: 50%; width: 55px; height: 55px; display: flex; align-items: center; justify-content: center; margin-top: 10px;'></div>
                     </div>
-                    <div style='display: flex; flex-direction: column; gap: 6px; height: 95%; justify-content: center;'>
-                        <div style='background: #fff; color: #000; border-radius: 6px; width: 95px; height: 28%; display: flex; flex-direction: column; align-items: center; justify-content: center;'>
+                    <div style='display: flex; flex-direction: column; gap: 6px; height: 100%; justify-content: center;'>
+                        <div style='background: #fff; color: #000; border-radius: 6px; width: 85px; height: 28%; display: flex; flex-direction: column; align-items: center; justify-content: center;'>
                             <span style='font-size: 8px; font-weight: bold;'>CUELLO</span>
                         </div>
-                        <div style='background: #fff; color: #000; border-radius: 6px; width: 95px; height: 34%; display: flex; flex-direction: column; align-items: center; justify-content: center;'>
+                        <div style='background: #fff; color: #000; border-radius: 6px; width: 85px; height: 34%; display: flex; flex-direction: column; align-items: center; justify-content: center;'>
                             <span style='font-size: 8px; font-weight: bold;'>MANGA IZQ</span>
                         </div>
-                        <div style='background: #fff; color: #000; border-radius: 6px; width: 95px; height: 34%; display: flex; flex-direction: column; align-items: center; justify-content: center;'>
+                        <div style='background: #fff; color: #000; border-radius: 6px; width: 85px; height: 34%; display: flex; flex-direction: column; align-items: center; justify-content: center;'>
                             <span style='font-size: 8px; font-weight: bold;'>MANGA DER</span>
                         </div>
                     </div>
                 </div>
-                <div style='font-size: 11px; color: #aaa; display: flex; gap: 15px; margin-top: 5px;'>
+                <div style='font-size: 11px; color: #aaa; display: flex; gap: 15px;'>
                     <span>↩️ Deshacer</span><span>🔍 Zoom 100%</span><span>👁️ Vista Previa</span><span>⚡ 50 pts</span>
                 </div>
             </div>
@@ -241,7 +232,7 @@ if st.session_state.modo_vista == "Estudio":
 
     # 4. Panel Derecho (Visor 3D y Selector de Colores)
     with col4:
-        st.markdown("<div class='panel-box' style='display: flex; flex-direction: column; gap: 10px;'>", unsafe_allow_html=True)
+        st.markdown("<div class='panel-box' style='display: flex; flex-direction: column; gap: 8px;'>", unsafe_allow_html=True)
         model_html = """
         <!DOCTYPE html>
         <html>
@@ -249,7 +240,7 @@ if st.session_state.modo_vista == "Estudio":
             <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
             <style>
                 body { margin: 0; background-color: #1e1e1e; }
-                model-viewer { width: 100%; height: 220px; background-color: #141414; border-radius: 6px; }
+                model-viewer { width: 100%; height: 190px; background-color: #141414; border-radius: 6px; }
             </style>
         </head>
         <body>
@@ -257,7 +248,7 @@ if st.session_state.modo_vista == "Estudio":
         </body>
         </html>
         """
-        st.components.v1.html(model_html, height=230)
+        st.components.v1.html(model_html, height=200)
 
         st.markdown("##### Color del Producto")
         cc1, cc2, cc3, cc4, cc5, cc6, cc7 = st.columns(7)
@@ -283,8 +274,6 @@ if st.session_state.modo_vista == "Estudio":
         except Exception:
             pass
         st.markdown("</div>", unsafe_allow_html=True)
-
-    st.markdown("</div>", unsafe_allow_html=True)
 
 # =========================================================
 # VISTA DE ADMIN
