@@ -261,9 +261,9 @@ if st.session_state.modo_vista == "Estudio":
                         except Exception as e:
                             st.error(f"Error: {e}")
 
-                # Sección para ajustar tamaño manual y orientación
+                # Sección para eliminar elementos subidos
                 st.markdown("---")
-                st.markdown("<div style='font-size: 12px; font-weight: bold;'>Ajuste Manual (Tamaño / Giro)</div>", unsafe_allow_html=True)
+                st.markdown("<div style='font-size: 12px; font-weight: bold;'>Eliminar Elementos Subidos</div>", unsafe_allow_html=True)
                 
                 elementos_totales = []
                 for p_key, p_val in piezas.items():
@@ -272,22 +272,17 @@ if st.session_state.modo_vista == "Estudio":
                             elementos_totales.append((p_key, el))
                 
                 if elementos_totales:
-                    sel_idx = st.selectbox("Seleccionar Elemento", range(len(elementos_totales)), format_func=lambda i: f"{elementos_totales[i][0].upper()} - {elementos_totales[i][1]['id']}")
+                    sel_idx = st.selectbox("Seleccionar Elemento a Borrar", range(len(elementos_totales)), format_func=lambda i: f"{elementos_totales[i][0].upper()} - {elementos_totales[i][1]['id']}")
                     p_target, el_target = elementos_totales[sel_idx]
                     
-                    nuevo_ancho = st.slider("Ancho (px)", 20, 300, int(el_target.get("ancho", 80)), key=f"w_{el_target['id']}")
-                    nuevo_alto = st.slider("Alto (px)", 20, 300, int(el_target.get("alto", 80)), key=f"h_{el_target['id']}")
-                    nueva_rot = st.slider("Rotación (Grados)", 0, 360, int(el_target.get("rotacion", 0)), key=f"rot_{el_target['id']}")
-                    
-                    if st.button("💾 Aplicar Cambios"):
-                        for el in piezas[p_target]["elementos"]:
-                            if el["id"] == el_target["id"]:
-                                el["ancho"] = nuevo_ancho
-                                el["alto"] = nuevo_alto
-                                el["rotacion"] = nueva_rot
-                        db.collection("config_estudio").document("modelo_actual").update({"piezas": piezas})
-                        st.success("¡Actualizado!")
-                        st.rerun()
+                    if st.button("🗑️ Eliminar Elemento Seleccionado", key=f"del_elem_{el_target['id']}"):
+                        try:
+                            piezas[p_target]["elementos"] = [el for el in piezas[p_target]["elementos"] if el["id"] != el_target["id"]]
+                            db.collection("config_estudio").document("modelo_actual").update({"piezas": piezas})
+                            st.success("¡Elemento eliminado!")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Error al eliminar: {e}")
                 else:
                     st.caption("No hay elementos en el patrón.")
                             
