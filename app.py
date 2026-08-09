@@ -176,28 +176,72 @@ if st.session_state.modo_vista == "Estudio":
     with col_panel:
         with st.container(border=True):
             if st.session_state.herramienta_activa == "Archivos":
-                st.markdown("<div style='font-size: 13px; font-weight: bold;'>Archivos</div>", unsafe_allow_html=True)
-                nombre_proyecto = st.text_input("Nombre", "Proyecto Pixel 3D")
+                st.markdown("<div style='font-size: 13px; font-weight: bold;'>Archivos y Patrón</div>", unsafe_allow_html=True)
+                nombre_proyecto = st.text_input("Nombre del Proyecto", "Proyecto Pixel 3D")
+                
+                # Selector para indicar a qué parte del patrón corresponde el diseño
+                parte_destino = st.selectbox(
+                    "¿A qué parte del patrón agregarlo?",
+                    options=["frente", "espalda", "cuello", "manga_izq", "manga_der"],
+                    format_func=lambda x: {
+                        "frente": "Frente",
+                        "espalda": "Espalda",
+                        "cuello": "Cuello",
+                        "manga_izq": "Manga Izquierda",
+                        "manga_der": "Manga Derecha"
+                    }[x]
+                )
+                
                 up_file = st.file_uploader("Cargar diseño", type=["png", "jpg", "jpeg", "svg", "dst"])
-                if st.button("🚀 Enviar a Producción", key="btn_prod"):
+                
+                # Vista previa inmediata en el panel lateral si se subió algo
+                if up_file:
+                    st.markdown("<div style='font-size: 11px; color: #aaa; margin-top: 4px;'>Vista previa:</div>", unsafe_allow_html=True)
                     try:
-                        lista_archivos = []
+                        if up_file.name.lower().endswith(('png', 'jpg', 'jpeg')):
+                            st.image(up_file, width=120)
+                        elif up_file.name.lower().endswith('svg'):
+                            st.caption("📄 Archivo SVG listo para aplicar")
+                    except Exception:
+                        pass
+
+                col_b_act1, col_b_act2 = st.columns(2)
+                with col_b_act1:
+                    if st.button("📌 Aplicar al Patrón", key="btn_aplicar_patron"):
                         if up_file:
-                            archivo_b64, _ = procesar_archivo_subido(up_file)
-                            lista_archivos.append({"nombre": up_file.name, "data": archivo_b64})
-                        db.collection("pedidos_bordado").add({
-                            "id": f"PT-{int(datetime.now().timestamp())}",
-                            "cliente": st.session_state.user.strip(),
-                            "nombre_proyecto": nombre_proyecto,
-                            "archivos": lista_archivos,
-                            "estado": "Pendiente",
-                            "turno": 1,
-                            "timestamp": datetime.now()
-                        })
-                        recalcular_turnos()
-                        st.success("¡Enviado!")
-                    except Exception as e:
-                        st.error(f"Error: {e}")
+                            try:
+                                b64, tipo = procesar_archivo_subido(up_file)
+                                piezas[parte_destino] = {"b64": b64, "tipo": tipo}
+                                db.collection("config_estudio").document("modelo_actual").update({
+                                    "piezas": piezas
+                                })
+                                st.success("¡Agregado al patrón!")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Error: {e}")
+                        else:
+                            st.warning("Sube un archivo primero.")
+                with col_b_act2:
+                    if st.button("🚀 Producción", key="btn_prod"):
+                        try:
+                            lista_archivos = []
+                            if up_file:
+                                archivo_b64, _ = procesar_archivo_subido(up_file)
+                                lista_archivos.append({"nombre": up_file.name, "data": archivo_b64})
+                            db.collection("pedidos_bordado").add({
+                                "id": f"PT-{int(datetime.now().timestamp())}",
+                                "cliente": st.session_state.user.strip(),
+                                "nombre_proyecto": nombre_proyecto,
+                                "archivos": lista_archivos,
+                                "estado": "Pendiente",
+                                "turno": 1,
+                                "timestamp": datetime.now()
+                            })
+                            recalcular_turnos()
+                            st.success("¡Enviado a Producción!")
+                        except Exception as e:
+                            st.error(f"Error: {e}")
+                            
             elif st.session_state.herramienta_activa == "Elementos":
                 st.markdown("##### Elementos")
                 st.caption("Gráficos de Pixel Thread")
