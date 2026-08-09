@@ -77,18 +77,32 @@ def recalcular_turnos():
 def procesar_archivo_subido(arch):
     b_cont = arch.getvalue()
     nombre_lower = arch.name.lower()
-    if nombre_lower.endswith(('png', 'jpg', 'jpeg')):
+    if nombre_lower.endswith(('png', 'jpg', 'jpeg', 'svg')):
         try:
-            img = Image.open(BytesIO(b_cont))
-            img.thumbnail((700, 700))
-            if img.mode in ("RGBA", "P"):
-                img = img.convert("RGB")
-            buffered = BytesIO()
-            img.save(buffered, format="JPEG", quality=70)
-            b_cont = buffered.getvalue()
+            if not nombre_lower.endswith('svg'):
+                img = Image.open(BytesIO(b_cont))
+                img.thumbnail((800, 800))
+                if img.mode in ("RGBA", "P"):
+                    img = img.convert("RGB")
+                buffered = BytesIO()
+                img.save(buffered, format="JPEG", quality=80)
+                b_cont = buffered.getvalue()
         except Exception:
             pass
     return base64.b64encode(b_cont).decode("utf-8")
+
+def obtener_configuracion_activa():
+    try:
+        doc = db.collection("config_estudio").document("modelo_actual").get()
+        if doc.exists:
+            return doc.to_dict()
+    except Exception:
+        pass
+    return {
+        "nombre_modelo": "Camisa Estándar",
+        "patron_base64": "",
+        "modelo_3d_url": "https://modelviewer.dev/shared-assets/models/Astronaut.glb"
+    }
 
 # --- ESTADOS ---
 params = st.query_params
@@ -99,7 +113,6 @@ if "user" not in st.session_state:
 if "herramienta_activa" not in st.session_state:
     st.session_state.herramienta_activa = "Archivos"
 
-# Estados para la barra de herramientas del lienzo
 if "zoom" not in st.session_state:
     st.session_state.zoom = 100
 if "herramienta_lienzo" not in st.session_state:
@@ -134,6 +147,10 @@ st.markdown("<div style='margin-bottom: 6px;'></div>", unsafe_allow_html=True)
 # VISTA DE ESTUDIO
 # =========================================================
 if st.session_state.modo_vista == "Estudio":
+
+    config_actual = obtener_configuracion_activa()
+    patron_b64 = config_actual.get("patron_base64", "")
+    url_3d = config_actual.get("modelo_3d_url", "https://modelviewer.dev/shared-assets/models/Astronaut.glb")
 
     col_iconos, col_panel, col_centro, col_right = st.columns([0.5, 2.3, 4.7, 2.5], gap="medium")
 
@@ -180,39 +197,28 @@ if st.session_state.modo_vista == "Estudio":
                 st.markdown("##### Logo IA")
                 st.text_area("Prompt", "Oso urbano bordado")
 
-    # 3. Lienzo Central con Patrones de Camisa y Barra de Herramientas Funcional
+    # 3. Lienzo Central con tu Patrón Subido y Barra Interactiva
     with col_centro:
         with st.container(border=True):
+            contenido_lienzo = ""
+            if patron_b64:
+                contenido_lienzo = f"<img src='data:image/jpeg;base64,{patron_b64}' style='max-height: 90%; max-width: 90%; object-fit: contain; border-radius: 6px;'/>"
+            else:
+                # Patrón por defecto si no se ha subido ninguno
+                contenido_lienzo = """
+                    <div style='display: flex; gap: 12px; width: 100%; justify-content: center; align-items: center; height: 100%;'>
+                        <div style='background: #fff; color: #000; border-radius: 6px; padding: 12px; width: 150px; height: 100%; display: flex; align-items: center; justify-content: center;'>
+                            <svg viewBox="0 0 100 120" style="width: 80%; height: 80%; fill: #fff; stroke: #000; stroke-width: 2;"><path d="M 30,10 Q 50,25 70,10 L 85,25 L 75,45 L 85,115 L 15,115 L 25,45 L 15,25 Z"/></svg>
+                        </div>
+                    </div>
+                """
+
             st.markdown(f"""
-                <div style='display: flex; gap: 12px; width: 100%; justify-content: center; align-items: center; height: 58vh; transform: scale({st.session_state.zoom / 100}); transform-origin: center;'>
-                    <!-- Patrón Frente -->
-                    <div style='background: #fff; color: #000; border-radius: 6px; padding: 12px; width: 150px; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: space-between;'>
-                        <svg viewBox="0 0 100 120" style="width: 100%; height: 100%; fill: #fff; stroke: #000; stroke-width: 2;">
-                            <path d="M 30,10 Q 50,25 70,10 L 85,25 L 75,45 L 85,115 L 15,115 L 25,45 L 15,25 Z"/>
-                        </svg>
-                    </div>
-                    <!-- Patrón Espalda -->
-                    <div style='background: #fff; color: #000; border-radius: 6px; padding: 12px; width: 150px; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: space-between;'>
-                        <svg viewBox="0 0 100 120" style="width: 100%; height: 100%; fill: #fff; stroke: #000; stroke-width: 2;">
-                            <path d="M 30,15 Q 50,10 70,15 L 85,25 L 75,45 L 85,115 L 15,115 L 25,45 L 15,25 Z"/>
-                        </svg>
-                    </div>
-                    <!-- Patrones de Mangas y Cuello -->
-                    <div style='display: flex; flex-direction: column; gap: 8px; height: 100%; justify-content: center; width: 95px;'>
-                        <div style='background: #fff; color: #000; border-radius: 6px; height: 18%; display: flex; align-items: center; justify-content: center;'>
-                            <svg viewBox="0 0 100 30" style="width: 80%; fill: #fff; stroke: #000; stroke-width: 2;"><rect x="5" y="5" width="90" height="20" rx="3"/></svg>
-                        </div>
-                        <div style='background: #fff; color: #000; border-radius: 6px; height: 39%; display: flex; align-items: center; justify-content: center;'>
-                            <svg viewBox="0 0 100 60" style="width: 80%; fill: #fff; stroke: #000; stroke-width: 2;"><path d="M 10,50 Q 50,10 90,50 Z"/></svg>
-                        </div>
-                        <div style='background: #fff; color: #000; border-radius: 6px; height: 39%; display: flex; align-items: center; justify-content: center;'>
-                            <svg viewBox="0 0 100 60" style="width: 80%; fill: #fff; stroke: #000; stroke-width: 2;"><path d="M 10,50 Q 50,10 90,50 Z"/></svg>
-                        </div>
-                    </div>
+                <div style='display: flex; justify-content: center; align-items: center; height: 58vh; transform: scale({st.session_state.zoom / 100}); transform-origin: center; background: #1e1e1e; border-radius: 8px;'>
+                    {contenido_lienzo}
                 </div>
             """, unsafe_allow_html=True)
 
-            # Barra de herramientas interactiva inferior
             st.markdown("<div style='margin-top: 8px;'></div>", unsafe_allow_html=True)
             tb1, tb2, tb3, tb4, tb5, tb6, tb7, tb8, tb9, tb10 = st.columns([1, 1, 1, 1, 1, 1, 1.2, 1, 1, 1.2])
             with tb1:
@@ -238,21 +244,21 @@ if st.session_state.modo_vista == "Estudio":
             with tb10:
                 if st.button("⚡ 50", key="t_bolt", help="Acción rápida"): pass
 
-    # 4. Panel Derecho (Visor 3D y Colores)
+    # 4. Panel Derecho (Visor 3D Dinámico y Colores)
     with col_right:
         with st.container(border=True):
-            model_html = """
+            model_html = f"""
             <!DOCTYPE html>
             <html>
             <head>
                 <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
                 <style>
-                    body { margin: 0; background-color: #141414; }
-                    model-viewer { width: 100%; height: 150px; background-color: #141414; border-radius: 6px; }
+                    body {{ margin: 0; background-color: #141414; }}
+                    model-viewer {{ width: 100%; height: 150px; background-color: #141414; border-radius: 6px; }}
                 </style>
             </head>
             <body>
-                <model-viewer src="https://modelviewer.dev/shared-assets/models/Astronaut.glb" auto-rotate camera-controls interaction-prompt="none"></model-viewer>
+                <model-viewer src="{url_3d}" auto-rotate camera-controls interaction-prompt="none"></model-viewer>
             </body>
             </html>
             """
@@ -283,10 +289,35 @@ if st.session_state.modo_vista == "Estudio":
                 pass
 
 # =========================================================
-# VISTA DE ADMIN
+# VISTA DE ADMIN (CON GESTIÓN DE PATRÓN Y MODELO 3D)
 # =========================================================
 else:
     st.subheader("🛠️ Panel de Administración")
+    
+    with st.expander("👕 Configurar Patrón y Modelo 3D del Estudio", expanded=True):
+        config_actual = obtener_configuracion_activa()
+        nuevo_nombre = st.text_input("Nombre del Modelo / Prenda", config_actual.get("nombre_modelo", "Camisa Estándar"))
+        nueva_url_3d = st.text_input("URL del Modelo 3D (.glb)", config_actual.get("modelo_3d_url", ""))
+        nuevo_archivo_patron = st.file_uploader("Subir Imagen del Patrón Completo (PNG / JPG)", type=["png", "jpg", "jpeg"])
+        
+        if st.button("💾 Guardar Configuración de Prenda"):
+            try:
+                patron_b64 = config_actual.get("patron_base64", "")
+                if nuevo_archivo_patron:
+                    patron_b64 = procesar_archivo_subido(nuevo_archivo_patron)
+                
+                db.collection("config_estudio").document("modelo_actual").set({
+                    "nombre_modelo": nuevo_nombre,
+                    "modelo_3d_url": nueva_url_3d,
+                    "patron_base64": patron_b64,
+                    "actualizado": datetime.now()
+                })
+                st.success("¡Configuración de patrón y modelo 3D actualizada con éxito!")
+            except Exception as e:
+                st.error(f"Error al guardar: {e}")
+
+    st.markdown("---")
+    st.subheader("📋 Gestión de Pedidos")
     try:
         recalcular_turnos()
         docs = list(db.collection("pedidos_bordado").order_by("timestamp").stream())
