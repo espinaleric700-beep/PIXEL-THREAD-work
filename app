@@ -14,7 +14,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# --- ESTILOS CSS MINIMALISTAS ---
+# --- ESTILOS CSS ---
 st.markdown("""
     <style>
     .stApp {
@@ -58,7 +58,7 @@ def init_fb():
 
 db = init_fb()
 
-SKETCHFAB_UID = "52e167c5a6024ee8b9b8fb8b9a7a89fc" # UID de tu modelo en Sketchfab
+SKETCHFAB_UID = "52e167c5a6024ee8b9b8fb8b9a7a89fc"
 
 def recalcular_turnos():
     try:
@@ -90,19 +90,17 @@ def procesar_archivo_subido(arch):
                 img = img.convert("RGBA")
                 buffered = BytesIO()
                 img.save(buffered, format="PNG")
-                b_cont = buffered.getvalue()
-                return base64.b64encode(b_cont).decode("utf-8"), "png_trans"
+                return base64.b64encode(buffered.getvalue()).decode("utf-8"), "png_trans"
             else:
                 buffered = BytesIO()
                 img.save(buffered, format="JPEG", quality=85)
-                b_cont = buffered.getvalue()
+                return base64.b64encode(buffered.getvalue()).decode("utf-8"), "raster"
         except Exception:
             pass
             
     return base64.b64encode(b_cont).decode("utf-8"), "raster"
 
 def generar_textura_3d(imagen_subida_b64):
-    """Genera la textura UV adaptada para el modelo 3D usando la imagen cargada"""
     try:
         if not imagen_subida_b64:
             return ""
@@ -110,10 +108,7 @@ def generar_textura_3d(imagen_subida_b64):
         decoded_elem = base64.b64decode(imagen_subida_b64)
         img_elem = Image.open(BytesIO(decoded_elem)).convert("RGBA")
         
-        # Lienzo base de la textura UV (1024x1024)
         img_base = Image.new("RGBA", (1024, 1024), (255, 255, 255, 255))
-        
-        # Redimensionar y centrar la imagen subida en la zona frontal de la textura UV
         img_elem = img_elem.resize((500, 500))
         ex = (1024 - 500) // 2
         ey = (1024 - 500) // 2
@@ -143,8 +138,6 @@ if "modo_vista" not in st.session_state:
     st.session_state.modo_vista = params.get("seccion", "Estudio")
 if "user" not in st.session_state: 
     st.session_state.user = params.get("user", "ClienteGeneral")
-if "herramienta_activa" not in st.session_state:
-    st.session_state.herramienta_activa = "Archivos"
 if "imagen_activa_b64" not in st.session_state:
     st.session_state.imagen_activa_b64 = ""
 
@@ -162,7 +155,7 @@ with c_top1:
     if st.button("✕ Salir", key="btn_exit"):
         actualizar_url("Estudio", st.session_state.user)
 with c_top2:
-    st.markdown("<h4 style='margin: 0; color: #fff;'>Subir y Diseñar en 3D</h4>", unsafe_allow_html=True)
+    st.markdown("<h4 style='margin: 0; color: #fff;'>Estudio 3D Directo - Pixel Thread</h4>", unsafe_allow_html=True)
 with c_top3:
     if st.session_state.user.strip().lower() in [a.lower() for a in ADMINS_AUTORIZADOS]:
         if st.button("🛠️ Panel Admin", key="btn_admin_top"):
@@ -171,7 +164,7 @@ with c_top4:
     if st.button("Guardar", key="btn_save_top"):
         st.session_state.guardar_trigger = True
 
-st.markdown("<div style='margin-bottom: 6px;'></div>", unsafe_allow_html=True)
+st.markdown("<div style='margin-bottom: 10px;'></div>", unsafe_allow_html=True)
 
 # =========================================================
 # VISTA DE ESTUDIO
@@ -181,101 +174,86 @@ if st.session_state.modo_vista == "Estudio":
     config_actual = obtener_configuracion_activa()
     sk_uid = config_actual.get("sketchfab_uid", SKETCHFAB_UID)
 
-    col_iconos, col_panel, col_visor = st.columns([0.6, 3.2, 6.2], gap="medium")
+    col_panel, col_visor = st.columns([3.5, 6.5], gap="medium")
 
-    # 1. Barra de Iconos Laterales
-    with col_iconos:
-        with st.container(border=True):
-            if st.button("📁", key="bi_arch"): st.session_state.herramienta_activa = "Archivos"; st.rerun()
-            if st.button("T", key="bi_text"): st.session_state.herramienta_activa = "Texto"; st.rerun()
-            if st.button("✨", key="bi_ia"): st.session_state.herramienta_activa = "IA"; st.rerun()
-
-    # 2. Panel de Carga y Controles
+    # 1. Panel Izquierdo: Carga de Imagen y Controles
     with col_panel:
         with st.container(border=True):
-            if st.session_state.herramienta_activa == "Archivos":
-                st.markdown("<div style='font-size: 14px; font-weight: bold;'>Cargar Imagen para Textura 3D</div>", unsafe_allow_html=True)
-                nombre_proyecto = st.text_input("Nombre del Proyecto", "Proyecto Pixel 3D")
-                
-                up_file = st.file_uploader("Seleccionar diseño (PNG, JPG, SVG)", type=["png", "jpg", "jpeg", "svg"])
-                
-                if up_file:
-                    st.markdown("<div style='font-size: 12px; color: #aaa; margin-top: 6px;'>Vista previa local:</div>", unsafe_allow_html=True)
-                    try:
-                        if up_file.name.lower().endswith(('png', 'jpg', 'jpeg')):
-                            st.image(up_file, width=140)
-                        elif up_file.name.lower().endswith('svg'):
-                            st.caption("📄 Archivo SVG cargado")
-                    except Exception:
-                        pass
-
-                st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
-                col_b1, col_b2 = st.columns(2)
-                with col_b1:
-                    if st.button("✨ Aplicar al 3D", key="btn_aplicar_3d"):
-                        if up_file:
-                            try:
-                                b64, _ = procesar_archivo_subido(up_file)
-                                st.session_state.imagen_activa_b64 = b64
-                                st.success("¡Textura aplicada al modelo 3D!")
-                                st.rerun()
-                            except Exception as e:
-                                st.error(f"Error: {e}")
-                        else:
-                            st.warning("Sube un archivo primero.")
-                with col_b2:
-                    if st.button("🚀 Producción", key="btn_prod"):
-                        try:
-                            lista_archivos = []
-                            if up_file:
-                                archivo_b64, _ = procesar_archivo_subido(up_file)
-                                lista_archivos.append({"nombre": up_file.name, "data": archivo_b64})
-                            db.collection("pedidos_bordado").add({
-                                "id": f"PT-{int(datetime.now().timestamp())}",
-                                "cliente": st.session_state.user.strip(),
-                                "nombre_proyecto": nombre_proyecto,
-                                "archivos": lista_archivos,
-                                "estado": "Pendiente",
-                                "turno": 1,
-                                "timestamp": datetime.now()
-                            })
-                            recalcular_turnos()
-                            st.success("¡Enviado a Producción!")
-                        except Exception as e:
-                            st.error(f"Error: {e}")
-
-                if st.session_state.imagen_activa_b64:
-                    st.markdown("---")
-                    if st.button("🗑️ Quitar Textura Actual"):
-                        st.session_state.imagen_activa_b64 = ""
-                        st.success("Textura removida.")
-                        st.rerun()
-
-                st.markdown("---")
-                st.markdown("<div style='font-size: 13px; font-weight: bold;'>Mis Pedidos</div>", unsafe_allow_html=True)
+            st.markdown("<div style='font-size: 15px; font-weight: bold;'>Subir Diseño para Textura 3D</div>", unsafe_allow_html=True)
+            nombre_proyecto = st.text_input("Nombre del Proyecto", "Proyecto Pixel 3D")
+            
+            up_file = st.file_uploader("Seleccionar archivo (PNG, JPG, SVG)", type=["png", "jpg", "jpeg", "svg"])
+            
+            if up_file:
+                st.markdown("<div style='font-size: 12px; color: #aaa; margin-top: 6px;'>Vista previa:</div>", unsafe_allow_html=True)
                 try:
-                    docs_p = list(db.collection("pedidos_bordado").order_by("timestamp").stream())
-                    mis_p = [p.to_dict() for p in docs_p if p.to_dict().get("cliente", "").strip().lower() == st.session_state.user.strip().lower()]
-                    if mis_p:
-                        p_rec = mis_p[-1]
-                        st.caption(f"🧵 {p_rec.get('nombre_proyecto')} | Turno: #{p_rec.get('turno')}")
-                        st.caption(f"Estado: {p_rec.get('estado')}")
-                    else:
-                        st.caption("Sin pedidos recientes.")
+                    if up_file.name.lower().endswith(('png', 'jpg', 'jpeg')):
+                        st.image(up_file, width=160)
+                    elif up_file.name.lower().endswith('svg'):
+                        st.caption("📄 Archivo SVG cargado")
                 except Exception:
                     pass
-                            
-            elif st.session_state.herramienta_activa == "Texto":
-                st.markdown("##### Agregar Texto 3D")
-                st.text_input("Texto para la prenda", "Pixel Thread")
-            elif st.session_state.herramienta_activa == "IA":
-                st.markdown("##### Generador IA")
-                st.text_area("Prompt", "Oso urbano estilo bordado")
 
-    # 3. Visor 3D Principal en Pantalla Completa
+            st.markdown("<div style='margin-top: 12px;'></div>", unsafe_allow_html=True)
+            col_b1, col_b2 = st.columns(2)
+            with col_b1:
+                if st.button("✨ Aplicar al Modelo 3D", key="btn_aplicar_3d"):
+                    if up_file:
+                        try:
+                            b64, _ = procesar_archivo_subido(up_file)
+                            st.session_state.imagen_activa_b64 = b64
+                            st.success("¡Textura aplicada al modelo 3D!")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Error: {e}")
+                    else:
+                        st.warning("Sube un archivo primero.")
+            with col_b2:
+                if st.button("🚀 Producción", key="btn_prod"):
+                    try:
+                        lista_archivos = []
+                        if up_file:
+                            archivo_b64, _ = procesar_archivo_subido(up_file)
+                            lista_archivos.append({"nombre": up_file.name, "data": archivo_b64})
+                        db.collection("pedidos_bordado").add({
+                            "id": f"PT-{int(datetime.now().timestamp())}",
+                            "cliente": st.session_state.user.strip(),
+                            "nombre_proyecto": nombre_proyecto,
+                            "archivos": lista_archivos,
+                            "estado": "Pendiente",
+                            "turno": 1,
+                            "timestamp": datetime.now()
+                        })
+                        recalcular_turnos()
+                        st.success("¡Enviado a Producción!")
+                    except Exception as e:
+                        st.error(f"Error: {e}")
+
+            if st.session_state.imagen_activa_b64:
+                st.markdown("---")
+                if st.button("🗑️ Quitar Textura del Modelo"):
+                    st.session_state.imagen_activa_b64 = ""
+                    st.success("Textura removida.")
+                    st.rerun()
+
+            st.markdown("---")
+            st.markdown("<div style='font-size: 13px; font-weight: bold;'>Mis Pedidos</div>", unsafe_allow_html=True)
+            try:
+                docs_p = list(db.collection("pedidos_bordado").order_by("timestamp").stream())
+                mis_p = [p.to_dict() for p in docs_p if p.to_dict().get("cliente", "").strip().lower() == st.session_state.user.strip().lower()]
+                if mis_p:
+                    p_rec = mis_p[-1]
+                    st.caption(f"🧵 {p_rec.get('nombre_proyecto')} | Turno: #{p_rec.get('turno')}")
+                    st.caption(f"Estado: {p_rec.get('estado')}")
+                else:
+                    st.caption("Sin pedidos recientes.")
+            except Exception:
+                pass
+
+    # 2. Panel Derecho: Visor 3D Grande a Pantalla Completa
     with col_visor:
         with st.container(border=True):
-            st.markdown("<div style='font-size: 13px; font-weight: bold; margin-bottom: 6px;'>Visualizador 3D en Vivo</div>", unsafe_allow_html=True)
+            st.markdown("<div style='font-size: 14px; font-weight: bold; margin-bottom: 8px;'>Visualizador 3D en Vivo</div>", unsafe_allow_html=True)
             
             textura_b64 = generar_textura_3d(st.session_state.imagen_activa_b64)
 
@@ -285,7 +263,7 @@ if st.session_state.modo_vista == "Estudio":
             <head>
                 <style>
                     body {{ margin: 0; background-color: #141414; overflow: hidden; }}
-                    #sketchfab-iframe {{ width: 100%; height: 500px; border: none; display: block; }}
+                    #sketchfab-iframe {{ width: 100%; height: 520px; border: none; display: block; }}
                 </style>
                 <script src="https://static.sketchfab.com/api/sketchfab-viewer-1.12.1.js"></script>
             </head>
@@ -326,7 +304,7 @@ if st.session_state.modo_vista == "Estudio":
             </body>
             </html>
             """
-            st.components.v1.html(sketchfab_viewer_html, height=515)
+            st.components.v1.html(sketchfab_viewer_html, height=535)
 
             st.markdown("<div style='font-size: 12px; font-weight: bold; margin-top: 10px;'>Color de Base de la Prenda</div>", unsafe_allow_html=True)
             cc1, cc2, cc3, cc4, cc5, cc6, cc7 = st.columns(7)
