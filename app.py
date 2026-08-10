@@ -3,11 +3,12 @@ import base64
 from PIL import Image
 import streamlit as st
 import streamlit.components.v1 as components
+import requests
 
 # --- CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(page_title="Pixel Thread - Personalizador 3D", layout="wide")
 
-# --- GESTIÓN DE ESTADO (SESSION STATE) PARA CONFIGURACIÓN DINÁMICA ---
+# --- GESTIÓN DE ESTADO (SESSION STATE) ---
 if "coordenadas_partes" not in st.session_state:
     st.session_state.coordenadas_partes = {
         "Frente": {"base_x": 250, "base_y": 500},
@@ -15,14 +16,34 @@ if "coordenadas_partes" not in st.session_state:
         "Mangas": {"base_x": 512, "base_y": 800}
     }
 
-if "sketchfab_url" not in st.session_state:
-    st.session_state.sketchfab_url = ""
+if "sketchfab_token" not in st.session_state:
+    st.session_state.sketchfab_token = ""
+
+if "modelo_seleccionado_uid" not in st.session_state:
+    st.session_state.modelo_seleccionado_uid = ""
+
+def obtener_modelos_sketchfab(token):
+    """Consulta la API de Sketchfab para obtener los modelos del usuario."""
+    if not token:
+        return []
+    
+    headers = {"Authorization": f"Token {token}"}
+    url = "https://api.sketchfab.com/v3/me/models"
+    
+    try:
+        response = requests.get(url, headers=headers)
+        if response.status_code == 200:
+            return response.json().get("results", [])
+        else:
+            st.error(f"Error al conectar con Sketchfab (Código {response.status_code}): Verifica tu token.")
+            return []
+    except Exception as e:
+        st.error(f"Excepción en la conexión con la API: {e}")
+        return []
 
 def generar_textura_3d(imagen_subida_b64, escala=200, offset_x=0, offset_y=0, parte="Frente"):
     try:
         coords_dict = st.session_state.coordenadas_partes
-        
-        # Lienzo base limpio de 1024x1024 con fondo blanco
         img_base = Image.new("RGBA", (1024, 1024), (255, 255, 255, 255))
         
         for nombre_parte, coords in coords_dict.items():
@@ -49,7 +70,7 @@ def generar_textura_3d(imagen_subida_b64, escala=200, offset_x=0, offset_y=0, pa
 # --- INTERFAZ PRINCIPAL ---
 st.title("Personalizador 3D - Pixel Thread")
 
-tab_cliente, tab_admin = st.tabs(["🎨 Personalizador en Vivo", "⚙️ Panel Admin de Coordenadas"])
+tab_cliente, tab_admin = st.tabs(["🎨 Personalizador en Vivo", "⚙️ Panel Admin y API Sketchfab"])
 
 with tab_cliente:
     col_panel, col_visor = st.columns(2, gap="large")
@@ -63,13 +84,11 @@ with tab_cliente:
         
         archivo_subido = st.file_uploader(f"Sube el diseño para: {parte_seleccionada}", type=["png", "jpg", "jpeg", "svg"])
 
-    # Procesar imagen cargada
     imagen_b64 = ""
     if archivo_subido is not None:
         bytes_imagen = archivo_subido.read()
         imagen_b64 = base64.b64encode(bytes_imagen).decode("utf-8")
 
-    # Generar textura
     textura_resultado_b64 = generar_textura_3d(
         imagen_subida_b64=imagen_b64, 
         escala=escala_logo, 
@@ -81,20 +100,19 @@ with tab_cliente:
     with col_visor:
         st.header("Visor 3D en Tiempo Real")
         
-        # Visor de Sketchfab seguro (Si no hay enlace válido, muestra una guía clara en vez de Error 404)
-        if st.session_state.sketchfab_url:
+        # Renderizar el modelo seleccionado mediante su UID de Sketchfab
+        if st.session_state.modelo_seleccionado_uid:
             sketchfab_html = f"""
             <div style="width: 100%; height: 350px; border-radius: 10px; overflow: hidden; border: 1px solid #ccc;">
-                <iframe title="Modelo 3D Prenda" width="100%" height="100%" src="{st.session_state.sketchfab_url}" frameborder="0" allowvr allow="autoplay; fullscreen; xr-spatial-tracking"></iframe>
+                <iframe title="Modelo 3D Sketchfab" width="100%" height="100%" src="https://sketchfab.com/models/{st.session_state.modelo_seleccionado_uid}/embed" frameborder="0" allowvr allow="autoplay; fullscreen; xr-spatial-tracking"></iframe>
             </div>
             """
             components.html(sketchfab_html, height=360)
         else:
-            st.warning("⚠️ No has configurado el enlace de Sketchfab. Ve a la pestaña **Panel Admin** para ingresarlo.")
+            st.warning("⚠️ No hay ningún modelo seleccionado. Ve a la pestaña **Panel Admin** para conectar tu API y elegir un modelo.")
         
         st.markdown("---")
         
-        # Vista previa del mapa UV unificado generado
         if textura_resultado_b64:
             imagen_decodificada = base64.b64decode(textura_resultado_b64)
             st.image(BytesIO(imagen_decodificada), caption="Mapa UV Texturizado en Tiempo Real (1024x1024)", use_container_width=True)
@@ -102,34 +120,54 @@ with tab_cliente:
             st.info("Sube una imagen para ver el mapa UV generado.")
 
 with tab_admin:
-    st.header("⚙️ Panel de Administración y Configuración")
-    st.write("Modifica las posiciones base de las partes de la prenda en el mapa UV y conecta tu modelo 3D.")
+    st.header("⚙️ Conexión con la API de Sketchfab")
+    st.write("Ingresa tu token de API de Sketchfab para sincronizar y seleccionar tus modelos 3D automáticamente.")
     
-    st.subheader("🔗 Configuración del Modelo 3D (Sketchfab)")
-    url_input = st.text_input("Enlace Embed de Sketchfab (ej. https://sketchfab.com/models/.../embed)", value=st.session_state.sketchfab_url)
-    if st.button("Guardar Enlace 3D"):
-        st.session_state.sketchfab_url = url_input
-        st.success("¡Enlace de Sketchfab actualizado correctamente!")
+    token_input = st.text_input("Token de API de Sketchfab", type="password", value=st.session_state.sketchfab_token)
+    if st.button("Conectar y Sincronizar Modelos"):
+        st.session_state.sketchfab_token = token_input
+        st.success("¡Token guardado con éxito!")
+
+    if st.session_state.sketchfab_token:
+        st.markdown("---")
+        st.subheader("📦 Selecciona tu Modelo 3D")
+        
+        modelos = obtener_modelos_sketchfab(st.session_state.sketchfab_token)
+        
+        if modelos:
+            cols = st.columns(3)
+            for idx, modelo in enumerate(modelos):
+                uid = modelo.get("uid")
+                name = modelo.get("name")
+                thumbnails = modelo.get("thumbnails", {}).get("images", [])
+                thumb_url = thumbnails[0]["url"] if thumbnails else ""
+                
+                with cols[idx % 3]:
+                    if thumb_url:
+                        st.image(thumb_url, caption=name, use_container_width=True)
+                    else:
+                        st.write(f"**{name}**")
+                        
+                    is_selected = (st.session_state.modelo_seleccionado_uid == uid)
+                    if st.button("Seleccionar Modelo" if not is_selected else "✅ Seleccionado", key=f"btn_{uid}"):
+                        st.session_state.modelo_seleccionado_uid = uid
+                        st.rerun()
+        else:
+            st.info("No se encontraron modelos en tu cuenta de Sketchfab o el token es incorrecto.")
 
     st.markdown("---")
     st.subheader("📍 Coordenadas Base del Mapa UV (1024x1024)")
     
     col_a, col_b, col_c = st.columns(3)
-    
     with col_a:
         st.markdown("**Frente**")
         st.session_state.coordenadas_partes["Frente"]["base_x"] = st.number_input("Frente X", 0, 1024, st.session_state.coordenadas_partes["Frente"]["base_x"])
         st.session_state.coordenadas_partes["Frente"]["base_y"] = st.number_input("Frente Y", 0, 1024, st.session_state.coordenadas_partes["Frente"]["base_y"])
-        
     with col_b:
         st.markdown("**Espalda**")
         st.session_state.coordenadas_partes["Espalda"]["base_x"] = st.number_input("Espalda X", 0, 1024, st.session_state.coordenadas_partes["Espalda"]["base_x"])
         st.session_state.coordenadas_partes["Espalda"]["base_y"] = st.number_input("Espalda Y", 0, 1024, st.session_state.coordenadas_partes["Espalda"]["base_y"])
-        
     with col_c:
         st.markdown("**Mangas**")
         st.session_state.coordenadas_partes["Mangas"]["base_x"] = st.number_input("Mangas X", 0, 1024, st.session_state.coordenadas_partes["Mangas"]["base_x"])
         st.session_state.coordenadas_partes["Mangas"]["base_y"] = st.number_input("Mangas Y", 0, 1024, st.session_state.coordenadas_partes["Mangas"]["base_y"])
-        
-    if st.button("Actualizar Coordenadas UV"):
-        st.success("¡Coordenadas guardadas e integradas con éxito en el personalizador!")
