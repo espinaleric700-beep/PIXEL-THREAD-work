@@ -111,33 +111,40 @@ def obtener_configuracion_activa():
         "nombre_modelo": "Camisa Estándar",
         "sketchfab_uid": SKETCHFAB_UID,
         "coordenadas_partes": {
-            "Frente": {"base_x": 512, "base_y": 512},
-            "Espalda": {"base_x": 512, "base_y": 512},
-            "Cuello": {"base_x": 512, "base_y": 200},
+            "Frente": {"base_x": 512, "base_y": 300},
+            "Espalda": {"base_x": 512, "base_y": 750},
+            "Cuello": {"base_x": 512, "base_y": 120},
             "Manga Izquierda": {"base_x": 200, "base_y": 512},
             "Manga Derecha": {"base_x": 824, "base_y": 512}
         },
         "patrones_svg": {}
     }
 
-def generar_textura_3d(imagen_subida_b64, escala=300, offset_x=0, offset_y=0, parte="Frente"):
+def generar_textura_3d(imagen_subida_b64, escala=200, offset_x=0, offset_y=0, parte="Frente"):
     try:
-        if not imagen_subida_b64:
-            return ""
-        
         config = obtener_configuracion_activa()
         coords = config.get("coordenadas_partes", {}).get(parte, {"base_x": 512, "base_y": 512})
-        
-        decoded_elem = base64.b64decode(imagen_subida_b64)
-        img_elem = Image.open(BytesIO(decoded_elem)).convert("RGBA")
+        patrones_svgs = config.get("patrones_svg", {})
         
         img_base = Image.new("RGBA", (1024, 1024), (255, 255, 255, 255))
-        img_elem = img_elem.resize((escala, escala))
         
-        ex = (coords["base_x"] - escala // 2) + offset_x
-        ey = (coords["base_y"] - escala // 2) + offset_y
-        
-        img_base.paste(img_elem, (max(0, ex), max(0, ey)), img_elem)
+        svg_parte = patrones_svgs.get(parte)
+        if svg_parte:
+            try:
+                img_svg = Image.open(BytesIO(base64.b64decode(svg_parte))).convert("RGBA")
+                img_base.paste(img_svg, (coords["base_x"] - img_svg.width // 2, coords["base_y"] - img_svg.height // 2), img_svg)
+            except Exception:
+                pass
+
+        if imagen_subida_b64:
+            decoded_elem = base64.b64decode(imagen_subida_b64)
+            img_elem = Image.open(BytesIO(decoded_elem)).convert("RGBA")
+            img_elem.thumbnail((escala, escala))
+            
+            ex = (coords["base_x"] - img_elem.width // 2) + offset_x
+            ey = (coords["base_y"] - img_elem.height // 2) + offset_y
+            
+            img_base.paste(img_elem, (ex, ey), img_elem)
 
         buffered = BytesIO()
         img_base.save(buffered, format="PNG")
@@ -150,7 +157,6 @@ def crear_patron_grafico(tipo_parte, logo_b64=None, svg_personalizado_b64=None, 
     img = Image.new("RGBA", (w, h), (20, 20, 20, 255))
     draw = ImageDraw.Draw(img)
     
-    # Dibujar silueta plana 2D del molde de la prenda según la parte seleccionada
     if tipo_parte in ["Frente", "Espalda"]:
         draw.polygon([(90, 40), (230, 40), (270, 90), (250, 330), (70, 330), (50, 90)], outline=(150, 150, 150, 255), width=2, fill=(245, 245, 245, 255))
         if tipo_parte == "Frente":
@@ -162,13 +168,11 @@ def crear_patron_grafico(tipo_parte, logo_b64=None, svg_personalizado_b64=None, 
     elif tipo_parte in ["Manga Izquierda", "Manga Derecha"]:
         draw.polygon([(60, 280), (160, 50), (260, 280)], outline=(150, 150, 150, 255), width=2, fill=(245, 245, 245, 255))
 
-    # Si hay un logo o diseño subido, lo dibujamos posicionado en el molde
     if logo_b64:
         try:
             logo_img = Image.open(BytesIO(base64.b64decode(logo_b64))).convert("RGBA")
             logo_img.thumbnail((escala, escala))
             lw, lh = logo_img.size
-            # Centrado en el molde con offset dinámico
             lx = (w - lw) // 2 + offset_x
             ly = (h - lh) // 2 + offset_y
             img.paste(logo_img, (lx, ly), logo_img)
@@ -259,7 +263,6 @@ if st.session_state.modo_vista == "Estudio":
                 
                 st.session_state.escala_logo = st.slider("Tamaño del Diseño", min_value=40, max_value=300, value=st.session_state.escala_logo, step=5)
                 
-                # Generar imagen combinada del patrón 2D con el diseño encima
                 patrones_svgs = config_actual.get("patrones_svg", {})
                 patron_img = crear_patron_grafico(
                     st.session_state.parte_seleccionada, 
@@ -274,7 +277,6 @@ if st.session_state.modo_vista == "Estudio":
                 patron_img.save(buffered_patron, format="PNG")
                 b64_patron = base64.b64encode(buffered_patron.getvalue()).decode("utf-8")
 
-                # Componente interactivo HTML/JS para arrastrar el diseño directamente sobre el lienzo 2D en tiempo real
                 interactive_canvas_html = f"""
                 <div id="canvas-2d-wrapper" style="width: 100%; height: 300px; background: #111; border: 2px solid #00cec9; border-radius: 8px; position: relative; overflow: hidden; cursor: grab; display: flex; align-items: center; justify-content: center; user-select: none;">
                     <img id="patron-preview" src="data:image/png;base64,{b64_patron}" style="max-width: 100%; max-height: 100%; pointer-events: none;" />
@@ -301,7 +303,6 @@ if st.session_state.modo_vista == "Estudio":
                         if (isDragging) {{
                             isDragging = false;
                             wrapper.style.cursor = 'grab';
-                            // Forzar recarga en Streamlit actualizando parámetros de URL o enviando evento
                         }}
                     }});
 
@@ -312,7 +313,6 @@ if st.session_state.modo_vista == "Estudio":
                         startX = e.clientX;
                         startY = e.clientY;
 
-                        // Enviar coordenadas acumuladas hacia los inputs de Streamlit ocultos o mediante URL params
                         const parentDoc = window.parent.document;
                         const numInputs = parentDoc.querySelectorAll('input[type="number"]');
                         if(numInputs.length >= 2) {{
@@ -344,7 +344,6 @@ if st.session_state.modo_vista == "Estudio":
                 """
                 st.components.v1.html(interactive_canvas_html, height=350)
 
-                # Controles numéricos internos sincronizados con el arrastre del mouse
                 col_x, col_y = st.columns(2)
                 with col_x:
                     st.session_state.mover_x = st.number_input("Eje X", value=st.session_state.mover_x, step=5)
@@ -482,9 +481,9 @@ else:
         
         st.markdown("### Subir Patrón SVG o Ajustar Coordenadas UV por Sección")
         coords_actuales = config_actual.get("coordenadas_partes", {
-            "Frente": {"base_x": 512, "base_y": 512},
-            "Espalda": {"base_x": 512, "base_y": 512},
-            "Cuello": {"base_x": 512, "base_y": 200},
+            "Frente": {"base_x": 512, "base_y": 300},
+            "Espalda": {"base_x": 512, "base_y": 750},
+            "Cuello": {"base_x": 512, "base_y": 120},
             "Manga Izquierda": {"base_x": 200, "base_y": 512},
             "Manga Derecha": {"base_x": 824, "base_y": 512}
         })
