@@ -116,13 +116,12 @@ def procesar_archivo_subido(arch):
     return base64.b64encode(b_cont).decode("utf-8"), "raster"
 
 def generar_textura_3d_frente(pieza_frente):
-    """Combina el fondo del frente y los elementos posicionados para aplicarlos al modelo 3D"""
+    """Combina el fondo del frente y los elementos posicionados para aplicarlos al visor 3D"""
     try:
         base_b64 = pieza_frente.get("b64", "")
         base_tipo = pieza_frente.get("tipo", "raster")
         elementos = pieza_frente.get("elementos", [])
 
-        # Lienzo base de la textura frontal (1024x1024)
         img_base = Image.new("RGBA", (1024, 1024), (255, 255, 255, 255))
         
         if base_b64 and base_tipo != "svg":
@@ -134,7 +133,6 @@ def generar_textura_3d_frente(pieza_frente):
             except Exception:
                 pass
 
-        # Superponer los elementos en las coordenadas relativas guardadas
         for elem in elementos:
             e_b64 = elem.get("b64", "")
             e_tipo = elem.get("tipo", "raster")
@@ -173,7 +171,7 @@ def obtener_configuracion_activa():
         pass
     return {
         "nombre_modelo": "Camisa Estándar",
-        "modelo_3d_url": "https://modelviewer.dev/shared-assets/models/Astronaut.glb",
+        "modelo_3d_url": "",
         "sketchfab_uid": "",
         "piezas": {
             "frente": {"b64": "", "tipo": "raster", "elementos": []},
@@ -230,7 +228,6 @@ if st.session_state.modo_vista == "Estudio":
 
     config_actual = obtener_configuracion_activa()
     piezas = config_actual.get("piezas", {})
-    url_3d = config_actual.get("modelo_3d_url", "https://modelviewer.dev/shared-assets/models/Astronaut.glb")
 
     col_iconos, col_panel, col_centro, col_right = st.columns([0.5, 2.3, 4.7, 2.5], gap="medium")
 
@@ -299,7 +296,7 @@ if st.session_state.modo_vista == "Estudio":
                                 db.collection("config_estudio").document("modelo_actual").update({
                                     "piezas": piezas
                                 })
-                                st.success("¡Imagen agregada al patrón y al mockup!")
+                                st.success("¡Imagen agregada al patrón y al mockup 3D!")
                                 st.rerun()
                             except Exception as e:
                                 st.error(f"Error: {e}")
@@ -603,80 +600,104 @@ if st.session_state.modo_vista == "Estudio":
             with tb10:
                 if st.button("⚡ 50", key="t_bolt", help="Acción rápida"): pass
 
-    # 4. Panel Derecho (Visor 3D y Colores)
+    # 4. Panel Derecho (Visor 3D Interactivo con Three.js)
     with col_right:
         with st.container(border=True):
-            sketchfab_uid = config_actual.get("sketchfab_uid", "")
-            
-            # Generar textura optimizada del frente
             textura_frente_b64 = generar_textura_3d_frente(p_frente)
 
-            if sketchfab_uid:
-                iframe_html = f"""
-                <!DOCTYPE html>
-                <html>
-                <head>
-                    <style>body {{ margin: 0; background-color: #141414; }}</style>
-                </head>
-                <body>
-                    <iframe title="Sketchfab Model" frameborder="0" allowfullscreen mozallowfullscreen="true" webkitallowfullscreen="true" allow="autoplay; fullscreen; xr-spatial-tracking" xr-spatial-tracking execution-while-out-of-viewport execution-while-not-rendered web-share width="100%" height="160px" src="https://sketchfab.com/models/{sketchfab_uid}/embed?autostart=1&ui_controls=0&ui_infos=0&ui_stop=0"></iframe>
-                </body>
-                </html>
-                """
-                st.components.v1.html(iframe_html, height=170)
-            else:
-                # Script de model-viewer optimizado para inyectar la textura del frente en tiempo real
-                model_html = f"""
-                <!DOCTYPE html>
-                <html>
-                <head>
-                    <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
-                    <style>
-                        body {{ margin: 0; background-color: #141414; }}
-                        model-viewer {{ width: 100%; height: 160px; background-color: #141414; border-radius: 6px; }}
-                    </style>
-                </head>
-                <body>
-                    <model-viewer id="modelViewer" src="{url_3d}" auto-rotate camera-controls interaction-prompt="none" shadow-intensity="1"></model-viewer>
-                    
-                    <script>
-                        const b64Data = "{textura_frente_b64}";
-                        
-                        async function updateTexture() {{
-                            if (!b64Data) return;
-                            const viewer = document.getElementById('modelViewer');
-                            await viewer.updateComplete;
-                            
-                            try {{
-                                const byteCharacters = atob(b64Data);
-                                const byteNumbers = new Array(byteCharacters.length);
-                                for (let i = 0; i < byteCharacters.length; i++) {{
-                                    byteNumbers[i] = byteCharacters.charCodeAt(i);
-                                }}
-                                const byteArray = new Uint8Array(byteNumbers);
-                                const blob = new Blob([byteArray], {{ type: 'image/png' }});
-                                const blobUrl = URL.createObjectURL(blob);
+            # Visor 3D interactivo garantizado usando Three.js integrado
+            threejs_viewer_html = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <style>
+                    body {{ margin: 0; background-color: #141414; overflow: hidden; }}
+                    #canvas3d {{ width: 100%; height: 160px; display: block; }}
+                </style>
+                <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+            </head>
+            <body>
+                <div id="canvas3d"></div>
+                <script>
+                    const container = document.getElementById('canvas3d');
+                    const scene = new THREE.Scene();
+                    scene.background = new THREE.Color(0x141414);
 
-                                const material = viewer.model.materials[0];
-                                if (material) {{
-                                    const texture = await viewer.createTexture(blobUrl);
-                                    material.pbrMetallicRoughness.baseColorTexture.setTexture(texture);
-                                    console.log("Textura del frente aplicada al modelo 3D con éxito.");
-                                }}
-                            }} catch (e) {{
-                                console.error("Error al actualizar textura 3D:", e);
-                            }}
+                    const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
+                    camera.position.z = 3.8;
+
+                    const renderer = new THREE.WebGLRenderer({{ antialias: true }});
+                    renderer.setSize(container.clientWidth, container.clientHeight);
+                    container.appendChild(renderer.domElement);
+
+                    // Luces ambientales y direccionales para dar relieve
+                    const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+                    scene.add(ambientLight);
+
+                    const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
+                    dirLight.position.set(5, 5, 5);
+                    scene.add(dirLight);
+
+                    // Grupo para rotar el modelo en 3D
+                    const modelGroup = new THREE.Group();
+                    scene.add(modelGroup);
+
+                    // Crear la geometría de la camisa / panel frontal 3D texturizado
+                    const geometry = new THREE.PlaneGeometry(1.8, 2.2);
+                    const material = new THREE.MeshStandardMaterial({{ color: 0xffffff, roughness: 0.4 }});
+                    const mesh = new THREE.Mesh(geometry, material);
+                    modelGroup.add(mesh);
+
+                    // Cargar la textura en tiempo real desde Base64
+                    const b64Data = "{textura_frente_b64}";
+                    if (b64Data) {{
+                        const textureLoader = new THREE.TextureLoader();
+                        textureLoader.load('data:image/png;base64,' + b64Data, function(texture) {{
+                            texture.generateMipmaps = true;
+                            texture.minFilter = THREE.LinearMipmapLinearFilter;
+                            material.map = texture;
+                            material.needsUpdate = true;
+                        }});
+                    }}
+
+                    // Interactividad de rotación con mouse / touch
+                    let isDragging = false;
+                    let previousMousePosition = {{ x: 0, y: 0 }};
+
+                    container.addEventListener('mousedown', (e) => {{
+                        isDragging = true;
+                        previousMousePosition = {{ x: e.clientX, y: e.clientY }};
+                    }});
+
+                    window.addEventListener('mousemove', (e) => {{
+                        if (!isDragging) return;
+                        const deltaX = e.clientX - previousMousePosition.x;
+                        const deltaY = e.clientY - previousMousePosition.y;
+
+                        modelGroup.rotation.y += deltaX * 0.01;
+                        modelGroup.rotation.x += deltaY * 0.01;
+
+                        previousMousePosition = {{ x: e.clientX, y: e.clientY }};
+                    }});
+
+                    window.addEventListener('mouseup', () => {{ isDragging = false; }});
+
+                    // Animación de rotación automática suave si no se interactúa
+                    function animate() {{
+                        requestAnimationFrame(animate);
+                        if (!isDragging) {{
+                            modelGroup.rotation.y += 0.005;
                         }}
+                        renderer.render(scene, camera);
+                    }}
+                    animate();
+                </script>
+            </body>
+            </html>
+            """
+            st.components.v1.html(threejs_viewer_html, height=170)
 
-                        const viewer = document.getElementById('modelViewer');
-                        viewer.addEventListener('load', updateTexture);
-                    </script>
-                </body>
-                </html>
-                """
-                st.components.v1.html(model_html, height=170)
-
-            st.markdown("<div style='font-size: 12px; font-weight: bold; margin-top: 4px;'>Color</div>", unsafe_allow_html=True)
+            st.markdown("<div style='font-size: 12px; font-weight: bold; margin-top: 4px;'>Color de Base</div>", unsafe_allow_html=True)
             cc1, cc2, cc3, cc4, cc5, cc6, cc7 = st.columns(7)
             with cc1: st.button("➕", key="c_add")
             with cc2: st.button("⚪", key="c_wh")
@@ -706,49 +727,9 @@ if st.session_state.modo_vista == "Estudio":
 else:
     st.subheader("🛠️ Panel de Administración")
     
-    with st.expander("👕 Configurar Patrón Base por Piezas y Modelo 3D", expanded=True):
+    with st.expander("👕 Configurar Patrón Base por Piezas", expanded=True):
         config_actual = obtener_configuracion_activa()
         nuevo_nombre = st.text_input("Nombre del Modelo / Prenda", config_actual.get("nombre_modelo", "Camisa Estándar"))
-        
-        st.markdown("##### 🌐 Selector de Modelo 3D vía API de Sketchfab")
-        busqueda_sk = st.text_input("Buscar modelos en Sketchfab", value="shirt")
-        
-        resultados_sk = buscar_modelos_sketchfab(busqueda_sk)
-        opciones_sk = {}
-        if resultados_sk:
-            for item in resultados_sk:
-                titulo = item.get("name", "Sin título")
-                uid = item.get("uid", "")
-                opciones_sk[f"{titulo} (UID: {uid})"] = uid
-        
-        modelo_seleccionado_key = st.selectbox(
-            "Selecciona un modelo encontrado en Sketchfab",
-            options=list(opciones_sk.keys()) if opciones_sk else ["No se encontraron resultados o escribe otra búsqueda"]
-        )
-        
-        uid_seleccionado = opciones_sk.get(modelo_seleccionado_key, "")
-        
-        st.markdown("##### 👀 Vista Previa del Modelo Seleccionado")
-        if uid_seleccionado:
-            preview_iframe = f"""
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <style>body {{ margin: 0; background-color: #141414; border-radius: 8px; overflow: hidden; }}</style>
-            </head>
-            <body>
-                <iframe title="Sketchfab Preview" frameborder="0" allowfullscreen mozallowfullscreen="true" webkitallowfullscreen="true" allow="autoplay; fullscreen; xr-spatial-tracking" xr-spatial-tracking execution-while-out-of-viewport execution-while-not-rendered web-share width="100%" height="280px" src="https://sketchfab.com/models/{uid_seleccionado}/embed?autostart=1&ui_controls=1&ui_infos=1&ui_stop=0"></iframe>
-            </body>
-            </html>
-            """
-            st.components.v1.html(preview_iframe, height=290)
-        else:
-            st.info("Selecciona un modelo válido de la lista para previsualizarlo aquí.")
-
-        nueva_url_3d = st.text_input(
-            "O ingresa URL pública directa de respaldo (.glb)", 
-            config_actual.get("modelo_3d_url", "")
-        )
         
         st.markdown("---")
         st.markdown("##### Subir Imágenes Base de las Piezas del Patrón")
@@ -781,12 +762,10 @@ else:
                     
                     db.collection("config_estudio").document("modelo_actual").set({
                         "nombre_modelo": nuevo_nombre,
-                        "modelo_3d_url": nueva_url_3d,
-                        "sketchfab_uid": uid_seleccionado,
                         "piezas": piezas_actuales,
                         "actualizado": datetime.now()
                     }, merge=True)
-                    st.success("¡Patrón base y modelo 3D de Sketchfab guardados con éxito!")
+                    st.success("¡Patrón base guardado con éxito!")
                     st.rerun()
                 except Exception as e:
                     st.error(f"Error al guardar: {e}")
