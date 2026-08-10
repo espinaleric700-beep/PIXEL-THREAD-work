@@ -609,7 +609,7 @@ if st.session_state.modo_vista == "Estudio":
         with st.container(border=True):
             sketchfab_uid = config_actual.get("sketchfab_uid", "")
             
-            # Generar la textura combinada del frente para el modelo 3D
+            # Generar la textura combinada del frente
             textura_frente_b64 = generar_textura_3d_frente(p_frente)
 
             if sketchfab_uid:
@@ -626,7 +626,7 @@ if st.session_state.modo_vista == "Estudio":
                 """
                 st.components.v1.html(iframe_html, height=170)
             else:
-                # Script de model-viewer con soporte para texturas dinámicas aplicadas al frente
+                # Script con soporte de Blob URL para texturas dinámicas en model-viewer
                 model_html = f"""
                 <!DOCTYPE html>
                 <html>
@@ -641,14 +641,36 @@ if st.session_state.modo_vista == "Estudio":
                     <model-viewer id="modelViewer" src="{url_3d}" auto-rotate camera-controls interaction-prompt="none" shadow-intensity="1"></model-viewer>
                     
                     <script>
-                        const viewer = document.getElementById('modelViewer');
-                        viewer.addEventListener('load', async () => {{
-                            const material = viewer.model.materials[0];
-                            if (material && "{textura_frente_b64}") {{
-                                const texture = await viewer.createTexture("data:image/png;base64,{textura_frente_b64}");
-                                material.pbrMetallicRoughness.baseColorTexture.setTexture(texture);
+                        const b64Data = "{textura_frente_b64}";
+                        
+                        async function updateTexture() {{
+                            if (!b64Data) return;
+                            const viewer = document.getElementById('modelViewer');
+                            await viewer.updateComplete;
+                            
+                            try {{
+                                const byteCharacters = atob(b64Data);
+                                const byteNumbers = new Array(byteCharacters.length);
+                                for (let i = 0; i < byteCharacters.length; i++) {{
+                                    byteNumbers[i] = byteCharacters.charCodeAt(i);
+                                }}
+                                const byteArray = new Uint8Array(byteNumbers);
+                                const blob = new Blob([byteArray], {{ type: 'image/png' }});
+                                const blobUrl = URL.createObjectURL(blob);
+
+                                const material = viewer.model.materials[0];
+                                if (material) {{
+                                    const texture = await viewer.createTexture(blobUrl);
+                                    material.pbrMetallicRoughness.baseColorTexture.setTexture(texture);
+                                    console.log("Textura aplicada correctamente al modelo 3D");
+                                }}
+                            }} catch (e) {{
+                                console.error("Error al aplicar la textura dinámica:", e);
                             }}
-                        }});
+                        }}
+
+                        const viewer = document.getElementById('modelViewer');
+                        viewer.addEventListener('load', updateTexture);
                     </script>
                 </body>
                 </html>
