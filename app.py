@@ -7,7 +7,7 @@ import streamlit as st
 def obtener_configuracion_activa():
     """
     Retorna la configuración activa con las coordenadas UV y patrones base de cada sección.
-    Ajusta estos valores de base_x y base_y según la posición exacta que viste en tu mapa UV de Illustrator/Blender.
+    Ajusta estos valores de base_x y base_y según la posición exacta de tu mapa UV.
     """
     return {
         "coordenadas_partes": {
@@ -97,8 +97,8 @@ textura_resultado_b64 = generar_textura_3d(
 
 if textura_resultado_b64:
     st.subheader("Vista previa del mapa UV unificado (1024x1024)")
-    # Mostrar la imagen resultante en pantalla
+    # Mostrar la imagen resultante en pantalla con el parámetro actualizado
     imagen_decodificada = base64.b64decode(textura_resultado_b64)
-    st.image(BytesIO(imagen_decodificada), caption="Textura aplicada correctamente sin solapamiento", use_column_width=True)
+    st.image(BytesIO(imagen_decodificada), caption="Textura aplicada correctamente sin solapamiento", use_container_width=True)
 else:
     st.warning("Sube una imagen para comenzar a generar la textura.")
