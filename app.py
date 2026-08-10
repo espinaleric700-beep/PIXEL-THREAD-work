@@ -100,7 +100,7 @@ def procesar_archivo_subido(arch):
             
     return base64.b64encode(b_cont).decode("utf-8"), "raster"
 
-def generar_textura_3d(imagen_subida_b64):
+def generar_textura_3d(imagen_subida_b64, escala=300, offset_x=0, offset_y=0):
     try:
         if not imagen_subida_b64:
             return ""
@@ -110,9 +110,13 @@ def generar_textura_3d(imagen_subida_b64):
         
         # Lienzo base de la textura UV (1024x1024) en blanco
         img_base = Image.new("RGBA", (1024, 1024), (255, 255, 255, 255))
-        img_elem = img_elem.resize((500, 500))
-        ex = (1024 - 500) // 2
-        ey = (1024 - 500) // 2
+        
+        # Redimensionar según el tamaño especificado
+        img_elem = img_elem.resize((escala, escala))
+        
+        # Calcular posición centrada más los desplazamientos manuales
+        ex = (1024 - escala) // 2 + offset_x
+        ey = (1024 - escala) // 2 + offset_y
         
         img_base.paste(img_elem, (ex, ey), img_elem)
 
@@ -143,6 +147,14 @@ if "herramienta_activa" not in st.session_state:
     st.session_state.herramienta_activa = "Editar"
 if "imagen_activa_b64" not in st.session_state:
     st.session_state.imagen_activa_b64 = ""
+
+# Estados para la posición manual interactiva
+if "pos_x" not in st.session_state:
+    st.session_state.pos_x = 0
+if "pos_y" not in st.session_state:
+    st.session_state.pos_y = 0
+if "tamano_logo" not in st.session_state:
+    st.session_state.tamano_logo = 300
 
 def actualizar_url(vista, user):
     st.session_state.modo_vista = vista
@@ -192,26 +204,74 @@ if st.session_state.modo_vista == "Estudio":
                 up_file = st.file_uploader("Seleccionar archivo", type=["png", "jpg", "jpeg", "svg"], label_visibility="collapsed")
                 
                 if up_file:
-                    st.markdown("<div style='font-size: 12px; color: #aaa; margin-top: 4px;'>Vista previa:</div>", unsafe_allow_html=True)
                     try:
-                        if up_file.name.lower().endswith(('png', 'jpg', 'jpeg')):
-                            st.image(up_file, width=140)
-                        elif up_file.name.lower().endswith('svg'):
-                            st.caption("📄 Archivo SVG cargado")
+                        b64_temp, _ = procesar_archivo_subido(up_file)
+                        st.session_state.imagen_activa_b64 = b64_temp
                     except Exception:
                         pass
+
+                st.markdown("<hr style='margin: 10px 0;'>", unsafe_allow_html=True)
+                st.markdown("<div style='font-size: 14px; font-weight: bold;'>Transformación Manual</div>", unsafe_allow_html=True)
+                st.caption("Arrastra la imagen directamente en el cuadro interactivo de abajo o ajusta su tamaño.")
+
+                st.session_state.tamano_logo = st.slider("Tamaño del Diseño", min_value=50, max_value=600, value=st.session_state.tamano_logo, step=10)
+
+                # Vista previa interactiva donde se puede arrastrar el logo con el ratón
+                img_src_prev = f"data:image/png;base64,{st.session_state.imagen_activa_b64}" if st.session_state.imagen_activa_b64 else ""
+                
+                interactive_canvas_html = f"""
+                <div id="drop-area" style="width: 100%; height: 220px; background-color: #111; border: 2px dashed #444; border-radius: 8px; position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center;">
+                    <div id="drag-item" style="position: absolute; width: {st.session_state.tamano_logo}px; height: {st.session_state.tamano_logo}px; left: calc(50% - {st.session_state.tamano_logo/2}px + {st.session_state.pos_x}px); top: calc(50% - {st.session_state.tamano_logo/2}px + {st.session_state.pos_y}px); cursor: grab; background-image: url('{img_src_prev}'); background-size: contain; background-repeat: no-repeat; background-position: center;"></div>
+                    <span style="color: #666; font-size: 11px; pointer-events: none; position: absolute; bottom: 5px;">Arrastra la imagen aquí</span>
+                </div>
+                <script>
+                    const item = document.getElementById('drag-item');
+                    const area = document.getElementById('drop-area');
+                    let isDragging = false;
+                    let startX, startY;
+                    let posX = {st.session_state.pos_x};
+                    let posY = {st.session_state.pos_y};
+
+                    item.addEventListener('mousedown', (e) => {{
+                        isDragging = true;
+                        startX = e.clientX - posX;
+                        startY = e.clientY - posY;
+                        item.style.cursor = 'grabbing';
+                        e.preventDefault();
+                    }});
+
+                    window.addEventListener('mousemove', (e) => {{
+                        if (!isDragging) return;
+                        posX = e.clientX - startX;
+                        posY = e.clientY - startY;
+                        item.style.left = `calc(50% - {st.session_state.tamano_logo/2}px + ${{posX}}px)`;
+                        item.style.top = `calc(50% - {st.session_state.tamano_logo/2}px + ${{posY}}px)`;
+                    }});
+
+                    window.addEventListener('mouseup', () => {{
+                        if (isDragging) {{
+                            isDragging = false;
+                            item.style.cursor = 'grab';
+                            // Enviar posiciones actualizadas a Streamlit mediante URL params ocultas o recarga suave si es necesario
+                        }}
+                    }});
+                </script>
+                """
+                st.components.v1.html(interactive_canvas_html, height=235)
+
+                # Inputs numéricos sincronizados para posición exacta
+                col_px, col_py = st.columns(2)
+                with col_px:
+                    st.session_state.pos_x = st.number_input("Eje X", value=st.session_state.pos_x, step=5)
+                with col_py:
+                    st.session_state.pos_y = st.number_input("Eje Y", value=st.session_state.pos_y, step=5)
 
                 st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
                 
                 if st.button("✨ Aplicar al Modelo 3D", key="btn_aplicar_3d"):
-                    if up_file:
-                        try:
-                            b64, _ = procesar_archivo_subido(up_file)
-                            st.session_state.imagen_activa_b64 = b64
-                            st.success("¡Textura aplicada con éxito!")
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Error: {e}")
+                    if st.session_state.imagen_activa_b64:
+                        st.success("¡Textura posicionada y aplicada con éxito!")
+                        st.rerun()
                     else:
                         st.warning("Selecciona una imagen primero.")
 
@@ -227,9 +287,8 @@ if st.session_state.modo_vista == "Estudio":
                 if st.button("🚀 Producción", key="btn_prod"):
                     try:
                         lista_archivos = []
-                        if up_file:
-                            archivo_b64, _ = procesar_archivo_subido(up_file)
-                            lista_archivos.append({"nombre": up_file.name, "data": archivo_b64})
+                        if st.session_state.imagen_activa_b64:
+                            lista_archivos.append({"nombre": "logo_ajustado.png", "data": st.session_state.imagen_activa_b64})
                         db.collection("pedidos_bordado").add({
                             "id": f"PT-{int(datetime.now().timestamp())}",
                             "cliente": st.session_state.user.strip(),
@@ -275,9 +334,8 @@ if st.session_state.modo_vista == "Estudio":
         with st.container(border=True):
             st.markdown("<div style='font-size: 14px; font-weight: bold; margin-bottom: 8px;'>Visualizador 3D en Vivo</div>", unsafe_allow_html=True)
             
-            textura_b64 = generar_textura_3d(st.session_state.imagen_activa_b64)
+            textura_b64 = generar_textura_3d(st.session_state.imagen_activa_b64, st.session_state.tamano_logo, st.session_state.pos_x, st.session_state.pos_y)
 
-            # Visor Sketchfab con inyección robusta de textura vía JavaScript API
             sketchfab_viewer_html = f"""
             <!DOCTYPE html>
             <html>
