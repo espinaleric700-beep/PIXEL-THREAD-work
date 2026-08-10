@@ -4,7 +4,7 @@ from firebase_admin import credentials, firestore
 from datetime import datetime
 import base64
 from io import BytesIO
-from PIL import Image
+from PIL import Image, ImageDraw
 
 # --- CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(
@@ -130,13 +130,9 @@ def generar_textura_3d(imagen_subida_b64, escala=300, offset_x=0, offset_y=0, pa
         decoded_elem = base64.b64decode(imagen_subida_b64)
         img_elem = Image.open(BytesIO(decoded_elem)).convert("RGBA")
         
-        # Lienzo base de la textura UV (1024x1024) en blanco
         img_base = Image.new("RGBA", (1024, 1024), (255, 255, 255, 255))
-        
-        # Redimensionar según el tamaño especificado
         img_elem = img_elem.resize((escala, escala))
         
-        # Posición base de la parte seleccionada + desplazamiento manual (offset)
         ex = (coords["base_x"] - escala // 2) + offset_x
         ey = (coords["base_y"] - escala // 2) + offset_y
         
@@ -147,6 +143,36 @@ def generar_textura_3d(imagen_subida_b64, escala=300, offset_x=0, offset_y=0, pa
         return base64.b64encode(buffered.getvalue()).decode("utf-8")
     except Exception:
         return ""
+
+def crear_patron_grafico(tipo_parte, logo_b64=None):
+    # Crea una imagen representativa del patrón de la camiseta para el panel admin
+    w, h = 250, 300
+    img = Image.new("RGBA", (w, h), (30, 30, 30, 255))
+    draw = ImageDraw.Draw(img)
+    
+    # Dibujar silueta blanca según la parte
+    if tipo_parte in ["Frente", "Espalda"]:
+        draw.rectangle([60, 40, 190, 270], fill=(255, 255, 255, 255))
+        if tipo_parte == "Frente":
+            draw.pieslice([90, 30, 160, 90], 180, 360, fill=(30, 30, 30, 255))
+        else:
+            draw.pieslice([90, 35, 160, 75], 180, 360, fill=(30, 30, 30, 255))
+    elif tipo_parte == "Cuello":
+        draw.rectangle([30, 120, 220, 180], fill=(255, 255, 255, 255))
+    elif tipo_parte in ["Manga Izquierda", "Manga Derecha"]:
+        draw.polygon([(50, 250), (125, 60), (200, 250)], fill=(255, 255, 255, 255))
+
+    # Si hay un logo activo, dibujarlo en miniatura dentro del patrón de manera gráfica
+    if logo_b64:
+        try:
+            logo_img = Image.open(BytesIO(base64.b64decode(logo_b64))).convert("RGBA")
+            logo_img.thumbnail((70, 70))
+            lw, lh = logo_img.size
+            img.paste(logo_img, ((w - lw) // 2, (h - lh) // 2), logo_img)
+        except Exception:
+            pass
+
+    return img
 
 params = st.query_params
 if "modo_vista" not in st.session_state: 
@@ -164,7 +190,6 @@ def actualizar_url(vista, user):
     st.query_params.update({"seccion": vista, "user": user})
     st.rerun()
 
-# Añadido tu nombre legal y variaciones para garantizar acceso al Panel Admin
 ADMINS_AUTORIZADOS = ["pixel2580", "eric", "eric ramon espinal cruz"]
 
 # --- BARRA SUPERIOR ---
@@ -368,14 +393,14 @@ if st.session_state.modo_vista == "Estudio":
 # VISTA DE ADMIN
 # =========================================================
 else:
-    st.subheader("🛠️ Panel de Administración")
+    st.subheader("🛠️ Panel de Administración - Mapeo Gráfico UV")
     
-    with st.expander("👕 Configurar Coordenadas UV por Parte de la Camiseta", expanded=True):
+    with st.expander("👕 Configurar Patrones Gráficos y Coordenadas", expanded=True):
         config_actual = obtener_configuracion_activa()
         nuevo_nombre = st.text_input("Nombre del Modelo / Prenda", config_actual.get("nombre_modelo", "Camisa Estándar"))
         nuevo_uid = st.text_input("Sketchfab Model UID", config_actual.get("sketchfab_uid", SKETCHFAB_UID))
         
-        st.markdown("### Coordenadas del Mapa UV (Lienzo 1024x1024)")
+        st.markdown("### Ajuste Gráfico de Coordenadas por Sección (Lienzo 1024x1024)")
         coords_actuales = config_actual.get("coordenadas_partes", {
             "Frente": {"base_x": 512, "base_y": 512},
             "Espalda": {"base_x": 512, "base_y": 512},
@@ -385,15 +410,23 @@ else:
         })
         
         nuevas_coords = {}
-        for parte in ["Frente", "Espalda", "Cuello", "Manga Izquierda", "Manga Derecha"]:
-            st.markdown(f"**{parte}**")
-            col_cx, col_cy = st.columns(2)
-            with col_cx:
-                bx = st.number_input(f"Base X ({parte})", value=coords_actuales.get(parte, {}).get("base_x", 512), step=10, key=f"bx_{parte}")
-            with col_cy:
-                by = st.number_input(f"Base Y ({parte})", value=coords_actuales.get(parte, {}).get("base_y", 512), step=10, key=f"by_{parte}")
-            nuevas_coords[parte] = {"base_x": bx, "base_y": by}
+        partes = ["Frente", "Espalda", "Cuello", "Manga Izquierda", "Manga Derecha"]
         
+        for parte in partes:
+            st.markdown(f"---")
+            col_img, col_inputs = st.columns([1, 2])
+            
+            with col_img:
+                img_patron = crear_patron_grafico(parte, st.session_state.imagen_activa_b64)
+                st.image(img_patron, caption=parte, width=180)
+                
+            with col_inputs:
+                st.markdown(f"**Posición para: {parte}**")
+                bx = st.number_input(f"Coordenada X ({parte})", value=coords_actuales.get(parte, {}).get("base_x", 512), step=10, key=f"bx_{parte}")
+                by = st.number_input(f"Coordenada Y ({parte})", value=coords_actuales.get(parte, {}).get("base_y", 512), step=10, key=f"by_{parte}")
+                nuevas_coords[parte] = {"base_x": bx, "base_y": by}
+        
+        st.markdown("---")
         if st.button("💾 Guardar Configuración y Coordenadas 3D"):
             try:
                 db.collection("config_estudio").document("modelo_actual").set({
@@ -402,7 +435,7 @@ else:
                     "coordenadas_partes": nuevas_coords,
                     "actualizado": datetime.now()
                 }, merge=True)
-                st.success("¡Configuración y mapeo guardados con éxito!")
+                st.success("¡Configuración y mapeo gráfico guardados con éxito!")
                 st.rerun()
             except Exception as e:
                 st.error(f"Error al guardar: {e}")
