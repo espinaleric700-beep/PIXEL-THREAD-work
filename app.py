@@ -4,7 +4,6 @@ from PIL import Image
 import streamlit as st
 import streamlit.components.v1 as components
 import requests
-import re
 
 # --- CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(page_title="Pixel Thread - Personalizador 3D", layout="wide")
@@ -23,17 +22,9 @@ if "sketchfab_token" not in st.session_state:
 if "modelo_seleccionado_uid" not in st.session_state:
     st.session_state.modelo_seleccionado_uid = ""
 
-def extraer_uid_sketchfab(texto):
-    """Extrae automáticamente el UID de Sketchfab sin importar si pegan un enlace, un iframe o el ID directo."""
-    texto = texto.strip()
-    # Busca patrones de UID de Sketchfab (32 caracteres hexadecimales)
-    match_uid = re.search(r'([0-9a-f]{32})', texto)
-    if match_uid:
-        return match_uid.group(1)
-    return texto
-
+@st.cache_data(ttl=600)
 def obtener_modelos_sketchfab(token):
-    """Consulta la API de Sketchfab para obtener los modelos del usuario."""
+    """Extrae directamente todos los modelos desde la API oficial de Sketchfab."""
     if not token:
         return []
     
@@ -41,9 +32,10 @@ def obtener_modelos_sketchfab(token):
     url = "https://api.sketchfab.com/v3/me/models"
     
     try:
-        response = requests.get(url, headers=headers, timeout=5)
+        response = requests.get(url, headers=headers, timeout=10)
         if response.status_code == 200:
-            return response.json().get("results", [])
+            data = response.json()
+            return data.get("results", [])
         else:
             return []
     except Exception:
@@ -116,7 +108,7 @@ with tab_cliente:
             """
             components.html(sketchfab_html, height=360)
         else:
-            st.warning("⚠️ No hay ningún modelo seleccionado. Ve a la pestaña **Panel Admin** e ingresa el UID o enlace de tu modelo.")
+            st.warning("⚠️ Selecciona un modelo desde la pestaña **Panel Admin y API Sketchfab** para visualizarlo.")
         
         st.markdown("---")
         
@@ -127,44 +119,43 @@ with tab_cliente:
             st.info("Sube una imagen para ver el mapa UV generado.")
 
 with tab_admin:
-    st.header("⚙️ Configuración y Conexión Sketchfab")
-    st.write("Gestiona la conexión con la API y asigna el modelo 3D para la visualización.")
+    st.header("⚙️ Extracción de Modelos desde la API de Sketchfab")
+    st.write("Tus modelos se extraen automáticamente usando tu token de API configurado.")
     
-    st.subheader("🔗 Asignación de Modelo")
-    entrada_usuario = st.text_input("Pega aquí el enlace, el iframe completo o el UID de tu modelo de Sketchfab", value=st.session_state.modelo_seleccionado_uid)
-    if st.button("Guardar Modelo Activo"):
-        uid_limpio = extraer_uid_sketchfab(entrada_usuario)
-        st.session_state.modelo_seleccionado_uid = uid_limpio
-        st.success(f"¡Modelo configurado correctamente! (UID detectado: {uid_limpio})")
+    token_input = st.text_input("Token de API de Sketchfab", type="password", value=st.session_state.sketchfab_token)
+    if st.button("Actualizar Token"):
+        st.session_state.sketchfab_token = token_input
+        st.cache_data.clear()
+        st.success("¡Token actualizado con éxito!")
 
     st.markdown("---")
+    st.subheader("📦 Modelos Disponibles en tu Cuenta")
     
-    st.subheader("🔄 Sincronización Automática por API")
-    token_input = st.text_input("Token de API de Sketchfab", type="password", value=st.session_state.sketchfab_token)
+    # Extracción automática al cargar la pestaña del panel admin
+    modelos = obtener_modelos_sketchfab(st.session_state.sketchfab_token)
     
-    if st.button("Buscar Modelos con la API"):
-        st.session_state.sketchfab_token = token_input
-        modelos = obtener_modelos_sketchfab(token_input)
-        if modelos:
-            st.success(f"¡Se encontraron {len(modelos)} modelos!")
-            cols = st.columns(3)
-            for idx, modelo in enumerate(modelos):
-                uid = modelo.get("uid")
-                name = modelo.get("name")
-                thumbnails = modelo.get("thumbnails", {}).get("images", [])
-                thumb_url = thumbnails[0]["url"] if thumbnails else ""
-                
-                with cols[idx % 3]:
-                    if thumb_url:
-                        st.image(thumb_url, caption=name, use_container_width=True)
-                    else:
-                        st.write(f"**{name}**")
-                        
-                    if st.button("Seleccionar", key=f"api_btn_{uid}"):
-                        st.session_state.modelo_seleccionado_uid = uid
-                        st.rerun()
-        else:
-            st.info("La API no devolvió listado automático. Puedes usar tranquilamente el campo de **Asignación de Modelo** de arriba pegando el enlace o iframe de tu pieza.")
+    if modelos:
+        st.success(f"¡Se extrajeron {len(modelos)} modelos correctamente desde la API!")
+        cols = st.columns(3)
+        for idx, modelo in enumerate(modelos):
+            uid = modelo.get("uid")
+            name = modelo.get("name")
+            thumbnails = modelo.get("thumbnails", {}).get("images", [])
+            # Selecciona la miniatura de tamaño mediano o la primera disponible
+            thumb_url = thumbnails[1]["url"] if len(thumbnails) > 1 else (thumbnails[0]["url"] if thumbnails else "")
+            
+            with cols[idx % 3]:
+                if thumb_url:
+                    st.image(thumb_url, caption=name, use_container_width=True)
+                else:
+                    st.write(f"**{name}**")
+                    
+                is_selected = (st.session_state.modelo_seleccionado_uid == uid)
+                if st.button("Seleccionar Modelo" if not is_selected else "✅ Modelo Activo", key=f"api_model_{uid}"):
+                    st.session_state.modelo_seleccionado_uid = uid
+                    st.rerun()
+    else:
+        st.error("No se pudieron extraer los modelos. Comprueba que tu token sea válido y que tu cuenta tenga modelos subidos.")
 
     st.markdown("---")
     st.subheader("📍 Coordenadas Base del Mapa UV (1024x1024)")
