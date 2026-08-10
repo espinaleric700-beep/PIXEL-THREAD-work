@@ -145,56 +145,39 @@ def generar_textura_3d(imagen_subida_b64, escala=300, offset_x=0, offset_y=0, pa
     except Exception:
         return ""
 
-def crear_patron_grafico(tipo_parte, logo_b64=None, svg_personalizado_b64=None, offset_x=0, offset_y=0):
-    w, h = 280, 320
-    
-    if svg_personalizado_b64:
-        try:
-            svg_data = base64.b64decode(svg_personalizado_b64)
-            img_svg = Image.open(BytesIO(svg_data)).convert("RGBA")
-            img_svg.thumbnail((w, h))
-            img_base = Image.new("RGBA", (w, h), (25, 25, 25, 255))
-            sw, sh = img_svg.size
-            img_base.paste(img_svg, ((w - sw) // 2, (h - sh) // 2), img_svg)
-            
-            if logo_b64:
-                logo_img = Image.open(BytesIO(base64.b64decode(logo_b64))).convert("RGBA")
-                logo_img.thumbnail((80, 80))
-                lw, lh = logo_img.size
-                lx = (w - lw) // 2 + int(offset_x * 0.25)
-                ly = (h - lh) // 2 + int(offset_y * 0.25)
-                img_base.paste(logo_img, (lx, ly), logo_img)
-            return img_base
-        except Exception:
-            pass
-
-    img = Image.new("RGBA", (w, h), (25, 25, 25, 255))
+def crear_patron_grafico(tipo_parte, logo_b64=None, svg_personalizado_b64=None, offset_x=0, offset_y=0, escala=200):
+    w, h = 320, 360
+    img = Image.new("RGBA", (w, h), (20, 20, 20, 255))
     draw = ImageDraw.Draw(img)
     
+    # Dibujar silueta plana 2D del molde de la prenda según la parte seleccionada
     if tipo_parte in ["Frente", "Espalda"]:
-        draw.rectangle([60, 30, 220, 290], fill=(240, 240, 240, 255))
+        draw.polygon([(90, 40), (230, 40), (270, 90), (250, 330), (70, 330), (50, 90)], outline=(150, 150, 150, 255), width=2, fill=(245, 245, 245, 255))
         if tipo_parte == "Frente":
-            draw.pieslice([100, 20, 180, 80], 180, 360, fill=(25, 25, 25, 255))
+            draw.arc([130, 35, 190, 95], 0, 180, fill=(20, 20, 20, 255), width=3)
         else:
-            draw.pieslice([100, 25, 180, 65], 180, 360, fill=(25, 25, 25, 255))
+            draw.arc([130, 40, 190, 75], 0, 180, fill=(20, 20, 20, 255), width=3)
     elif tipo_parte == "Cuello":
-        draw.rectangle([30, 120, 250, 180], fill=(240, 240, 240, 255))
+        draw.rectangle([40, 130, 280, 210], outline=(150, 150, 150, 255), width=2, fill=(245, 245, 245, 255))
     elif tipo_parte in ["Manga Izquierda", "Manga Derecha"]:
-        draw.polygon([(40, 280), (140, 40), (240, 280)], fill=(240, 240, 240, 255))
+        draw.polygon([(60, 280), (160, 50), (260, 280)], outline=(150, 150, 150, 255), width=2, fill=(245, 245, 245, 255))
 
+    # Si hay un logo o diseño subido, lo dibujamos posicionado en el molde
     if logo_b64:
         try:
             logo_img = Image.open(BytesIO(base64.b64decode(logo_b64))).convert("RGBA")
-            logo_img.thumbnail((80, 80))
+            logo_img.thumbnail((escala, escala))
             lw, lh = logo_img.size
-            lx = (w - lw) // 2 + int(offset_x * 0.25)
-            ly = (h - lh) // 2 + int(offset_y * 0.25)
+            # Centrado en el molde con offset dinámico
+            lx = (w - lw) // 2 + offset_x
+            ly = (h - lh) // 2 + offset_y
             img.paste(logo_img, (lx, ly), logo_img)
         except Exception:
             pass
 
     return img
 
+# --- GESTIÓN DE ESTADOS ---
 params = st.query_params
 if "modo_vista" not in st.session_state: 
     st.session_state.modo_vista = params.get("seccion", "Estudio")
@@ -208,12 +191,10 @@ if "mover_x" not in st.session_state:
     st.session_state.mover_x = 0
 if "mover_y" not in st.session_state:
     st.session_state.mover_y = 0
-
-def actualizar_url(vista, user):
-    st.session_state.modo_vista = vista
-    st.session_state.user = user
-    st.query_params.update({"seccion": vista, "user": user})
-    st.rerun()
+if "escala_logo" not in st.session_state:
+    st.session_state.escala_logo = 150
+if "parte_seleccionada" not in st.session_state:
+    st.session_state.parte_seleccionada = "Frente"
 
 ADMINS_AUTORIZADOS = ["pixel2580", "eric", "eric ramon espinal cruz"]
 
@@ -224,7 +205,8 @@ with top_c1:
 with top_c2:
     if st.session_state.user.strip().lower() in [a.lower() for a in ADMINS_AUTORIZADOS]:
         if st.button("🛠️ Panel Admin", key="btn_admin_top"):
-            actualizar_url("Admin" if st.session_state.modo_vista != "Admin" else "Estudio", st.session_state.user)
+            st.session_state.modo_vista = "Admin" if st.session_state.modo_vista != "Admin" else "Estudio"
+            st.rerun()
 with top_c3:
     if st.button("Guardar Proyecto", key="btn_save_top"):
         st.session_state.guardar_trigger = True
@@ -252,7 +234,7 @@ if st.session_state.modo_vista == "Estudio":
     with col_panel:
         with st.container(border=True):
             if st.session_state.herramienta_activa == "Editar":
-                st.markdown("<div style='font-size: 15px; font-weight: bold;'>Cargar imágenes</div>", unsafe_allow_html=True)
+                st.markdown("<div style='font-size: 15px; font-weight: bold;'>Cargar imágenes o Logos</div>", unsafe_allow_html=True)
                 
                 up_file = st.file_uploader("Seleccionar archivo", type=["png", "jpg", "jpeg", "svg"], label_visibility="collapsed")
                 
@@ -264,104 +246,123 @@ if st.session_state.modo_vista == "Estudio":
                         pass
 
                 st.markdown("<hr style='margin: 10px 0;'>", unsafe_allow_html=True)
-                st.markdown("<div style='font-size: 14px; font-weight: bold;'>Ubicación en la Camiseta</div>", unsafe_allow_html=True)
-                parte_seleccionada = st.selectbox("Seleccionar Parte", ["Frente", "Espalda", "Cuello", "Manga Izquierda", "Manga Derecha"])
+                st.markdown("<div style='font-size: 14px; font-weight: bold;'>Ubicación en la Prenda</div>", unsafe_allow_html=True)
+                
+                st.session_state.parte_seleccionada = st.selectbox(
+                    "Seleccionar Parte", 
+                    ["Frente", "Espalda", "Cuello", "Manga Izquierda", "Manga Derecha"],
+                    index=["Frente", "Espalda", "Cuello", "Manga Izquierda", "Manga Derecha"].index(st.session_state.parte_seleccionada)
+                )
 
                 st.markdown("<hr style='margin: 10px 0;'>", unsafe_allow_html=True)
-                st.markdown("<div style='font-size: 14px; font-weight: bold;'>Transformación Manual (Arrastra con el Mouse abajo 👇)</div>", unsafe_allow_html=True)
+                st.markdown("<div style='font-size: 14px; font-weight: bold;'>Editor 2D Directo (Arrastra el diseño sobre el molde) 👇</div>", unsafe_allow_html=True)
                 
-                escala_logo = st.slider("Tamaño del Diseño", min_value=50, max_value=600, value=200, step=10)
+                st.session_state.escala_logo = st.slider("Tamaño del Diseño", min_value=40, max_value=300, value=st.session_state.escala_logo, step=5)
                 
-                col_x, col_y = st.columns(2)
-                with col_x:
-                    st.session_state.mover_x = st.number_input("Eje X", value=st.session_state.mover_x, step=10)
-                with col_y:
-                    st.session_state.mover_y = st.number_input("Eje Y", value=st.session_state.mover_y, step=10)
-
-                # --- PANEL INTERACTIVO DE ARRASTRE CON MOUSE ---
-                st.markdown("<div style='font-size: 12px; color: #00cec9; margin-top: 6px; font-weight: bold;'>🖱️ Panel de Arrastre Táctil:</div>", unsafe_allow_html=True)
-                
+                # Generar imagen combinada del patrón 2D con el diseño encima
                 patrones_svgs = config_actual.get("patrones_svg", {})
                 patron_img = crear_patron_grafico(
-                    parte_seleccionada, 
+                    st.session_state.parte_seleccionada, 
                     st.session_state.imagen_activa_b64, 
-                    patrones_svgs.get(parte_seleccionada), 
+                    patrones_svgs.get(st.session_state.parte_seleccionada), 
                     st.session_state.mover_x, 
-                    st.session_state.mover_y
+                    st.session_state.mover_y,
+                    st.session_state.escala_logo
                 )
                 
                 buffered_patron = BytesIO()
                 patron_img.save(buffered_patron, format="PNG")
                 b64_patron = base64.b64encode(buffered_patron.getvalue()).decode("utf-8")
 
-                # Componente HTML+JS para arrastrar con el mouse en tiempo real
-                draggable_html = f"""
-                <div id="drag-container" style="width: 100%; height: 220px; background: #111; border: 2px dashed #00cec9; border-radius: 8px; position: relative; overflow: hidden; cursor: grab; display: flex; align-items: center; justify-content: center;">
-                    <img id="drag-img" src="data:image/png;base64,{b64_patron}" style="max-width: 100%; max-height: 100%; user-select: none; pointer-events: none;" />
-                    <div style="position: absolute; bottom: 5px; right: 8px; font-size: 10px; color: #888; background: rgba(0,0,0,0.7); padding: 2px 6px; border-radius: 4px;">Arrastra para mover</div>
+                # Componente interactivo HTML/JS para arrastrar el diseño directamente sobre el lienzo 2D en tiempo real
+                interactive_canvas_html = f"""
+                <div id="canvas-2d-wrapper" style="width: 100%; height: 300px; background: #111; border: 2px solid #00cec9; border-radius: 8px; position: relative; overflow: hidden; cursor: grab; display: flex; align-items: center; justify-content: center; user-select: none;">
+                    <img id="patron-preview" src="data:image/png;base64,{b64_patron}" style="max-width: 100%; max-height: 100%; pointer-events: none;" />
+                    <div style="position: absolute; bottom: 6px; right: 8px; font-size: 10px; color: #00cec9; background: rgba(0,0,0,0.8); padding: 3px 8px; border-radius: 4px; font-weight: bold;">🖱️ Arrastra para mover en el 3D</div>
+                </div>
+
+                <div style="display: flex; gap: 8px; margin-top: 8px;">
+                    <button onclick="resetPos()" style="background: #333; color: #fff; border: none; padding: 4px 8px; border-radius: 4px; font-size: 11px; cursor: pointer; width: 100%;">Centrar</button>
                 </div>
 
                 <script>
-                    const container = document.getElementById('drag-container');
+                    const wrapper = document.getElementById('canvas-2d-wrapper');
                     let isDragging = false;
                     let startX, startY;
 
-                    container.addEventListener('mousedown', (e) => {{
+                    wrapper.addEventListener('mousedown', (e) => {{
                         isDragging = true;
                         startX = e.clientX;
                         startY = e.clientY;
-                        container.style.cursor = 'grabbing';
+                        wrapper.style.cursor = 'grabbing';
                     }});
 
                     window.addEventListener('mouseup', () => {{
-                        isDragging = false;
-                        container.style.cursor = 'grab';
+                        if (isDragging) {{
+                            isDragging = false;
+                            wrapper.style.cursor = 'grab';
+                            // Forzar recarga en Streamlit actualizando parámetros de URL o enviando evento
+                        }}
                     }});
 
                     window.addEventListener('mousemove', (e) => {{
                         if (!isDragging) return;
-                        const dx = (e.clientX - startX) * 2;
-                        const dy = (e.clientY - startY) * 2;
+                        const dx = e.clientX - startX;
+                        const dy = e.clientY - startY;
                         startX = e.clientX;
                         startY = e.clientY;
 
-                        // Enviar coordenadas actualizadas a Streamlit mediante URL params invisibles o triggers
+                        // Enviar coordenadas acumuladas hacia los inputs de Streamlit ocultos o mediante URL params
                         const parentDoc = window.parent.document;
-                        // Buscamos los inputs numéricos de Streamlit para actualizar sus valores dinámicamente
                         const numInputs = parentDoc.querySelectorAll('input[type="number"]');
                         if(numInputs.length >= 2) {{
-                            // Actualizar Eje X e Y simulando tipeo
                             let xInput = numInputs[0];
                             let yInput = numInputs[1];
                             
                             let currentX = parseInt(xInput.value) || 0;
                             let currentY = parseInt(yInput.value) || 0;
                             
-                            // Ajustar valores
-                            // Nota: Streamlit requiere disparar eventos nativos de input para sincronizar estado
+                            xInput.value = currentX + dx;
+                            yInput.value = currentY + dy;
+                            
+                            xInput.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                            yInput.dispatchEvent(new Event('input', {{ bubbles: true }}));
                         }}
                     }});
+
+                    function resetPos() {{
+                        const parentDoc = window.parent.document;
+                        const numInputs = parentDoc.querySelectorAll('input[type="number"]');
+                        if(numInputs.length >= 2) {{
+                            numInputs[0].value = 0;
+                            numInputs[1].value = 0;
+                            numInputs[0].dispatchEvent(new Event('input', {{ bubbles: true }}));
+                            numInputs[1].dispatchEvent(new Event('input', {{ bubbles: true }}));
+                        }}
+                    }}
                 </script>
                 """
-                # Como alternativa robusta y directa en Streamlit para el movimiento fluido:
-                st.info("💡 Tip: Usa los botones deslizantes o numéricos de Eje X / Eje Y para posicionar tu diseño con total precisión milimétrica.")
+                st.components.v1.html(interactive_canvas_html, height=350)
+
+                # Controles numéricos internos sincronizados con el arrastre del mouse
+                col_x, col_y = st.columns(2)
+                with col_x:
+                    st.session_state.mover_x = st.number_input("Eje X", value=st.session_state.mover_x, step=5)
+                with col_y:
+                    st.session_state.mover_y = st.number_input("Eje Y", value=st.session_state.mover_y, step=5)
 
                 st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
                 
-                if st.button("✨ Aplicar al Modelo 3D", key="btn_aplicar_3d"):
-                    st.success("¡Textura aplicada al modelo 3D en tiempo real!")
-                    st.rerun()
-
                 if st.session_state.imagen_activa_b64:
-                    if st.button("🗑️ Quitar Textura"):
+                    if st.button("🗑️ Quitar Diseño"):
                         st.session_state.imagen_activa_b64 = ""
-                        st.success("Textura removida.")
+                        st.success("Diseño removido.")
                         st.rerun()
 
                 st.markdown("<hr style='margin: 12px 0;'>", unsafe_allow_html=True)
                 nombre_proyecto = st.text_input("Nombre del Proyecto", "Proyecto Pixel 3D")
                 
-                if st.button("🚀 Producción", key="btn_prod"):
+                if st.button("🚀 Enviar a Producción", key="btn_prod"):
                     try:
                         lista_archivos = []
                         if up_file:
@@ -377,7 +378,7 @@ if st.session_state.modo_vista == "Estudio":
                             "timestamp": datetime.now()
                         })
                         recalcular_turnos()
-                        st.success("¡Enviado a Producción!")
+                        st.success("¡Enviado a Producción con éxito!")
                     except Exception as e:
                         st.error(f"Error: {e}")
 
@@ -412,12 +413,13 @@ if st.session_state.modo_vista == "Estudio":
         with st.container(border=True):
             st.markdown("<div style='font-size: 14px; font-weight: bold; margin-bottom: 8px;'>Visualizador 3D en Vivo</div>", unsafe_allow_html=True)
             
-            e_val = st.session_state.get("escala_logo", 200)
-            x_val = st.session_state.get("mover_x", 0)
-            y_val = st.session_state.get("mover_y", 0)
-            p_val = st.session_state.get("parte_seleccionada", "Frente")
-            
-            textura_b64 = generar_textura_3d(st.session_state.imagen_activa_b64, e_val, x_val, y_val, p_val)
+            textura_b64 = generar_textura_3d(
+                st.session_state.imagen_activa_b64, 
+                st.session_state.escala_logo, 
+                st.session_state.mover_x, 
+                st.session_state.mover_y, 
+                st.session_state.parte_seleccionada
+            )
 
             sketchfab_viewer_html = f"""
             <!DOCTYPE html>
@@ -489,7 +491,7 @@ else:
         patrones_svg_actuales = config_actual.get("patrones_svg", {})
         
         nuevas_coords = {}
-        nuevos_svgs = patrones_svg_actuales.copy()
+        nuevas_svgs = patrones_svg_actuales.copy()
         partes = ["Frente", "Espalda", "Cuello", "Manga Izquierda", "Manga Derecha"]
         
         for parte in partes:
@@ -498,15 +500,15 @@ else:
             
             with col_img:
                 svg_existente = patrones_svg_actuales.get(parte, None)
-                img_patron = crear_patron_grafico(parte, st.session_state.imagen_activa_b64, svg_existente, 0, 0)
+                img_patron = crear_patron_grafico(parte, st.session_state.imagen_activa_b64, svg_existente, 0, 0, 120)
                 st.image(img_patron, caption=f"Patron: {parte}", width=180)
                 
                 sub_svg = st.file_uploader(f"Subir SVG ({parte})", type=["svg", "png", "jpg"], key=f"svg_up_{parte}", label_visibility="collapsed")
                 if sub_svg:
                     b64_svg, _ = procesar_archivo_subido(sub_svg)
-                    nuevos_svgs[parte] = b64_svg
+                    nuevas_svgs[parte] = b64_svg
                     st.success(f"SVG cargado para {parte}")
-                
+            
             with col_inputs:
                 st.markdown(f"**Coordenadas para: {parte}**")
                 bx = st.number_input(f"Coordenada X ({parte})", value=coords_actuales.get(parte, {}).get("base_x", 512), step=10, key=f"bx_{parte}")
@@ -520,7 +522,7 @@ else:
                     "nombre_modelo": nuevo_nombre,
                     "sketchfab_uid": nuevo_uid,
                     "coordenadas_partes": nuevas_coords,
-                    "patrones_svg": nuevos_svgs,
+                    "patrones_svg": nuevas_svgs,
                     "actualizado": datetime.now()
                 }, merge=True)
                 st.success("¡Configuración, patrones SVG y mapeo guardados con éxito!")
