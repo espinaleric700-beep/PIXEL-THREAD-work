@@ -250,12 +250,27 @@ if st.session_state.modo_vista == "Estudio":
                         pass
 
                 st.markdown("<hr style='margin: 10px 0;'>", unsafe_allow_html=True)
-                st.markdown("<div style='font-size: 14px; font-weight: bold;'>Ubicación en la Prenda</div>", unsafe_allow_html=True)
                 
+                # --- NUEVO SELECTOR RÁPIDO DE MAPEO DE PARTES ---
+                st.markdown("<div style='font-size: 14px; font-weight: bold;'>Mapeo de Sección en la Prenda</div>", unsafe_allow_html=True)
+                partes_disponibles = ["Frente", "Espalda", "Cuello", "Manga Izquierda", "Manga Derecha"]
+                
+                # Renderizamos botones rápidos o selector optimizado para alternar secciones al instante
+                cols_partes = st.columns(len(partes_disponibles))
+                for i, parte_name in enumerate(partes_disponibles):
+                    with cols_partes[i]:
+                        is_active = (st.session_state.parte_seleccionada == parte_name)
+                        btn_label = f"✨ {parte_name[:3]}" if is_active else parte_name[:3]
+                        if st.button(parte_name, key=f"map_btn_{parte_name}", help=f"Mapear en {parte_name}"):
+                            st.session_state.parte_seleccionada = parte_name
+                            st.rerun()
+
+                # Selector nativo de respaldo detallado
                 st.session_state.parte_seleccionada = st.selectbox(
-                    "Seleccionar Parte", 
-                    ["Frente", "Espalda", "Cuello", "Manga Izquierda", "Manga Derecha"],
-                    index=["Frente", "Espalda", "Cuello", "Manga Izquierda", "Manga Derecha"].index(st.session_state.parte_seleccionada)
+                    "Sección Activa Actual", 
+                    partes_disponibles,
+                    index=partes_disponibles.index(st.session_state.parte_seleccionada),
+                    label_visibility="collapsed"
                 )
 
                 st.markdown("<hr style='margin: 10px 0;'>", unsafe_allow_html=True)
@@ -280,7 +295,7 @@ if st.session_state.modo_vista == "Estudio":
                 interactive_canvas_html = f"""
                 <div id="canvas-2d-wrapper" style="width: 100%; height: 300px; background: #111; border: 2px solid #00cec9; border-radius: 8px; position: relative; overflow: hidden; cursor: grab; display: flex; align-items: center; justify-content: center; user-select: none;">
                     <img id="patron-preview" src="data:image/png;base64,{b64_patron}" style="max-width: 100%; max-height: 100%; pointer-events: none;" />
-                    <div style="position: absolute; bottom: 6px; right: 8px; font-size: 10px; color: #00cec9; background: rgba(0,0,0,0.8); padding: 3px 8px; border-radius: 4px; font-weight: bold;">🖱️ Arrastra para mover en el 3D</div>
+                    <div style="position: absolute; bottom: 6px; right: 8px; font-size: 10px; color: #00cec9; background: rgba(0,0,0,0.8); padding: 3px 8px; border-radius: 4px; font-weight: bold;">🖱️ Arrastra para mover en el 3D ({st.session_state.parte_seleccionada})</div>
                 </div>
 
                 <div style="display: flex; gap: 8px; margin-top: 8px;">
