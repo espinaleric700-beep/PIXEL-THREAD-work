@@ -102,7 +102,7 @@ def procesar_archivo_subido(arch):
     return base64.b64encode(b_cont).decode("utf-8"), "raster"
 
 def generar_textura_3d_frente(pieza_frente):
-    """Genera la textura UV integrada con las imágenes subidas para aplicarla directamente al material 3D"""
+    """Combina la base y todos los elementos de la pieza frente en una sola textura UV de alta calidad para el modelo 3D"""
     try:
         if not isinstance(pieza_frente, dict):
             base_b64 = str(pieza_frente)
@@ -132,10 +132,10 @@ def generar_textura_3d_frente(pieza_frente):
                     decoded_elem = base64.b64decode(e_b64)
                     img_elem = Image.open(BytesIO(decoded_elem)).convert("RGBA")
                     
-                    w_pct = elem.get("ancho", 80)
-                    h_pct = elem.get("alto", 80)
-                    ew = int((w_pct / 100.0) * 450)
-                    eh = int((h_pct / 100.0) * 450)
+                    w_px = elem.get("ancho", 80)
+                    h_px = elem.get("alto", 80)
+                    ew = int((w_px / 300.0) * 350)
+                    eh = int((h_px / 300.0) * 350)
                     img_elem = img_elem.resize((max(30, ew), max(30, eh)))
                     
                     x_pct = elem.get("x", 50)
@@ -274,8 +274,8 @@ if st.session_state.modo_vista == "Estudio":
                                     "tipo": tipo,
                                     "x": 50,
                                     "y": 50,
-                                    "ancho": 80,
-                                    "alto": 80,
+                                    "ancho": 120,
+                                    "alto": 120,
                                     "rotacion": 0
                                 }
                                 piezas[parte_destino]["elementos"].append(nuevo_elemento)
@@ -375,8 +375,8 @@ if st.session_state.modo_vista == "Estudio":
                     e_tipo = elem.get("tipo", "raster")
                     posX = elem.get("x", 50)
                     posY = elem.get("y", 50)
-                    ancho = elem.get("ancho", 80)
-                    alto = elem.get("alto", 80)
+                    ancho = elem.get("ancho", 120)
+                    alto = elem.get("alto", 120)
                     rotacion = elem.get("rotacion", 0)
 
                     contenido_elem = ""
@@ -534,7 +534,7 @@ if st.session_state.modo_vista == "Estudio":
                             <div class="label">Espalda</div>
                         </div>
                         <!-- Columna Derecha: Cuello y Mangas -->
-                        <div class="col-derecha">
+                        <div class="col-derecha" style="display: flex; flex-direction: column;">
                             <div class="pieza-box sub-pieza" style="height: 28%;">
                                 <div style="width:100%; height: 85%;">
                                     {render_capas_pieza(p_cuello, "cuello")}
@@ -658,83 +658,6 @@ if st.session_state.modo_vista == "Estudio":
                     st.caption(f"🧵 {p_rec.get('nombre_proyecto')} | Turno: #{p_rec.get('turno')}")
                     st.caption(f"Estado: {p_rec.get('estado')}")
                 else:
-                    st.caption("Sin pedidos recientes.")
+                    st.caption("Sin pedidos activos.")
             except Exception:
-                pass
-
-# =========================================================
-# VISTA DE ADMIN
-# =========================================================
-else:
-    st.subheader("🛠️ Panel de Administración")
-    
-    with st.expander("👕 Configurar Modelo y Patrón", expanded=True):
-        config_actual = obtener_configuracion_activa()
-        nuevo_nombre = st.text_input("Nombre del Modelo / Prenda", config_actual.get("nombre_modelo", "Camisa Estándar"))
-        nuevo_uid = st.text_input("Sketchfab Model UID", config_actual.get("sketchfab_uid", SKETCHFAB_UID))
-        
-        st.markdown("---")
-        st.markdown("##### Subir Imágenes Base de las Piezas del Patrón")
-        
-        up_frente = st.file_uploader("Frente", type=["svg", "png", "jpg", "jpeg"], key="up_f")
-        up_espalda = st.file_uploader("Espalda", type=["svg", "png", "jpg", "jpeg"], key="up_e")
-        up_cuello = st.file_uploader("Cuello", type=["svg", "png", "jpg", "jpeg"], key="up_c")
-        up_manga_izq = st.file_uploader("Manga Izquierda", type=["svg", "png", "jpg", "jpeg"], key="up_mi")
-        up_manga_der = st.file_uploader("Manga Derecha", type=["svg", "png", "jpg", "jpeg"], key="up_md")
-        
-        col_btn1, col_btn2 = st.columns(2)
-        with col_btn1:
-            if st.button("💾 Guardar Configuración"):
-                try:
-                    piezas_actuales = config_actual.get("piezas", {})
-                    
-                    def actualizar_pieza_base(up_f, key_name):
-                        if up_f:
-                            b64, tipo = procesar_archivo_subido(up_f)
-                            if key_name not in piezas_actuales:
-                                piezas_actuales[key_name] = {"b64": "", "tipo": "raster", "elementos": []}
-                            piezas_actuales[key_name]["b64"] = b64
-                            piezas_actuales[key_name]["tipo"] = tipo
-
-                    actualizar_pieza_base(up_frente, "frente")
-                    actualizar_pieza_base(up_espalda, "espalda")
-                    actualizar_pieza_base(up_cuello, "cuello")
-                    actualizar_pieza_base(up_manga_izq, "manga_izq")
-                    actualizar_pieza_base(up_manga_der, "manga_der")
-                    
-                    db.collection("config_estudio").document("modelo_actual").set({
-                        "nombre_modelo": nuevo_nombre,
-                        "sketchfab_uid": nuevo_uid,
-                        "piezas": piezas_actuales,
-                        "actualizado": datetime.now()
-                    }, merge=True)
-                    st.success("¡Configuración guardada con éxito!")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Error al guardar: {e}")
-        with col_btn2:
-            if st.button("🗑️ Limpiar Elementos de Diseño"):
-                try:
-                    piezas_actuales = config_actual.get("piezas", {})
-                    for p in piezas_actuales.values():
-                        if isinstance(p, dict):
-                            p["elementos"] = []
-                    db.collection("config_estudio").document("modelo_actual").update({
-                        "piezas": piezas_actuales
-                    })
-                    st.success("¡Elementos limpios correctamente!")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Error: {e}")
-
-    st.markdown("---")
-    st.subheader("📋 Gestión de Pedidos")
-    try:
-        recalcular_turnos()
-        docs = list(db.collection("pedidos_bordado").order_by("timestamp").stream())
-        for doc in docs:
-            p = doc.to_dict()
-            with st.container(border=True):
-                st.write(f"**Cliente:** {p.get('cliente')} | **Proyecto:** {p.get('nombre_proyecto')} | **Estado:** {p.get('estado')}")
-    except Exception as e:
-        st.error(f"Error al cargar pedidos: {e}")
+                st.caption("Cargando...")
