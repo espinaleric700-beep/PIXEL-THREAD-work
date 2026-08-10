@@ -16,12 +16,13 @@ except ImportError:
 st.set_page_config(page_title="Pixel Thread - Personalizador 3D", layout="wide")
 
 # --- GESTIÓN DE ESTADO (SESSION STATE) ---
+# Coordenadas base absolutas dentro del mapa UV completo
 if "coordenadas_partes" not in st.session_state:
     st.session_state.coordenadas_partes = {
-        "Frente": {"base_x": 250, "base_y": 500},
-        "Espalda": {"base_x": 750, "base_y": 500},
-        "Mangas": {"base_x": 512, "base_y": 800},
-        "Cuello": {"base_x": 512, "base_y": 200}
+        "Frente": {"base_x": 512, "base_y": 384},
+        "Espalda": {"base_x": 512, "base_y": 1152},
+        "Mangas": {"base_x": 1536, "base_y": 384},
+        "Cuello": {"base_x": 1536, "base_y": 1152}
     }
 
 if "mapeo_archivos_bytes" not in st.session_state:
@@ -54,60 +55,83 @@ def obtener_modelos_sketchfab(token):
     except Exception:
         return []
 
-def abrir_imagen_guia(file_bytes, filename):
+def abrir_imagen_guia(file_bytes, filename, target_size=(512, 512)):
     if not file_bytes:
-        return Image.new("RGBA", (1024, 1024), (255, 255, 255, 0))
+        return Image.new("RGBA", target_size, (255, 255, 255, 0))
     try:
         if filename and filename.lower().endswith(".svg"):
             if SVG_SUPPORT:
-                png_bytes = cairosvg.svg2png(bytestring=file_bytes, output_width=1024, output_height=1024)
+                # Renderizamos el SVG al tamaño de la parte
+                png_bytes = cairosvg.svg2png(bytestring=file_bytes, output_width=target_size[0], output_height=target_size[1])
                 return Image.open(BytesIO(png_bytes)).convert("RGBA")
             else:
-                return Image.new("RGBA", (1024, 1024), (255, 255, 255, 0))
+                return Image.new("RGBA", target_size, (255, 255, 255, 0))
         else:
             img = Image.open(BytesIO(file_bytes)).convert("RGBA")
-            return ImageOps.contain(img, (1024, 1024), Image.Resampling.LANCZOS)
+            # Escalamos la imagen para que quepa en el recuadro de la parte, manteniendo ratio
+            return ImageOps.contain(img, target_size, Image.Resampling.LANCZOS)
     except Exception:
-        return Image.new("RGBA", (1024, 1024), (255, 255, 255, 0))
+        return Image.new("RGBA", target_size, (255, 255, 255, 0))
 
-def generar_textura_3d(imagen_subida_b64, escala=200, offset_x=0, offset_y=0, parte_activa="Frente"):
+def generar_textura_3d_completa(imagen_subida_b64, escala=200, offset_x=0, offset_y=0, parte_activa="Frente"):
     try:
         coords_dict = st.session_state.coordenadas_partes
         
-        # 1. Cargar o crear el lienzo base con fondo transparente
-        datos_guia = st.session_state.mapeo_archivos_bytes.get(parte_activa)
-        if datos_guia:
-            file_bytes, filename = datos_guia
-            img_base = abrir_imagen_guia(file_bytes, filename)
-        else:
-            img_base = Image.new("RGBA", (1024, 1024), (255, 255, 255, 0))
+        # 1. Crear el lienzo base UV completo (2048x2048 para acomodar las 4 partes de 1024x1024 si es necesario)
+        # O lienzo de 1024x1024 dividido en cuadrantes. Usemos 2048x2048 para mayor calidad.
+        canvas_size = (2048, 2048)
+        part_size = (1024, 1024)
+        img_uv_completo = Image.new("RGBA", canvas_size, (255, 255, 255, 0))
 
-        # 2. Procesar el diseño subido (logo)
-        if imagen_subida_b64:
+        # 2. Cargar y pegar las guías de mapeo en sus posiciones fijas
+        mapping_positions = {
+            "Frente": (0, 0),
+            "Espalda": (0, 1024),
+            "Mangas": (1024, 0),
+            "Cuello": (1024, 1024)
+        }
+
+        for parte_nombre, pos in mapping_positions.items():
+            datos_guia = st.session_state.mapeo_archivos_bytes.get(parte_nombre)
+            if datos_guia:
+                file_bytes, filename = datos_guia
+                img_parte = abrir_imagen_guia(file_bytes, filename, target_size=part_size)
+                # Pegamos la guía en el cuadrante correspondiente
+                img_uv_completo.alpha_composite(img_parte, pos)
+            else:
+                # Si no hay guía, dibujamos un recuadro de referencia
+                referencia = Image.new("RGBA", part_size, (240, 240, 240, 255))
+                from PIL import ImageDraw
+                draw = ImageDraw.Draw(referencia)
+                draw.rectangle([(0,0), (1023, 1023)], outline=(200,200,200), width=2)
+                draw.text((512, 512), parte_nombre, fill=(150,150,150), anchor="mm")
+                img_uv_completo.alpha_composite(referencia, pos)
+
+        # 3. Procesar el diseño subido (logo) y colocarlo solo en la parte activa
+        if imagen_subida_b64 and parte_activa in coords_dict:
             decoded_elem = base64.b64decode(imagen_subida_b64)
             img_elem = Image.open(BytesIO(decoded_elem)).convert("RGBA")
             
-            # CORRECCIÓN CRÍTICA: Asegurar que el logo se escale correctamente antes del centrado
-            # Usamos ImageOps.contain para preservar la relación de aspecto y el tamaño máximo
+            # Escalar el logo
             img_elem = ImageOps.contain(img_elem, (escala, escala), Image.Resampling.LANCZOS)
             
-            # 3. Obtener coordenadas base y aplicar offsets
-            coords = coords_dict.get(parte_activa, {"base_x": 512, "base_y": 512})
-            base_x = coords.get("base_x", 512)
-            base_y = coords.get("base_y", 512)
+            # Obtener coordenadas base de la parte activa
+            coords = coords_dict.get(parte_activa)
+            base_x = coords.get("base_x")
+            base_y = coords.get("base_y")
             
-            # 4. Calcular la posición final centrada y con offset
+            # Calcular la posición final centrada y con offset (respecto al lienzo total)
             pos_x = (base_x - img_elem.width // 2) + offset_x
             pos_y = (base_y - img_elem.height // 2) + offset_y
             
-            # 5. Pegar el logo sobre la guía base usando el canal alfa para transparencia
-            img_base.alpha_composite(img_elem, (pos_x, pos_y))
+            # Pegar el logo sobre el mapa UV completo
+            img_uv_completo.alpha_composite(img_elem, (pos_x, pos_y))
 
         buffered = BytesIO()
-        img_base.save(buffered, format="PNG")
+        img_uv_completo.save(buffered, format="PNG")
         return base64.b64encode(buffered.getvalue()).decode("utf-8")
     except Exception as e:
-        print(f"Error generando textura: {e}")
+        print(f"Error generando textura completa: {e}")
         return ""
 
 # --- INTERFAZ PRINCIPAL ---
@@ -120,8 +144,8 @@ with tab_cliente:
 
     with col_panel:
         st.header("Panel de Control")
-        parte_seleccionada = st.selectbox("Selecciona la parte de la prenda", ["Frente", "Espalda", "Mangas", "Cuello"])
-        escala_logo = st.slider("Tamaño del diseño", 50, 800, 200) # Rango aumentado para mayor flexibilidad
+        parte_seleccionada = st.selectbox("Selecciona la parte de la prenda a editar", ["Frente", "Espalda", "Mangas", "Cuello"])
+        escala_logo = st.slider("Tamaño del diseño", 50, 800, 200)
         offset_x = st.slider("Mover Horizontal (X)", -500, 500, 0)
         offset_y = st.slider("Mover Vertical (Y)", -500, 500, 0)
         
@@ -132,7 +156,8 @@ with tab_cliente:
         bytes_imagen = archivo_subido.read()
         imagen_b64 = base64.b64encode(bytes_imagen).decode("utf-8")
 
-    textura_resultado_b64 = generar_textura_3d(
+    # Generar el mapa UV completo con todas las partes
+    textura_resultado_b64 = generar_textura_3d_completa(
         imagen_subida_b64=imagen_b64, 
         escala=escala_logo, 
         offset_x=offset_x, 
@@ -155,9 +180,11 @@ with tab_cliente:
         
         st.markdown("---")
         
+        # Vista previa del mapa UV completo unificado
         if textura_resultado_b64:
             imagen_decodificada = base64.b64decode(textura_resultado_b64)
-            st.image(BytesIO(imagen_decodificada), caption=f"Mapa UV Sincronizado ({parte_seleccionada}) - 1024x1024", use_container_width=True)
+            # El tamaño de visualización es 2048x2048, pero ajustamos automáticamente al ancho del contenedor
+            st.image(BytesIO(imagen_decodificada), caption="Mapa UV Completo (2048x2048)", use_container_width=True)
         else:
             st.info("Sube una imagen para ver el mapa UV generado.")
 
@@ -223,21 +250,13 @@ with tab_admin:
             st.info("No se encontraron modelos públicos directos para este token.")
 
     st.markdown("---")
-    st.subheader("📍 Coordenadas Base del Mapa UV (1024x1024)")
+    st.subheader("📍 Coordenadas Base del Mapa UV (Respecto a 2048x2048)")
     col_a, col_b, col_c, col_d = st.columns(4)
     with col_a:
         st.markdown("**Frente**")
-        st.session_state.coordenadas_partes["Frente"]["base_x"] = st.number_input("Frente X", 0, 1024, st.session_state.coordenadas_partes["Frente"]["base_x"])
-        st.session_state.coordenadas_partes["Frente"]["base_y"] = st.number_input("Frente Y", 0, 1024, st.session_state.coordenadas_partes["Frente"]["base_y"])
+        st.session_state.coordenadas_partes["Frente"]["base_x"] = st.number_input("Frente X", 0, 2048, st.session_state.coordenadas_partes["Frente"]["base_x"])
+        st.session_state.coordenadas_partes["Frente"]["base_y"] = st.number_input("Frente Y", 0, 2048, st.session_state.coordenadas_partes["Frente"]["base_y"])
     with col_b:
         st.markdown("**Espalda**")
-        st.session_state.coordenadas_partes["Espalda"]["base_x"] = st.number_input("Espalda X", 0, 1024, st.session_state.coordenadas_partes["Espalda"]["base_x"])
-        st.session_state.coordenadas_partes["Espalda"]["base_y"] = st.number_input("Espalda Y", 0, 1024, st.session_state.coordenadas_partes["Espalda"]["base_y"])
-    with col_c:
-        st.markdown("**Mangas**")
-        st.session_state.coordenadas_partes["Mangas"]["base_x"] = st.number_input("Mangas X", 0, 1024, st.session_state.coordenadas_partes["Mangas"]["base_x"])
-        st.session_state.coordenadas_partes["Mangas"]["base_y"] = st.number_input("Mangas Y", 0, 1024, st.session_state.coordenadas_partes["Mangas"]["base_y"])
-    with col_d:
-        st.markdown("**Cuello**")
-        st.session_state.coordenadas_partes["Cuello"]["base_x"] = st.number_input("Cuello X", 0, 1024, st.session_state.coordenadas_partes["Cuello"]["base_x"])
-        st.session_state.coordenadas_partes["Cuello"]["base_y"] = st.number_input("Cuello Y", 0, 1024, st.session_state.coordenadas_partes["Cuello"]["base_y"])
+        st.session_state.coordenadas_partes["Espalda"]["base_x"] = st.number_input("Espalda X", 0, 2048, st.session_state.coordenadas_partes["Espalda"]["base_x"])
+        st.session_state.coordenadas_partes["Espalda"]["
