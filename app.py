@@ -352,7 +352,7 @@ if st.session_state.modo_vista == "Estudio":
                         contenido_elem = base64.b64decode(e_b64).decode('utf-8', errors='ignore')
                     else:
                         mime_e = "image/png" if e_tipo == "png_trans" else "image/jpeg"
-                        contenido_elem = f"<img src='data:{mime_e};base64,{e_b64}' style='width: 100%; height: 100%; object-fit: contain; pointer-events: none;'/>"
+                        contenido_elem = f"<img src='data:{mime_e};base64:{e_b64}' style='width: 100%; height: 100%; object-fit: contain; pointer-events: none;'/>"
 
                     html_elementos += f"""
                     <div class='draggable-item' id='item_{p_nombre_pieza}_{e_id}' 
@@ -557,7 +557,6 @@ if st.session_state.modo_vista == "Estudio":
     # 4. Panel Derecho (Visor 3D y Colores)
     with col_right:
         with st.container(border=True):
-            # Si hay un UID de Sketchfab configurado, usamos el visor embebido oficial de Sketchfab, de lo contrario usamos model-viewer con la URL genérica
             sketchfab_uid = config_actual.get("sketchfab_uid", "")
             if sketchfab_uid:
                 iframe_html = f"""
@@ -642,6 +641,24 @@ else:
         
         uid_seleccionado = opciones_sk.get(modelo_seleccionado_key, "")
         
+        # --- VISTA PREVIA EN TIEMPO REAL EN ADMIN ---
+        st.markdown("##### 👀 Vista Previa del Modelo Seleccionado")
+        if uid_seleccionado:
+            preview_iframe = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <style>body {{ margin: 0; background-color: #141414; border-radius: 8px; overflow: hidden; }}</style>
+            </head>
+            <body>
+                <iframe title="Sketchfab Preview" frameborder="0" allowfullscreen mozallowfullscreen="true" webkitallowfullscreen="true" allow="autoplay; fullscreen; xr-spatial-tracking" xr-spatial-tracking execution-while-out-of-viewport execution-while-not-rendered web-share width="100%" height="280px" src="https://sketchfab.com/models/{uid_seleccionado}/embed?autostart=1&ui_controls=1&ui_infos=1&ui_stop=0"></iframe>
+            </body>
+            </html>
+            """
+            st.components.v1.html(preview_iframe, height=290)
+        else:
+            st.info("Selecciona un modelo válido de la lista para previsualizarlo aquí.")
+
         # Opción alternativa por enlace directo GLB si se prefiere
         nueva_url_3d = st.text_input(
             "O ingresa URL pública directa de respaldo (.glb)", 
