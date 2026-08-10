@@ -2,6 +2,7 @@ from io import BytesIO
 import base64
 from PIL import Image
 import streamlit as st
+import streamlit.components.v1 as components
 
 # --- CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(page_title="Pixel Thread - Personalizador 3D", layout="wide")
@@ -27,7 +28,7 @@ def generar_textura_3d(imagen_subida_b64, escala=200, offset_x=0, offset_y=0, pa
         coords_dict = config.get("coordenadas_partes", {})
         patrones_svgs = config.get("patrones_svg", {})
         
-        # Creamos el lienzo base limpio de 1024x1024 con fondo blanco
+        # Lienzo base limpio de 1024x1024 con fondo blanco
         img_base = Image.new("RGBA", (1024, 1024), (255, 255, 255, 255))
         
         for nombre_parte, coords in coords_dict.items():
@@ -59,42 +60,64 @@ def generar_textura_3d(imagen_subida_b64, escala=200, offset_x=0, offset_y=0, pa
         print(f"Error generando textura: {e}")
         return ""
 
-# --- INTERFAZ DE STREAMLIT ---
+# --- INTERFAZ PRINCIPAL ---
 st.title("Personalizador 3D - Pixel Thread")
 
-# Creamos las dos columnas principales
-col_panel, col_visor = st.columns(2, gap="large")
+# Pestañas principales para separar la vista de Cliente y el Panel Admin
+tab_cliente, tab_admin = st.tabs(["🎨 Personalizador en Vivo", "⚙️ Panel Admin"])
 
-with col_panel:
-    st.header("Panel de Control")
-    parte_seleccionada = st.selectbox("Selecciona la parte de la prenda", ["Frente", "Espalda", "Mangas"])
-    escala_logo = st.slider("Tamaño del diseño", 50, 500, 200)
-    offset_x = st.slider("Mover Horizontal (X)", -300, 300, 0)
-    offset_y = st.slider("Mover Vertical (Y)", -300, 300, 0)
+with tab_cliente:
+    col_panel, col_visor = st.columns(2, gap="large")
+
+    with col_panel:
+        st.header("Panel de Control")
+        parte_seleccionada = st.selectbox("Selecciona la parte de la prenda", ["Frente", "Espalda", "Mangas"])
+        escala_logo = st.slider("Tamaño del diseño", 50, 500, 200)
+        offset_x = st.slider("Mover Horizontal (X)", -300, 300, 0)
+        offset_y = st.slider("Mover Vertical (Y)", -300, 300, 0)
+        
+        archivo_subido = st.file_uploader(f"Sube el diseño para: {parte_seleccionada}", type=["png", "jpg", "jpeg", "svg"])
+
+    # Procesar imagen cargada
+    imagen_b64 = ""
+    if archivo_subido is not None:
+        bytes_imagen = archivo_subido.read()
+        imagen_b64 = base64.b64encode(bytes_imagen).decode("utf-8")
+
+    # Generar textura
+    textura_resultado_b64 = generar_textura_3d(
+        imagen_subida_b64=imagen_b64, 
+        escala=escala_logo, 
+        offset_x=offset_x, 
+        offset_y=offset_y, 
+        parte=parte_seleccionada
+    )
+
+    with col_visor:
+        st.header("Visor 3D en Tiempo Real")
+        
+        # 1. Visor 3D de Sketchfab (Reemplaza 'TU_ID_DE_SKETCHFAB' por el código de tu modelo)
+        sketchfab_html = """
+        <div style="width: 100%; height: 350px; border-radius: 10px; overflow: hidden; border: 1px solid #ccc;">
+            <iframe title="Modelo 3D Prenda" width="100%" height="100%" src="https://sketchfab.com/models/TU_ID_DE_SKETCHFAB/embed" frameborder="0" allowvr allow="autoplay; fullscreen; xr-spatial-tracking"></iframe>
+        </div>
+        """
+        components.html(sketchfab_html, height=360)
+        
+        st.markdown("---")
+        
+        # 2. Vista previa del mapa UV unificado generado
+        if textura_resultado_b64:
+            imagen_decodificada = base64.b64decode(textura_resultado_b64)
+            st.image(BytesIO(imagen_decodificada), caption="Mapa UV Texturizado (1024x1024)", use_container_width=True)
+        else:
+            st.info("Sube una imagen para ver el mapa UV generado.")
+
+with tab_admin:
+    st.header("Panel de Administración y Configuración UV")
+    st.write("Aquí puedes administrar los parámetros internos del sistema de mapeo 3D para Pixel Thread.")
     
-    archivo_subido = st.file_uploader(f"Sube el diseño para: {parte_seleccionada}", type=["png", "jpg", "jpeg", "svg"])
-
-# Procesamos la imagen subida de manera segura
-imagen_b64 = ""
-if archivo_subido is not None:
-    bytes_imagen = archivo_subido.read()
-    imagen_b64 = base64.b64encode(bytes_imagen).decode("utf-8")
-
-# Generamos la textura combinada
-textura_resultado_b64 = generar_textura_3d(
-    imagen_subida_b64=imagen_b64, 
-    escala=escala_logo, 
-    offset_x=offset_x, 
-    offset_y=offset_y, 
-    parte=parte_seleccionada
-)
-
-with col_visor:
-    st.header("Visor 3D en Tiempo Real")
+    config_actual = obtener_configuracion_activa()
+    st.json(config_actual)
     
-    # Mostramos siempre el resultado del mapa UV unificado en la columna derecha
-    if textura_resultado_b64:
-        imagen_decodificada = base64.b64decode(textura_resultado_b64)
-        st.image(BytesIO(imagen_decodificada), caption="Mapa UV Texturizado (Listo para 3D)", use_container_width=True)
-    else:
-        st.info("Carga una imagen en el panel de control izquierdo para proyectarla en el modelo.")
+    st.success("El panel admin está activo. Puedes configurar aquí la persistencia de coordenadas o base de datos de moldes.")
