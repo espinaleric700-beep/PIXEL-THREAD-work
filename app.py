@@ -5,6 +5,7 @@ from datetime import datetime
 import base64
 from io import BytesIO
 from PIL import Image
+import requests
 
 # --- CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(
@@ -58,7 +59,21 @@ def init_fb():
 
 db = init_fb()
 
-# --- FUNCIONES AUXILIARES ---
+# --- FUNCIONES AUXILIARES Y DE SKETCHFAB ---
+SKETCHFAB_API_KEY = "52e167c5a6024ee8b9b8fb8b9a7a89fc"
+
+def buscar_modelos_sketchfab(query="shirt"):
+    url = f"https://api.sketchfab.com/v3/search?type=models&q={query}&downloadable=true"
+    headers = {"Authorization": f"Token {SKETCHFAB_API_KEY}"}
+    try:
+        response = requests.get(url, headers=headers)
+        if response.status_code == 200:
+            data = response.json()
+            return data.get("results", [])
+    except Exception:
+        pass
+    return []
+
 def recalcular_turnos():
     try:
         docs = list(db.collection("pedidos_bordado").order_by("timestamp").stream())
@@ -110,6 +125,7 @@ def obtener_configuracion_activa():
     return {
         "nombre_modelo": "Camisa Estándar",
         "modelo_3d_url": "https://modelviewer.dev/shared-assets/models/Astronaut.glb",
+        "sketchfab_uid": "",
         "piezas": {
             "frente": {"b64": "", "tipo": "raster", "elementos": []},
             "espalda": {"b64": "", "tipo": "raster", "elementos": []},
@@ -541,22 +557,38 @@ if st.session_state.modo_vista == "Estudio":
     # 4. Panel Derecho (Visor 3D y Colores)
     with col_right:
         with st.container(border=True):
-            model_html = f"""
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
-                <style>
-                    body {{ margin: 0; background-color: #141414; }}
-                    model-viewer {{ width: 100%; height: 160px; background-color: #141414; border-radius: 6px; }}
-                </style>
-            </head>
-            <body>
-                <model-viewer src="{url_3d}" auto-rotate camera-controls interaction-prompt="none" shadow-intensity="1"></model-viewer>
-            </body>
-            </html>
-            """
-            st.components.v1.html(model_html, height=170)
+            # Si hay un UID de Sketchfab configurado, usamos el visor embebido oficial de Sketchfab, de lo contrario usamos model-viewer con la URL genérica
+            sketchfab_uid = config_actual.get("sketchfab_uid", "")
+            if sketchfab_uid:
+                iframe_html = f"""
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <style>body {{ margin: 0; background-color: #141414; }}</style>
+                </head>
+                <body>
+                    <iframe title="Sketchfab Model" frameborder="0" allowfullscreen mozallowfullscreen="true" webkitallowfullscreen="true" allow="autoplay; fullscreen; xr-spatial-tracking" xr-spatial-tracking execution-while-out-of-viewport execution-while-not-rendered web-share width="100%" height="160px" src="https://sketchfab.com/models/{sketchfab_uid}/embed?autostart=1&ui_controls=0&ui_infos=0&ui_stop=0"></iframe>
+                </body>
+                </html>
+                """
+                st.components.v1.html(iframe_html, height=170)
+            else:
+                model_html = f"""
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
+                    <style>
+                        body {{ margin: 0; background-color: #141414; }}
+                        model-viewer {{ width: 100%; height: 160px; background-color: #141414; border-radius: 6px; }}
+                    </style>
+                </head>
+                <body>
+                    <model-viewer src="{url_3d}" auto-rotate camera-controls interaction-prompt="none" shadow-intensity="1"></model-viewer>
+                </body>
+                </html>
+                """
+                st.components.v1.html(model_html, height=170)
 
             st.markdown("<div style='font-size: 12px; font-weight: bold; margin-top: 4px;'>Color</div>", unsafe_allow_html=True)
             cc1, cc2, cc3, cc4, cc5, cc6, cc7 = st.columns(7)
@@ -592,13 +624,29 @@ else:
         config_actual = obtener_configuracion_activa()
         nuevo_nombre = st.text_input("Nombre del Modelo / Prenda", config_actual.get("nombre_modelo", "Camisa Estándar"))
         
-        # Campo optimizado para la URL pública del archivo GLB
-        st.markdown("##### Modelo 3D (.glb)")
+        st.markdown("##### 🌐 Selector de Modelo 3D vía API de Sketchfab")
+        busqueda_sk = st.text_input("Buscar modelos en Sketchfab", value="shirt")
+        
+        resultados_sk = buscar_modelos_sketchfab(busqueda_sk)
+        opciones_sk = {}
+        if resultados_sk:
+            for item in resultados_sk:
+                titulo = item.get("name", "Sin título")
+                uid = item.get("uid", "")
+                opciones_sk[f"{titulo} (UID: {uid})"] = uid
+        
+        modelo_seleccionado_key = st.selectbox(
+            "Selecciona un modelo encontrado en Sketchfab",
+            options=list(opciones_sk.keys()) if opciones_sk else ["No se encontraron resultados o escribe otra búsqueda"]
+        )
+        
+        uid_seleccionado = opciones_sk.get(modelo_seleccionado_key, "")
+        
+        # Opción alternativa por enlace directo GLB si se prefiere
         nueva_url_3d = st.text_input(
-            "URL pública del archivo .glb (Ej: Enlace directo o CDN)", 
+            "O ingresa URL pública directa de respaldo (.glb)", 
             config_actual.get("modelo_3d_url", "")
         )
-        st.markdown("<p style='font-size: 11px; color: #aaa; margin-top: -10px;'>Nota: Sube tu archivo .glb a un servidor de enlaces directos (o Firebase Storage) para obtener una URL web estable que no sature la base de datos.</p>", unsafe_allow_html=True)
         
         st.markdown("---")
         st.markdown("##### Subir Imágenes Base de las Piezas del Patrón")
@@ -632,10 +680,11 @@ else:
                     db.collection("config_estudio").document("modelo_actual").set({
                         "nombre_modelo": nuevo_nombre,
                         "modelo_3d_url": nueva_url_3d,
+                        "sketchfab_uid": uid_seleccionado,
                         "piezas": piezas_actuales,
                         "actualizado": datetime.now()
                     }, merge=True)
-                    st.success("¡Patrón base y modelo 3D guardados con éxito!")
+                    st.success("¡Patrón base y modelo 3D de Sketchfab guardados con éxito!")
                     st.rerun()
                 except Exception as e:
                     st.error(f"Error al guardar: {e}")
