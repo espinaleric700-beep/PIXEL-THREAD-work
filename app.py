@@ -251,30 +251,23 @@ if st.session_state.modo_vista == "Estudio":
 
                 st.markdown("<hr style='margin: 10px 0;'>", unsafe_allow_html=True)
                 
-                # --- NUEVO SELECTOR RÁPIDO DE MAPEO DE PARTES ---
-                st.markdown("<div style='font-size: 14px; font-weight: bold;'>Mapeo de Sección en la Prenda</div>", unsafe_allow_html=True)
-                partes_disponibles = ["Frente", "Espalda", "Cuello", "Manga Izquierda", "Manga Derecha"]
+                # --- BOTONES DE MAPEO VISIBLES DIRECTAMENTE ---
+                st.markdown("<div style='font-size: 14px; font-weight: bold; margin-bottom: 6px;'>Mapeo de Sección en la Prenda</div>", unsafe_allow_html=True)
                 
-                # Renderizamos botones rápidos o selector optimizado para alternar secciones al instante
-                cols_partes = st.columns(len(partes_disponibles))
+                partes_disponibles = ["Frente", "Espalda", "Cuello", "Manga Izquierda", "Manga Derecha"]
+                cols_m = st.columns(len(partes_disponibles))
+                
                 for i, parte_name in enumerate(partes_disponibles):
-                    with cols_partes[i]:
-                        is_active = (st.session_state.parte_seleccionada == parte_name)
-                        btn_label = f"✨ {parte_name[:3]}" if is_active else parte_name[:3]
-                        if st.button(parte_name, key=f"map_btn_{parte_name}", help=f"Mapear en {parte_name}"):
+                    with cols_m[i]:
+                        is_current = (st.session_state.parte_seleccionada == parte_name)
+                        # Estilo dinámico personalizado con botones normales de Streamlit pero bien compactos o con etiquetas claras
+                        label_btn = f"✅ {parte_name}" if is_current else parte_name
+                        if st.button(label_btn, key=f"btn_map_direct_{i}"):
                             st.session_state.parte_seleccionada = parte_name
                             st.rerun()
 
-                # Selector nativo de respaldo detallado
-                st.session_state.parte_seleccionada = st.selectbox(
-                    "Sección Activa Actual", 
-                    partes_disponibles,
-                    index=partes_disponibles.index(st.session_state.parte_seleccionada),
-                    label_visibility="collapsed"
-                )
-
                 st.markdown("<hr style='margin: 10px 0;'>", unsafe_allow_html=True)
-                st.markdown("<div style='font-size: 14px; font-weight: bold;'>Editor 2D Directo (Arrastra el diseño sobre el molde) 👇</div>", unsafe_allow_html=True)
+                st.markdown(f"<div style='font-size: 14px; font-weight: bold;'>Editor 2D Directo — Sección: <span style='color: #00cec9;'>{st.session_state.parte_seleccionada}</span> 👇</div>", unsafe_allow_html=True)
                 
                 st.session_state.escala_logo = st.slider("Tamaño del Diseño", min_value=40, max_value=300, value=st.session_state.escala_logo, step=5)
                 
