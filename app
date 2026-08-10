@@ -175,7 +175,7 @@ if st.session_state.modo_vista == "Estudio":
     config_actual = obtener_configuracion_activa()
     sk_uid = config_actual.get("sketchfab_uid", SKETCHFAB_UID)
 
-    # Dos únicas columnas limpias: Controles y Visor 3D
+    # Dos columnas limpias: Controles y Visor 3D
     col_panel, col_visor = st.columns([3.5, 6.5], gap="medium")
 
     # 1. Panel Izquierdo: Cargar Imagen y Enviar a Producción
@@ -252,7 +252,7 @@ if st.session_state.modo_vista == "Estudio":
             except Exception:
                 pass
 
-    # 2. Panel Derecho: Visor 3D Grande
+    # 2. Panel Derecho: Visor 3D Grande a pantalla completa
     with col_visor:
         with st.container(border=True):
             st.markdown("<div style='font-size: 14px; font-weight: bold; margin-bottom: 8px;'>Visualizador 3D en Vivo</div>", unsafe_allow_html=True)
@@ -265,7 +265,7 @@ if st.session_state.modo_vista == "Estudio":
             <head>
                 <style>
                     body {{ margin: 0; background-color: #141414; overflow: hidden; }}
-                    #sketchfab-iframe {{ width: 100%; height: 560px; border: none; display: block; }}
+                    #sketchfab-iframe {{ width: 100%; height: 680px; border: none; display: block; }}
                 </style>
                 <script src="https://static.sketchfab.com/api/sketchfab-viewer-1.12.1.js"></script>
             </head>
@@ -306,7 +306,7 @@ if st.session_state.modo_vista == "Estudio":
             </body>
             </html>
             """
-            st.components.v1.html(sketchfab_viewer_html, height=580)
+            st.components.v1.html(sketchfab_viewer_html, height=700)
 
 # =========================================================
 # VISTA DE ADMIN
