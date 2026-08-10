@@ -352,7 +352,8 @@ if st.session_state.modo_vista == "Estudio":
                         contenido_elem = base64.b64decode(e_b64).decode('utf-8', errors='ignore')
                     else:
                         mime_e = "image/png" if e_tipo == "png_trans" else "image/jpeg"
-                        contenido_elem = f"<img src='data:{mime_e};base64:{e_b64}' style='width: 100%; height: 100%; object-fit: contain; pointer-events: none;'/>"
+                        # CORRECCIÓN AQUÍ: Se asegura de pasar correctamente el formato base64 con su MIME type para renderizar la imagen cargada
+                        contenido_elem = f"<img src='data:{mime_e};base64,{e_b64}' style='width: 100%; height: 100%; object-fit: contain; pointer-events: none;'/>"
 
                     html_elementos += f"""
                     <div class='draggable-item' id='item_{p_nombre_pieza}_{e_id}' 
@@ -641,7 +642,6 @@ else:
         
         uid_seleccionado = opciones_sk.get(modelo_seleccionado_key, "")
         
-        # --- VISTA PREVIA EN TIEMPO REAL EN ADMIN ---
         st.markdown("##### 👀 Vista Previa del Modelo Seleccionado")
         if uid_seleccionado:
             preview_iframe = f"""
@@ -659,7 +659,6 @@ else:
         else:
             st.info("Selecciona un modelo válido de la lista para previsualizarlo aquí.")
 
-        # Opción alternativa por enlace directo GLB si se prefiere
         nueva_url_3d = st.text_input(
             "O ingresa URL pública directa de respaldo (.glb)", 
             config_actual.get("modelo_3d_url", "")
