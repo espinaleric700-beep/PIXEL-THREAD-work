@@ -7,26 +7,20 @@ import streamlit.components.v1 as components
 # --- CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(page_title="Pixel Thread - Personalizador 3D", layout="wide")
 
-# --- SIMULACIÓN DE BASE DE DATOS / CONFIGURACIÓN ---
-def obtener_configuracion_activa():
-    return {
-        "coordenadas_partes": {
-            "Frente": {"base_x": 250, "base_y": 500},
-            "Espalda": {"base_x": 750, "base_y": 500},
-            "Mangas": {"base_x": 512, "base_y": 800}
-        },
-        "patrones_svg": {
-            "Frente": "",
-            "Espalda": "",
-            "Mangas": ""
-        }
+# --- GESTIÓN DE ESTADO (SESSION STATE) PARA CONFIGURACIÓN DINÁMICA ---
+if "coordenadas_partes" not in st.session_state:
+    st.session_state.coordenadas_partes = {
+        "Frente": {"base_x": 250, "base_y": 500},
+        "Espalda": {"base_x": 750, "base_y": 500},
+        "Mangas": {"base_x": 512, "base_y": 800}
     }
+
+if "sketchfab_url" not in st.session_state:
+    st.session_state.sketchfab_url = ""
 
 def generar_textura_3d(imagen_subida_b64, escala=200, offset_x=0, offset_y=0, parte="Frente"):
     try:
-        config = obtener_configuracion_activa() or {}
-        coords_dict = config.get("coordenadas_partes", {})
-        patrones_svgs = config.get("patrones_svg", {})
+        coords_dict = st.session_state.coordenadas_partes
         
         # Lienzo base limpio de 1024x1024 con fondo blanco
         img_base = Image.new("RGBA", (1024, 1024), (255, 255, 255, 255))
@@ -34,14 +28,6 @@ def generar_textura_3d(imagen_subida_b64, escala=200, offset_x=0, offset_y=0, pa
         for nombre_parte, coords in coords_dict.items():
             base_x = coords.get("base_x", 512)
             base_y = coords.get("base_y", 512)
-            
-            patron_parte = patrones_svgs.get(nombre_parte)
-            if patron_parte:
-                try:
-                    img_patron = Image.open(BytesIO(base64.b64decode(patron_parte))).convert("RGBA")
-                    img_base.paste(img_patron, (base_x - img_patron.width // 2, base_y - img_patron.height // 2), img_patron)
-                except Exception:
-                    pass
             
             if nombre_parte == parte and imagen_subida_b64:
                 decoded_elem = base64.b64decode(imagen_subida_b64)
@@ -63,8 +49,7 @@ def generar_textura_3d(imagen_subida_b64, escala=200, offset_x=0, offset_y=0, pa
 # --- INTERFAZ PRINCIPAL ---
 st.title("Personalizador 3D - Pixel Thread")
 
-# Pestañas principales para separar la vista de Cliente y el Panel Admin
-tab_cliente, tab_admin = st.tabs(["🎨 Personalizador en Vivo", "⚙️ Panel Admin"])
+tab_cliente, tab_admin = st.tabs(["🎨 Personalizador en Vivo", "⚙️ Panel Admin de Coordenadas"])
 
 with tab_cliente:
     col_panel, col_visor = st.columns(2, gap="large")
@@ -96,28 +81,55 @@ with tab_cliente:
     with col_visor:
         st.header("Visor 3D en Tiempo Real")
         
-        # 1. Visor 3D de Sketchfab (Reemplaza 'TU_ID_DE_SKETCHFAB' por el código de tu modelo)
-        sketchfab_html = """
-        <div style="width: 100%; height: 350px; border-radius: 10px; overflow: hidden; border: 1px solid #ccc;">
-            <iframe title="Modelo 3D Prenda" width="100%" height="100%" src="https://sketchfab.com/models/TU_ID_DE_SKETCHFAB/embed" frameborder="0" allowvr allow="autoplay; fullscreen; xr-spatial-tracking"></iframe>
-        </div>
-        """
-        components.html(sketchfab_html, height=360)
+        # Visor de Sketchfab seguro (Si no hay enlace válido, muestra una guía clara en vez de Error 404)
+        if st.session_state.sketchfab_url:
+            sketchfab_html = f"""
+            <div style="width: 100%; height: 350px; border-radius: 10px; overflow: hidden; border: 1px solid #ccc;">
+                <iframe title="Modelo 3D Prenda" width="100%" height="100%" src="{st.session_state.sketchfab_url}" frameborder="0" allowvr allow="autoplay; fullscreen; xr-spatial-tracking"></iframe>
+            </div>
+            """
+            components.html(sketchfab_html, height=360)
+        else:
+            st.warning("⚠️ No has configurado el enlace de Sketchfab. Ve a la pestaña **Panel Admin** para ingresarlo.")
         
         st.markdown("---")
         
-        # 2. Vista previa del mapa UV unificado generado
+        # Vista previa del mapa UV unificado generado
         if textura_resultado_b64:
             imagen_decodificada = base64.b64decode(textura_resultado_b64)
-            st.image(BytesIO(imagen_decodificada), caption="Mapa UV Texturizado (1024x1024)", use_container_width=True)
+            st.image(BytesIO(imagen_decodificada), caption="Mapa UV Texturizado en Tiempo Real (1024x1024)", use_container_width=True)
         else:
             st.info("Sube una imagen para ver el mapa UV generado.")
 
 with tab_admin:
-    st.header("Panel de Administración y Configuración UV")
-    st.write("Aquí puedes administrar los parámetros internos del sistema de mapeo 3D para Pixel Thread.")
+    st.header("⚙️ Panel de Administración y Configuración")
+    st.write("Modifica las posiciones base de las partes de la prenda en el mapa UV y conecta tu modelo 3D.")
     
-    config_actual = obtener_configuracion_activa()
-    st.json(config_actual)
+    st.subheader("🔗 Configuración del Modelo 3D (Sketchfab)")
+    url_input = st.text_input("Enlace Embed de Sketchfab (ej. https://sketchfab.com/models/.../embed)", value=st.session_state.sketchfab_url)
+    if st.button("Guardar Enlace 3D"):
+        st.session_state.sketchfab_url = url_input
+        st.success("¡Enlace de Sketchfab actualizado correctamente!")
+
+    st.markdown("---")
+    st.subheader("📍 Coordenadas Base del Mapa UV (1024x1024)")
     
-    st.success("El panel admin está activo. Puedes configurar aquí la persistencia de coordenadas o base de datos de moldes.")
+    col_a, col_b, col_c = st.columns(3)
+    
+    with col_a:
+        st.markdown("**Frente**")
+        st.session_state.coordenadas_partes["Frente"]["base_x"] = st.number_input("Frente X", 0, 1024, st.session_state.coordenadas_partes["Frente"]["base_x"])
+        st.session_state.coordenadas_partes["Frente"]["base_y"] = st.number_input("Frente Y", 0, 1024, st.session_state.coordenadas_partes["Frente"]["base_y"])
+        
+    with col_b:
+        st.markdown("**Espalda**")
+        st.session_state.coordenadas_partes["Espalda"]["base_x"] = st.number_input("Espalda X", 0, 1024, st.session_state.coordenadas_partes["Espalda"]["base_x"])
+        st.session_state.coordenadas_partes["Espalda"]["base_y"] = st.number_input("Espalda Y", 0, 1024, st.session_state.coordenadas_partes["Espalda"]["base_y"])
+        
+    with col_c:
+        st.markdown("**Mangas**")
+        st.session_state.coordenadas_partes["Mangas"]["base_x"] = st.number_input("Mangas X", 0, 1024, st.session_state.coordenadas_partes["Mangas"]["base_x"])
+        st.session_state.coordenadas_partes["Mangas"]["base_y"] = st.number_input("Mangas Y", 0, 1024, st.session_state.coordenadas_partes["Mangas"]["base_y"])
+        
+    if st.button("Actualizar Coordenadas UV"):
+        st.success("¡Coordenadas guardadas e integradas con éxito en el personalizador!")
