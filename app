@@ -102,7 +102,7 @@ def procesar_archivo_subido(arch):
     return base64.b64encode(b_cont).decode("utf-8"), "raster"
 
 def generar_textura_3d_frente(pieza_frente):
-    """Genera la textura combinada mapeada en UV para aplicarse al material del modelo 3D"""
+    """Genera la textura UV integrada con las imágenes subidas para aplicarla directamente al material 3D"""
     try:
         if not isinstance(pieza_frente, dict):
             base_b64 = str(pieza_frente)
@@ -283,7 +283,7 @@ if st.session_state.modo_vista == "Estudio":
                                 db.collection("config_estudio").document("modelo_actual").update({
                                     "piezas": piezas
                                 })
-                                st.success("¡Imagen agregada y aplicada al modelo 3D!")
+                                st.success("¡Cargado directamente en modo textura 3D!")
                                 st.rerun()
                             except Exception as e:
                                 st.error(f"Error: {e}")
@@ -327,7 +327,7 @@ if st.session_state.modo_vista == "Estudio":
                         try:
                             piezas[p_target]["elementos"] = [el for el in piezas[p_target]["elementos"] if el["id"] != el_target["id"]]
                             db.collection("config_estudio").document("modelo_actual").update({"piezas": piezas})
-                            st.success("¡Elemento eliminado!")
+                            st.success("¡Elemento eliminado y textura actualizada!")
                             st.rerun()
                         except Exception as e:
                             st.error(f"Error al eliminar: {e}")
@@ -586,12 +586,12 @@ if st.session_state.modo_vista == "Estudio":
             with tb10:
                 if st.button("⚡ 50", key="t_bolt", help="Acción rápida"): pass
 
-    # 4. Panel Derecho (Visor Oficial de Sketchfab interactivo con Textura Dinámica)
+    # 4. Panel Derecho (Visor Sketchfab con Textura Dinámica Directa)
     with col_right:
         with st.container(border=True):
             textura_frente_b64 = generar_textura_3d_frente(p_frente)
 
-            sketchfab_viewer_html = f"""
+            sketchfab_texture_viewer_html = f"""
             <!DOCTYPE html>
             <html>
             <head>
@@ -609,51 +609,34 @@ if st.session_state.modo_vista == "Estudio":
                     var urlid = '{sk_uid}';
                     var client = new Sketchfab(iframe);
 
-                    var textureUid = null;
-                    var targetMaterial = null;
-
                     client.init(urlid, {{
                         success: function onSuccess(api) {{
                             api.start();
                             api.addEventListener('viewerready', function() {{
-                                // Buscar los materiales del modelo para aplicar la textura personalizada encima
                                 api.getMaterialList(function(err, materials) {{
-                                    if (!err) {{
-                                        for (var i = 0; i < materials.length; i++) {{
-                                            // Seleccionamos el material principal de la tela
-                                            targetMaterial = materials[i];
-                                            break; 
-                                        }}
-                                        updateTexture(api);
+                                    if (!err && materials.length > 0) {{
+                                        var material = materials[0];
+                                        var b64Data = "data:image/png;base64,{textura_frente_b64}";
+                                        
+                                        api.addTexture(b64Data, function(err, textureUid) {{
+                                            if (!err) {{
+                                                material.channels.AlbedoPBR.texture = {{ uid: textureUid }};
+                                                api.setMaterial(material);
+                                            }}
+                                        }});
                                     }}
                                 }});
                             }});
                         }},
                         error: function onError() {{
-                            console.error('Error al cargar Sketchfab Viewer API');
+                            console.error('Error al inicializar Sketchfab');
                         }}
                     }});
-
-                    function updateTexture(api) {{
-                        var b64Data = "data:image/png;base64,{textura_frente_b64}";
-                        if (!b64Data || !targetMaterial) return;
-
-                        api.addTexture(b64Data, function(err, uid) {{
-                            if (!err) {{
-                                textureUid = uid;
-                                // Asignar la textura generada al canal Diffuse/Albedo del material manteniendo intacto el modelo 3D
-                                targetMaterial.channels.AlbedoPBR.texture = {{
-                                    uid: textureUid
-                                }};
-                                api.setMaterial(targetMaterial);
-                            }}
-                        }});
-                    }}
                 </script>
             </body>
             </html>
             """
-            st.components.v1.html(sketchfab_viewer_html, height=170)
+            st.components.v1.html(sketchfab_texture_viewer_html, height=170)
 
             st.markdown("<div style='font-size: 12px; font-weight: bold; margin-top: 4px;'>Color de Base</div>", unsafe_allow_html=True)
             cc1, cc2, cc3, cc4, cc5, cc6, cc7 = st.columns(7)
