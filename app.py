@@ -2,12 +2,13 @@ from io import BytesIO
 import base64
 from PIL import Image
 import streamlit as st
+import streamlit.components.v1 as components
+
+# --- CONFIGURACIÓN DE Página ---
+st.set_page_config(page_title="Pixel Thread - Personalizador 3D", layout="wide")
 
 # --- SIMULACIÓN DE BASE DE DATOS / CONFIGURACIÓN ---
 def obtener_configuracion_activa():
-    """
-    Retorna la configuración activa con las coordenadas UV y patrones base de cada sección.
-    """
     return {
         "coordenadas_partes": {
             "Frente": {"base_x": 250, "base_y": 500},
@@ -15,7 +16,6 @@ def obtener_configuracion_activa():
             "Mangas": {"base_x": 512, "base_y": 800}
         },
         "patrones_svg": {
-            # Aquí puedes colocar opcionalmente el código base64 de tu plantilla de Illustrator si deseas
             "Frente": "",
             "Espalda": "",
             "Mangas": ""
@@ -28,15 +28,13 @@ def generar_textura_3d(imagen_subida_b64, escala=200, offset_x=0, offset_y=0, pa
         coords_dict = config.get("coordenadas_partes", {})
         patrones_svgs = config.get("patrones_svg", {})
         
-        # 1. Creamos el lienzo base limpio de 1024x1024 con fondo blanco
+        # Creamos el lienzo base limpio de 1024x1024 con fondo blanco
         img_base = Image.new("RGBA", (1024, 1024), (255, 255, 255, 255))
         
-        # 2. Iteramos de forma independiente por cada parte
         for nombre_parte, coords in coords_dict.items():
             base_x = coords.get("base_x", 512)
             base_y = coords.get("base_y", 512)
             
-            # Dibujamos la plantilla base o guía correspondiente si existe
             patron_parte = patrones_svgs.get(nombre_parte)
             if patron_parte:
                 try:
@@ -45,7 +43,6 @@ def generar_textura_3d(imagen_subida_b64, escala=200, offset_x=0, offset_y=0, pa
                 except Exception:
                     pass
             
-            # Si el usuario subió un diseño para esta parte activa
             if nombre_parte == parte and imagen_subida_b64:
                 decoded_elem = base64.b64decode(imagen_subida_b64)
                 img_elem = Image.open(BytesIO(decoded_elem)).convert("RGBA")
@@ -56,7 +53,6 @@ def generar_textura_3d(imagen_subida_b64, escala=200, offset_x=0, offset_y=0, pa
                 
                 img_base.paste(img_elem, (ex, ey), img_elem)
 
-        # 3. Exportamos siempre el resultado para visualizar el lienzo
         buffered = BytesIO()
         img_base.save(buffered, format="PNG")
         return base64.b64encode(buffered.getvalue()).decode("utf-8")
@@ -66,25 +62,25 @@ def generar_textura_3d(imagen_subida_b64, escala=200, offset_x=0, offset_y=0, pa
 
 # --- INTERFAZ DE STREAMLIT ---
 st.title("Personalizador 3D - Pixel Thread")
-st.sidebar.header("Panel de Control")
 
-# Selección de la parte a editar
-parte_seleccionada = st.sidebar.selectbox("Selecciona la parte de la prenda", ["Frente", "Espalda", "Mangas"])
+# Creamos dos columnas: Izquierda para controles, Derecha para el modelo 3D
+col_panel, col_visor = st.columns([1, 2])
 
-# Controles de escala y posición
-escala_logo = st.sidebar.slider("Tamaño del diseño", 50, 500, 200)
-offset_x = st.sidebar.slider("Mover Horizontal (X)", -300, 300, 0)
-offset_y = st.sidebar.slider("Mover Vertical (Y)", -300, 300, 0)
-
-# Subida de archivo de imagen
-archivo_subido = st.sidebar.file_uploader(f"Sube el diseño para: {parte_seleccionada}", type=["png", "jpg", "jpeg", "svg"])
+with col_panel:
+    st.header("Panel de Control")
+    parte_seleccionada = st.selectbox("Selecciona la parte de la prenda", ["Frente", "Espalda", "Mangas"])
+    escala_logo = st.slider("Tamaño del diseño", 50, 500, 200)
+    offset_x = st.slider("Mover Horizontal (X)", -300, 300, 0)
+    offset_y = st.slider("Mover Vertical (Y)", -300, 300, 0)
+    
+    archivo_subido = st.file_uploader(f"Sube el diseño para: {parte_seleccionada}", type=["png", "jpg", "jpeg", "svg"])
 
 imagen_b64 = ""
 if archivo_subido is not None:
     bytes_imagen = archivo_subido.read()
     imagen_b64 = base64.b64encode(bytes_imagen).decode("utf-8")
 
-# Generar textura combinada (ahora siempre devuelve el lienzo)
+# Generar textura combinada
 textura_resultado_b64 = generar_textura_3d(
     imagen_subida_b64=imagen_b64, 
     escala=escala_logo, 
@@ -93,6 +89,21 @@ textura_resultado_b64 = generar_textura_3d(
     parte=parte_seleccionada
 )
 
-st.subheader("Vista previa del mapa UV unificado (1024x1024)")
-imagen_decodificada = base64.b64decode(textura_resultado_b64)
-st.image(BytesIO(imagen_decodificada), caption="Lienzo base 3D listo (Sube una imagen en el panel lateral para colocarla en la prenda)", use_container_width=True)
+with col_visor:
+    st.header("Visor 3D en Tiempo Real")
+    
+    if textura_resultado_b64:
+        # Mostramos la textura generada que se aplicará al modelo
+        st.image(BytesIO(base64.b64decode(textura_resultado_b64)), caption="Mapa UV Texturizado (Listo para 3D)", use_container_width=True)
+        
+        # Integración del visor (puedes reemplazar esto con tu componente de Sketchfab o Three.js si lo usabas mediante iframe)
+        # Ejemplo de contenedor para modelo 3D con Three.js / Sketchfab viewer:
+        sketchfab_html = f"""
+        <div style="width: 100%; height: 500px; border: 1px solid #ddd; border-radius: 10px; overflow: hidden;">
+            <iframe title="Visualizador 3D" width="100%" height="100%" src="https://sketchfab.com/models/TU_MODELO_ID/embed" frameborder="0" allowvr allow="autoplay; fullscreen; xr-spatial-tracking"></iframe>
+        </div>
+        """
+        # Si prefieres mostrar tu visor HTML personalizado, descomenta la siguiente línea y pon tu código:
+        # components.html(sketchfab_html, height=500)
+    else:
+        st.info("Sube una imagen o ajusta los parámetros para actualizar la textura 3D.")
