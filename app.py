@@ -116,7 +116,8 @@ def obtener_configuracion_activa():
             "Cuello": {"base_x": 512, "base_y": 200},
             "Manga Izquierda": {"base_x": 200, "base_y": 512},
             "Manga Derecha": {"base_x": 824, "base_y": 512}
-        }
+        },
+        "patrones_svg": {}
     }
 
 def generar_textura_3d(imagen_subida_b64, escala=300, offset_x=0, offset_y=0, parte="Frente"):
@@ -144,25 +145,44 @@ def generar_textura_3d(imagen_subida_b64, escala=300, offset_x=0, offset_y=0, pa
     except Exception:
         return ""
 
-def crear_patron_grafico(tipo_parte, logo_b64=None):
-    # Crea una imagen representativa del patrón de la camiseta para el panel admin
+def crear_patron_grafico(tipo_parte, logo_b64=None, svg_personalizado_b64=None):
     w, h = 250, 300
+    
+    # Si se cargó un SVG personalizado para esta parte específica, intentamos renderizarlo
+    if svg_personalizado_b64:
+        try:
+            svg_data = base64.b64decode(svg_personalizado_b64)
+            # Intentar abrir como imagen rasterizada si fue procesada o mostrar icono alternativo
+            img_svg = Image.open(BytesIO(svg_data)).convert("RGBA")
+            img_svg.thumbnail((w, h))
+            img_base = Image.new("RGBA", (w, h), (30, 30, 30, 255))
+            sw, sh = img_svg.size
+            img_base.paste(img_svg, ((w - sw) // 2, (h - sh) // 2), img_svg)
+            
+            if logo_b64:
+                logo_img = Image.open(BytesIO(base64.b64decode(logo_b64))).convert("RGBA")
+                logo_img.thumbnail((70, 70))
+                lw, lh = logo_img.size
+                img_base.paste(logo_img, ((w - lw) // 2, (h - lh) // 2), logo_img)
+            return img_base
+        except Exception:
+            pass
+
+    # Patrón geométrico por defecto si no hay SVG personalizado
     img = Image.new("RGBA", (w, h), (30, 30, 30, 255))
     draw = ImageDraw.Draw(img)
     
-    # Dibujar silueta blanca según la parte
     if tipo_parte in ["Frente", "Espalda"]:
-        draw.rectangle([60, 40, 190, 270], fill=(255, 255, 255, 255))
+        draw.rectangle([50, 30, 200, 280], fill=(255, 255, 255, 255))
         if tipo_parte == "Frente":
-            draw.pieslice([90, 30, 160, 90], 180, 360, fill=(30, 30, 30, 255))
+            draw.pieslice([85, 20, 165, 80], 180, 360, fill=(30, 30, 30, 255))
         else:
-            draw.pieslice([90, 35, 160, 75], 180, 360, fill=(30, 30, 30, 255))
+            draw.pieslice([85, 25, 165, 65], 180, 360, fill=(30, 30, 30, 255))
     elif tipo_parte == "Cuello":
         draw.rectangle([30, 120, 220, 180], fill=(255, 255, 255, 255))
     elif tipo_parte in ["Manga Izquierda", "Manga Derecha"]:
-        draw.polygon([(50, 250), (125, 60), (200, 250)], fill=(255, 255, 255, 255))
+        draw.polygon([(40, 260), (125, 40), (210, 260)], fill=(255, 255, 255, 255))
 
-    # Si hay un logo activo, dibujarlo en miniatura dentro del patrón de manera gráfica
     if logo_b64:
         try:
             logo_img = Image.open(BytesIO(base64.b64decode(logo_b64))).convert("RGBA")
@@ -393,14 +413,14 @@ if st.session_state.modo_vista == "Estudio":
 # VISTA DE ADMIN
 # =========================================================
 else:
-    st.subheader("🛠️ Panel de Administración - Mapeo Gráfico UV")
+    st.subheader("🛠️ Panel de Administración - Mapeo Gráfico y Patrones SVG")
     
-    with st.expander("👕 Configurar Patrones Gráficos y Coordenadas", expanded=True):
+    with st.expander("👕 Configurar Patrones Gráficos (SVG / Coordenadas)", expanded=True):
         config_actual = obtener_configuracion_activa()
         nuevo_nombre = st.text_input("Nombre del Modelo / Prenda", config_actual.get("nombre_modelo", "Camisa Estándar"))
         nuevo_uid = st.text_input("Sketchfab Model UID", config_actual.get("sketchfab_uid", SKETCHFAB_UID))
         
-        st.markdown("### Ajuste Gráfico de Coordenadas por Sección (Lienzo 1024x1024)")
+        st.markdown("### Subir Patrón SVG o Ajustar Coordenadas UV por Sección")
         coords_actuales = config_actual.get("coordenadas_partes", {
             "Frente": {"base_x": 512, "base_y": 512},
             "Espalda": {"base_x": 512, "base_y": 512},
@@ -408,8 +428,10 @@ else:
             "Manga Izquierda": {"base_x": 200, "base_y": 512},
             "Manga Derecha": {"base_x": 824, "base_y": 512}
         })
+        patrones_svg_actuales = config_actual.get("patrones_svg", {})
         
         nuevas_coords = {}
+        nuevos_svgs = patrones_svg_actuales.copy()
         partes = ["Frente", "Espalda", "Cuello", "Manga Izquierda", "Manga Derecha"]
         
         for parte in partes:
@@ -417,25 +439,34 @@ else:
             col_img, col_inputs = st.columns([1, 2])
             
             with col_img:
-                img_patron = crear_patron_grafico(parte, st.session_state.imagen_activa_b64)
-                st.image(img_patron, caption=parte, width=180)
+                svg_existente = patrones_svg_actuales.get(parte, None)
+                img_patron = crear_patron_grafico(parte, st.session_state.imagen_activa_b64, svg_existente)
+                st.image(img_patron, caption=f"Patron: {parte}", width=180)
+                
+                # Uploader de SVG específico para cada parte
+                sub_svg = st.file_uploader(f"Subir SVG ({parte})", type=["svg", "png", "jpg"], key=f"svg_up_{parte}", label_visibility="collapsed")
+                if sub_svg:
+                    b64_svg, _ = procesar_archivo_subido(sub_svg)
+                    nuevos_svgs[parte] = b64_svg
+                    st.success(f"SVG cargado para {parte}")
                 
             with col_inputs:
-                st.markdown(f"**Posición para: {parte}**")
+                st.markdown(f"**Coordenadas para: {parte}**")
                 bx = st.number_input(f"Coordenada X ({parte})", value=coords_actuales.get(parte, {}).get("base_x", 512), step=10, key=f"bx_{parte}")
                 by = st.number_input(f"Coordenada Y ({parte})", value=coords_actuales.get(parte, {}).get("base_y", 512), step=10, key=f"by_{parte}")
                 nuevas_coords[parte] = {"base_x": bx, "base_y": by}
         
         st.markdown("---")
-        if st.button("💾 Guardar Configuración y Coordenadas 3D"):
+        if st.button("💾 Guardar Configuración, SVG y Coordenadas 3D"):
             try:
                 db.collection("config_estudio").document("modelo_actual").set({
                     "nombre_modelo": nuevo_nombre,
                     "sketchfab_uid": nuevo_uid,
                     "coordenadas_partes": nuevas_coords,
+                    "patrones_svg": nuevos_svgs,
                     "actualizado": datetime.now()
                 }, merge=True)
-                st.success("¡Configuración y mapeo gráfico guardados con éxito!")
+                st.success("¡Configuración, patrones SVG y mapeo guardados con éxito!")
                 st.rerun()
             except Exception as e:
                 st.error(f"Error al guardar: {e}")
