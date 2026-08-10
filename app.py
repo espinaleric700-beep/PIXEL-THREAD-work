@@ -5,6 +5,13 @@ import streamlit as st
 import streamlit.components.v1 as components
 import requests
 
+# Intentar importar soporte SVG si está disponible en el entorno
+try:
+    import cairosvg
+    SVG_SUPPORT = True
+except ImportError:
+    SVG_SUPPORT = False
+
 # --- CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(page_title="Pixel Thread - Personalizador 3D", layout="wide")
 
@@ -60,22 +67,38 @@ def obtener_modelos_sketchfab(token):
     except Exception:
         return []
 
+def abrir_imagen_guia(file_bytes, filename):
+    """Procesa imágenes PNG/JPG y convierte archivos SVG a PNG de 1024x1024 para sincronización exacta."""
+    if not file_bytes:
+        return Image.new("RGBA", (1024, 1024), (255, 255, 255, 255))
+    
+    try:
+        if filename and filename.lower().endswith(".svg"):
+            if SVG_SUPPORT:
+                png_bytes = cairosvg.svg2png(bytestring=file_bytes, output_width=1024, output_height=1024)
+                return Image.open(BytesIO(png_bytes)).convert("RGBA")
+            else:
+                # Si cairosvg no está instalado, intentamos parsear o devolvemos lienzo en blanco con advertencia
+                return Image.new("RGBA", (1024, 1024), (255, 255, 255, 255))
+        else:
+            img = Image.open(BytesIO(file_bytes)).convert("RGBA")
+            return img.resize((1024, 1024))
+    except Exception:
+        return Image.new("RGBA", (1024, 1024), (255, 255, 255, 255))
+
 def generar_textura_3d(imagen_subida_b64, escala=200, offset_x=0, offset_y=0, parte_activa="Frente"):
     try:
         coords_dict = st.session_state.coordenadas_partes
         
-        # 1. Intentar cargar la guía de mapeo sincronizada si existe
-        guia_bytes = st.session_state.mapeo_archivos_bytes.get(parte_activa)
-        if guia_bytes:
-            try:
-                img_base = Image.open(BytesIO(guia_bytes)).convert("RGBA")
-                img_base = img_base.resize((1024, 1024))
-            except Exception:
-                img_base = Image.new("RGBA", (1024, 1024), (255, 255, 255, 255))
+        # 1. Obtener bytes y nombre del archivo de mapeo para la parte activa
+        datos_guia = st.session_state.mapeo_archivos_bytes.get(parte_activa)
+        if datos_guia:
+            file_bytes, filename = datos_guia
+            img_base = abrir_imagen_guia(file_bytes, filename)
         else:
             img_base = Image.new("RGBA", (1024, 1024), (255, 255, 255, 255))
         
-        # 2. Posicionar el diseño del usuario usando las coordenadas sincronizadas de esa parte
+        # 2. Posicionar el diseño del usuario usando las coordenadas sincronizadas
         coords = coords_dict.get(parte_activa, {"base_x": 512, "base_y": 512})
         base_x = coords.get("base_x", 512)
         base_y = coords.get("base_y", 512)
@@ -153,7 +176,7 @@ with tab_admin:
     
     # --- SECCIÓN DE ARCHIVOS DE MAPEO SINCRONIZADOS ---
     st.subheader("🗺️ Archivos para el Mapeo de Ubicación (UV Mapping)")
-    st.write("Sube los archivos de guía (PNG, JPG o SVG). Estos se sincronizarán directamente con las coordenadas y el visor:")
+    st.write("Sube los archivos guía en SVG, PNG o JPG. Estos se sincronizarán perfectamente como base del mapa 3D:")
     
     col_m1, col_m2, col_m3, col_m4 = st.columns(4)
     
@@ -161,28 +184,28 @@ with tab_admin:
         st.markdown("**Frente**")
         file_frente = st.file_uploader("Subir Frente", type=["png", "jpg", "jpeg", "svg"], key="map_frente")
         if file_frente:
-            st.session_state.mapeo_archivos_bytes["Frente"] = file_frente.getvalue()
+            st.session_state.mapeo_archivos_bytes["Frente"] = (file_frente.getvalue(), file_frente.name)
             st.success("Sincronizado")
             
     with col_m2:
         st.markdown("**Espalda**")
         file_espalda = st.file_uploader("Subir Espalda", type=["png", "jpg", "jpeg", "svg"], key="map_espalda")
         if file_espalda:
-            st.session_state.mapeo_archivos_bytes["Espalda"] = file_espalda.getvalue()
+            st.session_state.mapeo_archivos_bytes["Espalda"] = (file_espalda.getvalue(), file_espalda.name)
             st.success("Sincronizado")
             
     with col_m3:
         st.markdown("**Mangas**")
         file_mangas = st.file_uploader("Subir Mangas", type=["png", "jpg", "jpeg", "svg"], key="map_mangas")
         if file_mangas:
-            st.session_state.mapeo_archivos_bytes["Mangas"] = file_mangas.getvalue()
+            st.session_state.mapeo_archivos_bytes["Mangas"] = (file_mangas.getvalue(), file_mangas.name)
             st.success("Sincronizado")
             
     with col_m4:
         st.markdown("**Cuello**")
         file_cuello = st.file_uploader("Subir Cuello", type=["png", "jpg", "jpeg", "svg"], key="map_cuello")
         if file_cuello:
-            st.session_state.mapeo_archivos_bytes["Cuello"] = file_cuello.getvalue()
+            st.session_state.mapeo_archivos_bytes["Cuello"] = (file_cuello.getvalue(), file_cuello.name)
             st.success("Sincronizado")
 
     st.markdown("---")
