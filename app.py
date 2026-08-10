@@ -18,10 +18,10 @@ st.set_page_config(page_title="Pixel Thread - Personalizador 3D", layout="wide")
 # --- GESTIÓN DE ESTADO (SESSION STATE) ---
 if "coordenadas_partes" not in st.session_state:
     st.session_state.coordenadas_partes = {
-        "Frente": {"base_x": 512, "base_y": 512},
-        "Espalda": {"base_x": 512, "base_y": 1536},
-        "Mangas": {"base_x": 1536, "base_y": 512},
-        "Cuello": {"base_x": 1536, "base_y": 1536}
+        "Frente": {"base_x": 512, "base_y": 512, "offset_x": 0, "offset_y": 0},
+        "Espalda": {"base_x": 512, "base_y": 1536, "offset_x": 0, "offset_y": 0},
+        "Mangas": {"base_x": 1536, "base_y": 512, "offset_x": 0, "offset_y": 0},
+        "Cuello": {"base_x": 1536, "base_y": 1536, "offset_x": 0, "offset_y": 0}
     }
 
 if "mapeo_archivos_bytes" not in st.session_state:
@@ -71,36 +71,11 @@ def abrir_imagen_guia(file_bytes, filename, target_size=(1024, 1024)):
         return Image.new("RGBA", target_size, (255, 255, 255, 0))
 
 def generar_textura_limpia_3d(imagen_subida_b64, escala=200, offset_x=0, offset_y=0, parte_activa="Frente"):
-    """
-    Genera una textura limpia que SOLO contiene los diseños colocados por el usuario 
-    en sus respectivas coordenadas UV, sin líneas de guía, rectángulos ni textos.
-    """
     try:
         coords_dict = st.session_state.coordenadas_partes
         canvas_size = (2048, 2048)
-        
-        # Lienzo completamente transparente para el visor 3D
         img_textura_limpia = Image.new("RGBA", canvas_size, (0, 0, 0, 0))
 
-        mapping_positions = {
-            "Frente": (0, 0),
-            "Espalda": (0, 1024),
-            "Mangas": (1024, 0),
-            "Cuello": (1024, 1024)
-        }
-
-        # 1. Dibujar guías/patrones estáticos base de cada parte (si el usuario subió una plantilla de diseño por sección)
-        for parte_nombre, pos in mapping_positions.items():
-            datos_guia = st.session_state.mapeo_archivos_bytes.get(parte_nombre)
-            if datos_guia:
-                file_bytes, filename = datos_guia
-                img_parte = abrir_imagen_guia(file_bytes, filename, target_size=(1024, 1024))
-                
-                # Opcional: Si quieres que la plantilla de cada parte (ej: el color base o diseño base de la manga) 
-                # sí afecte al 3D, descomenta la siguiente línea. Si solo quieres los logos flotantes, déjala comentada.
-                # img_textura_limpia.alpha_composite(img_parte, pos)
-
-        # 2. Superponer el diseño/logo interactivo del usuario en la parte activa
         if imagen_subida_b64 and parte_activa in coords_dict:
             decoded_elem = base64.b64decode(imagen_subida_b64)
             img_elem = Image.open(BytesIO(decoded_elem)).convert("RGBA")
@@ -123,10 +98,6 @@ def generar_textura_limpia_3d(imagen_subida_b64, escala=200, offset_x=0, offset_
         return ""
 
 def generar_mapa_uv_visual(imagen_subida_b64, escala=200, offset_x=0, offset_y=0, parte_activa="Frente"):
-    """
-    Genera el mapa UV completo con líneas de cuadrícula y textos de guía 
-    exclusivamente para la previsualización visual del panel inferior.
-    """
     try:
         coords_dict = st.session_state.coordenadas_partes
         canvas_size = (2048, 2048)
@@ -140,7 +111,6 @@ def generar_mapa_uv_visual(imagen_subida_b64, escala=200, offset_x=0, offset_y=0
             "Cuello": (1024, 1024)
         }
 
-        # 1. Dibujar todas las guías de mapeo con sus cajas y textos
         for parte_nombre, pos in mapping_positions.items():
             datos_guia = st.session_state.mapeo_archivos_bytes.get(parte_nombre)
             if datos_guia:
@@ -154,7 +124,6 @@ def generar_mapa_uv_visual(imagen_subida_b64, escala=200, offset_x=0, offset_y=0
                 draw.text((512, 512), f"Sin archivo: {parte_nombre}", fill=(150, 150, 150), anchor="mm")
                 img_uv_completo.alpha_composite(referencia, pos)
 
-        # 2. Superponer el diseño del usuario en la parte activa
         if imagen_subida_b64 and parte_activa in coords_dict:
             decoded_elem = base64.b64decode(imagen_subida_b64)
             img_elem = Image.open(BytesIO(decoded_elem)).convert("RGBA")
@@ -188,8 +157,17 @@ with tab_cliente:
         st.header("Panel de Control")
         parte_seleccionada = st.selectbox("Selecciona la parte de la prenda a editar", ["Frente", "Espalda", "Mangas", "Cuello"])
         escala_logo = st.slider("Tamaño del diseño", 50, 800, 200)
-        offset_x = st.slider("Mover Horizontal (X)", -500, 500, 0)
-        offset_y = st.slider("Mover Vertical (Y)", -500, 500, 0)
+        
+        # Recuperar offsets actuales de la parte seleccionada
+        current_offset_x = st.session_state.coordenadas_partes[parte_seleccionada]["offset_x"]
+        current_offset_y = st.session_state.coordenadas_partes[parte_seleccionada]["offset_y"]
+
+        offset_x = st.slider("Mover Horizontal (X)", -500, 500, current_offset_x, key="slider_x")
+        offset_y = st.slider("Mover Vertical (Y)", -500, 500, current_offset_y, key="slider_y")
+
+        # Sincronizar cambios del slider al estado
+        st.session_state.coordenadas_partes[parte_seleccionada]["offset_x"] = offset_x
+        st.session_state.coordenadas_partes[parte_seleccionada]["offset_y"] = offset_y
         
         archivo_subido = st.file_uploader(f"Sube el diseño para: {parte_seleccionada}", type=["png", "jpg", "jpeg", "svg"])
 
@@ -198,7 +176,6 @@ with tab_cliente:
         bytes_imagen = archivo_subido.read()
         imagen_b64 = base64.b64encode(bytes_imagen).decode("utf-8")
 
-    # Textura limpia exclusiva para el Visor 3D (Sin líneas UV ni textos de guía)
     textura_3d_limpia_b64 = generar_textura_limpia_3d(
         imagen_subida_b64=imagen_b64, 
         escala=escala_logo, 
@@ -207,7 +184,6 @@ with tab_cliente:
         parte_activa=parte_seleccionada
     )
 
-    # Mapa UV completo con guías exclusivo para la visualización 2D inferior
     mapa_uv_visual_b64 = generar_mapa_uv_visual(
         imagen_subida_b64=imagen_b64, 
         escala=escala_logo, 
@@ -223,7 +199,7 @@ with tab_cliente:
             data_url_textura = f"data:image/png;base64,{textura_3d_limpia_b64}"
             
             sketchfab_html = f"""
-            <iframe title="Modelo 3D Sketchfab" id="api-frame" width="100%" height="350px" frameborder="0" allowvr allow="autoplay; fullscreen; xr-spatial-tracking"></iframe>
+            <iframe title="Modelo 3D Sketchfab" id="api-frame" width="100%" height="320px" frameborder="0" allowvr allow="autoplay; fullscreen; xr-spatial-tracking"></iframe>
             <script src="https://static.sketchfab.com/api/sketchfab-viewer-1.12.1.js"></script>
             <script>
                 var iframe = document.getElementById('api-frame');
@@ -234,7 +210,6 @@ with tab_cliente:
                     success: function (api) {{
                         api.start();
                         api.addEventListener('viewerready', function () {{
-                            // Cargar la textura limpia generada dinámicamente en el modelo 3D
                             api.addTexture('{data_url_textura}', function (err, textureUid) {{
                                 if (!err) {{
                                     api.getMaterialList(function (err, materials) {{
@@ -256,19 +231,108 @@ with tab_cliente:
                 }});
             </script>
             """
-            components.html(sketchfab_html, height=370)
+            components.html(sketchfab_html, height=330)
         elif st.session_state.modelo_seleccionado_uid:
             st.info("Generando textura 3D...")
         else:
             st.warning("⚠️ Selecciona un modelo desde la pestaña **Panel Admin y Configuración UV** para visualizarlo.")
         
         st.markdown("---")
-        
+        st.subheader("🖱️ Arrastra tu Logo en el Mapa UV")
+        st.write("Haz clic y arrastra el logo directamente dentro del área para posicionarlo libremente:")
+
         if mapa_uv_visual_b64:
-            imagen_decodificada = base64.b64decode(mapa_uv_visual_b64)
-            st.image(BytesIO(imagen_decodificada), caption="Mapa UV Completo con Guías (2048x2048)", use_container_width=True)
+            # Creamos una interfaz interactiva HTML con JavaScript para arrastrar el elemento con el mouse
+            base_coords = st.session_state.coordenadas_partes[parte_seleccionada]
+            b_x = base_coords["base_x"]
+            b_y = base_coords["base_y"]
+            
+            # Calcular posición inicial estimada en el visor web interactivo (mapeado a un cuadro de 400x400 píxeles web)
+            web_scale_factor = 400 / 2048
+            box_left = (b_x + offset_x - escala_logo // 2) * web_scale_factor
+            box_top = (b_y + offset_y - escala_logo // 2) * web_scale_factor
+            box_w = escala_logo * web_scale_factor
+            
+            interactive_uv_html = f"""
+            <div id="canvas-container" style="position: relative; width: 400px; height: 400px; margin: 0 auto; border: 2px dashed #4F46E5; border-radius: 8px; overflow: hidden; background: #111;">
+                <img src="data:image/png;base64,{mapa_uv_visual_b64}" style="width: 100%; height: 100%; pointer-events: none; user-select: none;" />
+                <div id="draggable-logo" style="position: absolute; left: {box_left}px; top: {box_top}px; width: {box_w}px; height: {box_w}px; cursor: grab; border: 2px solid #38BDF8; background: rgba(56, 189, 248, 0.2); display: flex; align-items: center; justify-content: center; border-radius: 4px;">
+                    <span style="font-size: 10px; color: white; background: rgba(0,0,0,0.6); padding: 2px 4px; border-radius: 3px; pointer-events: none;">🫱 Arrastrar</span>
+                </div>
+            </div>
+            
+            <script>
+                const container = document.getElementById('canvas-container');
+                const logo = document.getElementById('draggable-logo');
+                let isDragging = false;
+                let startX, startY;
+                
+                let currentOffsetX = {offset_x};
+                let currentOffsetY = {offset_y};
+                const baseX = {b_x};
+                const baseY = {b_y};
+                const scaleFactor = 2048 / 400; // de pixeles web a pixeles reales 2048x2048
+
+                logo.addEventListener('mousedown', (e) => {{
+                    isDragging = true;
+                    startX = e.clientX;
+                    startY = e.clientY;
+                    logo.style.cursor = 'grabbing';
+                    e.preventDefault();
+                }});
+
+                window.addEventListener('mousemove', (e) => {{
+                    if (!isDragging) return;
+                    const dx = (e.clientX - startX) * scaleFactor;
+                    const dy = (e.clientY - startY) * scaleFactor;
+                    
+                    startX = e.clientX;
+                    startY = e.clientY;
+                    
+                    currentOffsetX += dx;
+                    currentOffsetY += dy;
+
+                    // Actualizar posición visual en tiempo real en el cuadro web
+                    const newLeft = ((baseX + currentOffsetX - ({escala_logo}/2)) / 2048) * 400;
+                    const newTop = ((baseY + currentOffsetY - ({escala_logo}/2)) / 2048) * 400;
+                    
+                    logo.style.left = newLeft + 'px';
+                    logo.style.top = newTop + 'px';
+                }});
+
+                window.addEventListener('mouseup', () => {{
+                    if (isDragging) {{
+                        isDragging = false;
+                        logo.style.cursor = 'grab';
+                        
+                        // Enviar nuevos valores a Streamlit mediante URL parameters o recarga controlada
+                        const url = new URL(window.parent.location.href);
+                        url.searchParams.set('ox_{parte_seleccionada}', Math.round(currentOffsetX));
+                        url.searchParams.set('oy_{parte_seleccionada}', Math.round(currentOffsetY));
+                        window.parent.location.href = url.toString();
+                    }}
+                }});
+            </script>
+            """
+            components.html(interactive_uv_html, height=430)
+            
+            # Capturar parámetros de la URL si el usuario arrastró el elemento
+            query_params = st.query_params
+            param_ox = query_params.get(f"ox_{parte_seleccionada}")
+            param_oy = query_params.get(f"oy_{parte_seleccionada}")
+            
+            if param_ox is not None and param_oy is not None:
+                try:
+                    new_ox = int(param_ox)
+                    new_oy = int(param_oy)
+                    if new_ox != st.session_state.coordenadas_partes[parte_seleccionada]["offset_x"] or new_oy != st.session_state.coordenadas_partes[parte_seleccionada]["offset_y"]:
+                        st.session_state.coordenadas_partes[parte_seleccionada]["offset_x"] = new_ox
+                        st.session_state.coordenadas_partes[parte_seleccionada]["offset_y"] = new_oy
+                        st.rerun()
+                except Exception:
+                    pass
         else:
-            st.info("Sube una imagen para ver el mapa UV generado.")
+            st.info("Sube una imagen para habilitar el arrastre interactivo.")
 
 with tab_admin:
     st.header("⚙️ Configuración y Gestión del Sistema")
