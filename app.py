@@ -70,7 +70,63 @@ def abrir_imagen_guia(file_bytes, filename, target_size=(1024, 1024)):
     except Exception:
         return Image.new("RGBA", target_size, (255, 255, 255, 0))
 
-def generar_textura_3d_completa(imagen_subida_b64, escala=200, offset_x=0, offset_y=0, parte_activa="Frente"):
+def generar_textura_limpia_3d(imagen_subida_b64, escala=200, offset_x=0, offset_y=0, parte_activa="Frente"):
+    """
+    Genera una textura limpia que SOLO contiene los diseños colocados por el usuario 
+    en sus respectivas coordenadas UV, sin líneas de guía, rectángulos ni textos.
+    """
+    try:
+        coords_dict = st.session_state.coordenadas_partes
+        canvas_size = (2048, 2048)
+        
+        # Lienzo completamente transparente para el visor 3D
+        img_textura_limpia = Image.new("RGBA", canvas_size, (0, 0, 0, 0))
+
+        mapping_positions = {
+            "Frente": (0, 0),
+            "Espalda": (0, 1024),
+            "Mangas": (1024, 0),
+            "Cuello": (1024, 1024)
+        }
+
+        # 1. Dibujar guías/patrones estáticos base de cada parte (si el usuario subió una plantilla de diseño por sección)
+        for parte_nombre, pos in mapping_positions.items():
+            datos_guia = st.session_state.mapeo_archivos_bytes.get(parte_nombre)
+            if datos_guia:
+                file_bytes, filename = datos_guia
+                img_parte = abrir_imagen_guia(file_bytes, filename, target_size=(1024, 1024))
+                
+                # Opcional: Si quieres que la plantilla de cada parte (ej: el color base o diseño base de la manga) 
+                # sí afecte al 3D, descomenta la siguiente línea. Si solo quieres los logos flotantes, déjala comentada.
+                # img_textura_limpia.alpha_composite(img_parte, pos)
+
+        # 2. Superponer el diseño/logo interactivo del usuario en la parte activa
+        if imagen_subida_b64 and parte_activa in coords_dict:
+            decoded_elem = base64.b64decode(imagen_subida_b64)
+            img_elem = Image.open(BytesIO(decoded_elem)).convert("RGBA")
+            img_elem = ImageOps.contain(img_elem, (escala, escala), Image.Resampling.LANCZOS)
+            
+            coords = coords_dict.get(parte_activa)
+            base_x = coords.get("base_x")
+            base_y = coords.get("base_y")
+            
+            pos_x = (base_x - img_elem.width // 2) + offset_x
+            pos_y = (base_y - img_elem.height // 2) + offset_y
+            
+            img_textura_limpia.alpha_composite(img_elem, (pos_x, pos_y))
+
+        buffered = BytesIO()
+        img_textura_limpia.save(buffered, format="PNG")
+        return base64.b64encode(buffered.getvalue()).decode("utf-8")
+    except Exception as e:
+        print(f"Error generando textura limpia 3D: {e}")
+        return ""
+
+def generar_mapa_uv_visual(imagen_subida_b64, escala=200, offset_x=0, offset_y=0, parte_activa="Frente"):
+    """
+    Genera el mapa UV completo con líneas de cuadrícula y textos de guía 
+    exclusivamente para la previsualización visual del panel inferior.
+    """
     try:
         coords_dict = st.session_state.coordenadas_partes
         canvas_size = (2048, 2048)
@@ -84,7 +140,7 @@ def generar_textura_3d_completa(imagen_subida_b64, escala=200, offset_x=0, offse
             "Cuello": (1024, 1024)
         }
 
-        # 1. Dibujar todas las guías de mapeo
+        # 1. Dibujar todas las guías de mapeo con sus cajas y textos
         for parte_nombre, pos in mapping_positions.items():
             datos_guia = st.session_state.mapeo_archivos_bytes.get(parte_nombre)
             if datos_guia:
@@ -117,7 +173,7 @@ def generar_textura_3d_completa(imagen_subida_b64, escala=200, offset_x=0, offse
         img_uv_completo.save(buffered, format="PNG")
         return base64.b64encode(buffered.getvalue()).decode("utf-8")
     except Exception as e:
-        print(f"Error generando textura completa: {e}")
+        print(f"Error generando mapa UV visual: {e}")
         return ""
 
 # --- INTERFAZ PRINCIPAL ---
@@ -142,7 +198,17 @@ with tab_cliente:
         bytes_imagen = archivo_subido.read()
         imagen_b64 = base64.b64encode(bytes_imagen).decode("utf-8")
 
-    textura_resultado_b64 = generar_textura_3d_completa(
+    # Textura limpia exclusiva para el Visor 3D (Sin líneas UV ni textos de guía)
+    textura_3d_limpia_b64 = generar_textura_limpia_3d(
+        imagen_subida_b64=imagen_b64, 
+        escala=escala_logo, 
+        offset_x=offset_x, 
+        offset_y=offset_y, 
+        parte_activa=parte_seleccionada
+    )
+
+    # Mapa UV completo con guías exclusivo para la visualización 2D inferior
+    mapa_uv_visual_b64 = generar_mapa_uv_visual(
         imagen_subida_b64=imagen_b64, 
         escala=escala_logo, 
         offset_x=offset_x, 
@@ -153,9 +219,8 @@ with tab_cliente:
     with col_visor:
         st.header("Visor 3D en Tiempo Real")
         
-        if st.session_state.modelo_seleccionado_uid and textura_resultado_b64:
-            # Convertir la textura en formato Data URL para inyectarla directamente mediante la API de Sketchfab
-            data_url_textura = f"data:image/png;base64,{textura_resultado_b64}"
+        if st.session_state.modelo_seleccionado_uid and textura_3d_limpia_b64:
+            data_url_textura = f"data:image/png;base64,{textura_3d_limpia_b64}"
             
             sketchfab_html = f"""
             <iframe title="Modelo 3D Sketchfab" id="api-frame" width="100%" height="350px" frameborder="0" allowvr allow="autoplay; fullscreen; xr-spatial-tracking"></iframe>
@@ -169,12 +234,11 @@ with tab_cliente:
                     success: function (api) {{
                         api.start();
                         api.addEventListener('viewerready', function () {{
-                            // Cargar la textura generada dinámicamente en el modelo 3D
+                            // Cargar la textura limpia generada dinámicamente en el modelo 3D
                             api.addTexture('{data_url_textura}', function (err, textureUid) {{
                                 if (!err) {{
                                     api.getMaterialList(function (err, materials) {{
                                         if (!err && materials.length > 0) {{
-                                            // Asignamos la textura al canal de color base del primer material del modelo
                                             var material = materials[0];
                                             material.channels.AlbedoPBR.texture = {{
                                                 uid: textureUid
@@ -200,9 +264,9 @@ with tab_cliente:
         
         st.markdown("---")
         
-        if textura_resultado_b64:
-            imagen_decodificada = base64.b64decode(textura_resultado_b64)
-            st.image(BytesIO(imagen_decodificada), caption="Mapa UV Completo Integrado (2048x2048)", use_container_width=True)
+        if mapa_uv_visual_b64:
+            imagen_decodificada = base64.b64decode(mapa_uv_visual_b64)
+            st.image(BytesIO(imagen_decodificada), caption="Mapa UV Completo con Guías (2048x2048)", use_container_width=True)
         else:
             st.info("Sube una imagen para ver el mapa UV generado.")
 
