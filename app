@@ -8,7 +8,7 @@ from PIL import Image
 
 # --- CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(
-    page_title="Pixel Thread - Estudio 3D Directo",
+    page_title="Pixel Thread - Estudio 3D",
     page_icon="👕",
     layout="wide",
     initial_sidebar_state="collapsed"
@@ -108,6 +108,7 @@ def generar_textura_3d(imagen_subida_b64):
         decoded_elem = base64.b64decode(imagen_subida_b64)
         img_elem = Image.open(BytesIO(decoded_elem)).convert("RGBA")
         
+        # Lienzo base de la textura UV (1024x1024)
         img_base = Image.new("RGBA", (1024, 1024), (255, 255, 255, 255))
         img_elem = img_elem.resize((500, 500))
         ex = (1024 - 500) // 2
@@ -155,7 +156,7 @@ with c_top1:
     if st.button("✕ Salir", key="btn_exit"):
         actualizar_url("Estudio", st.session_state.user)
 with c_top2:
-    st.markdown("<h4 style='margin: 0; color: #fff;'>Estudio 3D Directo - Pixel Thread</h4>", unsafe_allow_html=True)
+    st.markdown("<h4 style='margin: 0; color: #fff;'>Pixel Thread - Estudio 3D Texturas</h4>", unsafe_allow_html=True)
 with c_top3:
     if st.session_state.user.strip().lower() in [a.lower() for a in ADMINS_AUTORIZADOS]:
         if st.button("🛠️ Panel Admin", key="btn_admin_top"):
@@ -174,12 +175,13 @@ if st.session_state.modo_vista == "Estudio":
     config_actual = obtener_configuracion_activa()
     sk_uid = config_actual.get("sketchfab_uid", SKETCHFAB_UID)
 
+    # Dos únicas columnas limpias: Controles y Visor 3D
     col_panel, col_visor = st.columns([3.5, 6.5], gap="medium")
 
-    # 1. Panel Izquierdo: Carga de Imagen y Controles
+    # 1. Panel Izquierdo: Cargar Imagen y Enviar a Producción
     with col_panel:
         with st.container(border=True):
-            st.markdown("<div style='font-size: 15px; font-weight: bold;'>Subir Diseño para Textura 3D</div>", unsafe_allow_html=True)
+            st.markdown("<div style='font-size: 15px; font-weight: bold;'>Cargar Diseño para Textura 3D</div>", unsafe_allow_html=True)
             nombre_proyecto = st.text_input("Nombre del Proyecto", "Proyecto Pixel 3D")
             
             up_file = st.file_uploader("Seleccionar archivo (PNG, JPG, SVG)", type=["png", "jpg", "jpeg", "svg"])
@@ -194,15 +196,15 @@ if st.session_state.modo_vista == "Estudio":
                 except Exception:
                     pass
 
-            st.markdown("<div style='margin-top: 12px;'></div>", unsafe_allow_html=True)
+            st.markdown("<div style='margin-top: 15px;'></div>", unsafe_allow_html=True)
             col_b1, col_b2 = st.columns(2)
             with col_b1:
-                if st.button("✨ Aplicar al Modelo 3D", key="btn_aplicar_3d"):
+                if st.button("✨ Aplicar al 3D", key="btn_aplicar_3d"):
                     if up_file:
                         try:
                             b64, _ = procesar_archivo_subido(up_file)
                             st.session_state.imagen_activa_b64 = b64
-                            st.success("¡Textura aplicada al modelo 3D!")
+                            st.success("¡Textura aplicada con éxito!")
                             st.rerun()
                         except Exception as e:
                             st.error(f"Error: {e}")
@@ -231,9 +233,9 @@ if st.session_state.modo_vista == "Estudio":
 
             if st.session_state.imagen_activa_b64:
                 st.markdown("---")
-                if st.button("🗑️ Quitar Textura del Modelo"):
+                if st.button("🗑️ Quitar Textura"):
                     st.session_state.imagen_activa_b64 = ""
-                    st.success("Textura removida.")
+                    st.success("Textura eliminada.")
                     st.rerun()
 
             st.markdown("---")
@@ -250,7 +252,7 @@ if st.session_state.modo_vista == "Estudio":
             except Exception:
                 pass
 
-    # 2. Panel Derecho: Visor 3D Grande a Pantalla Completa
+    # 2. Panel Derecho: Visor 3D Grande
     with col_visor:
         with st.container(border=True):
             st.markdown("<div style='font-size: 14px; font-weight: bold; margin-bottom: 8px;'>Visualizador 3D en Vivo</div>", unsafe_allow_html=True)
@@ -263,7 +265,7 @@ if st.session_state.modo_vista == "Estudio":
             <head>
                 <style>
                     body {{ margin: 0; background-color: #141414; overflow: hidden; }}
-                    #sketchfab-iframe {{ width: 100%; height: 520px; border: none; display: block; }}
+                    #sketchfab-iframe {{ width: 100%; height: 560px; border: none; display: block; }}
                 </style>
                 <script src="https://static.sketchfab.com/api/sketchfab-viewer-1.12.1.js"></script>
             </head>
@@ -304,17 +306,7 @@ if st.session_state.modo_vista == "Estudio":
             </body>
             </html>
             """
-            st.components.v1.html(sketchfab_viewer_html, height=535)
-
-            st.markdown("<div style='font-size: 12px; font-weight: bold; margin-top: 10px;'>Color de Base de la Prenda</div>", unsafe_allow_html=True)
-            cc1, cc2, cc3, cc4, cc5, cc6, cc7 = st.columns(7)
-            with cc1: st.button("➕", key="c_add")
-            with cc2: st.button("⚪", key="c_wh")
-            with cc3: st.button("⚫", key="c_bl")
-            with cc4: st.button("🔘", key="c_gr")
-            with cc5: st.button("🔴", key="c_re")
-            with cc6: st.button("🟣", key="c_pu")
-            with cc7: st.button("🩷", key="c_pi")
+            st.components.v1.html(sketchfab_viewer_html, height=580)
 
 # =========================================================
 # VISTA DE ADMIN
