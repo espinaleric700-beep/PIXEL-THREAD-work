@@ -7,7 +7,6 @@ import streamlit as st
 def obtener_configuracion_activa():
     """
     Retorna la configuración activa con las coordenadas UV y patrones base de cada sección.
-    Ajusta estos valores de base_x y base_y según la posición exacta de tu mapa UV.
     """
     return {
         "coordenadas_partes": {
@@ -16,7 +15,7 @@ def obtener_configuracion_activa():
             "Mangas": {"base_x": 512, "base_y": 800}
         },
         "patrones_svg": {
-            # Aquí puedes guardar opcionalmente tus patrones en base64 si los manejas por código
+            # Aquí puedes colocar opcionalmente el código base64 de tu plantilla de Illustrator si deseas
             "Frente": "",
             "Espalda": "",
             "Mangas": ""
@@ -32,12 +31,12 @@ def generar_textura_3d(imagen_subida_b64, escala=200, offset_x=0, offset_y=0, pa
         # 1. Creamos el lienzo base limpio de 1024x1024 con fondo blanco
         img_base = Image.new("RGBA", (1024, 1024), (255, 255, 255, 255))
         
-        # 2. Iteramos de forma independiente por cada parte (Frente, Espalda, Mangas, etc.)
+        # 2. Iteramos de forma independiente por cada parte
         for nombre_parte, coords in coords_dict.items():
             base_x = coords.get("base_x", 512)
             base_y = coords.get("base_y", 512)
             
-            # Dibujamos la plantilla base o guía correspondiente a esta sección si existe
+            # Dibujamos la plantilla base o guía correspondiente si existe
             patron_parte = patrones_svgs.get(nombre_parte)
             if patron_parte:
                 try:
@@ -46,19 +45,18 @@ def generar_textura_3d(imagen_subida_b64, escala=200, offset_x=0, offset_y=0, pa
                 except Exception:
                     pass
             
-            # Si el usuario está editando activamente esta sección y subió un diseño/logotipo
+            # Si el usuario subió un diseño para esta parte activa
             if nombre_parte == parte and imagen_subida_b64:
                 decoded_elem = base64.b64decode(imagen_subida_b64)
                 img_elem = Image.open(BytesIO(decoded_elem)).convert("RGBA")
                 img_elem.thumbnail((escala, escala))
                 
-                # Posicionamos el diseño del usuario respetando su coordenada base + los offsets de ajuste
                 ex = (base_x - img_elem.width // 2) + offset_x
                 ey = (base_y - img_elem.height // 2) + offset_y
                 
                 img_base.paste(img_elem, (ex, ey), img_elem)
 
-        # 3. Exportamos el resultado final unificado para el visor 3D
+        # 3. Exportamos siempre el resultado para visualizar el lienzo
         buffered = BytesIO()
         img_base.save(buffered, format="PNG")
         return base64.b64encode(buffered.getvalue()).decode("utf-8")
@@ -86,7 +84,7 @@ if archivo_subido is not None:
     bytes_imagen = archivo_subido.read()
     imagen_b64 = base64.b64encode(bytes_imagen).decode("utf-8")
 
-# Generar textura combinada
+# Generar textura combinada (ahora siempre devuelve el lienzo)
 textura_resultado_b64 = generar_textura_3d(
     imagen_subida_b64=imagen_b64, 
     escala=escala_logo, 
@@ -95,10 +93,6 @@ textura_resultado_b64 = generar_textura_3d(
     parte=parte_seleccionada
 )
 
-if textura_resultado_b64:
-    st.subheader("Vista previa del mapa UV unificado (1024x1024)")
-    # Mostrar la imagen resultante en pantalla con el parámetro actualizado
-    imagen_decodificada = base64.b64decode(textura_resultado_b64)
-    st.image(BytesIO(imagen_decodificada), caption="Textura aplicada correctamente sin solapamiento", use_container_width=True)
-else:
-    st.warning("Sube una imagen para comenzar a generar la textura.")
+st.subheader("Vista previa del mapa UV unificado (1024x1024)")
+imagen_decodificada = base64.b64decode(textura_resultado_b64)
+st.image(BytesIO(imagen_decodificada), caption="Lienzo base 3D listo (Sube una imagen en el panel lateral para colocarla en la prenda)", use_container_width=True)
