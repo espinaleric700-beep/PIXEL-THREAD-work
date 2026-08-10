@@ -4,6 +4,7 @@ from PIL import Image
 import streamlit as st
 import streamlit.components.v1 as components
 import requests
+import re
 
 # --- CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(page_title="Pixel Thread - Personalizador 3D", layout="wide")
@@ -19,9 +20,17 @@ if "coordenadas_partes" not in st.session_state:
 if "sketchfab_token" not in st.session_state:
     st.session_state.sketchfab_token = "52e167c5a6024ee8b9b8fb8b9a7a89fc"
 
-# UID por defecto o manual para asegurar que cargue siempre
 if "modelo_seleccionado_uid" not in st.session_state:
     st.session_state.modelo_seleccionado_uid = ""
+
+def extraer_uid_sketchfab(texto):
+    """Extrae automáticamente el UID de Sketchfab sin importar si pegan un enlace, un iframe o el ID directo."""
+    texto = texto.strip()
+    # Busca patrones de UID de Sketchfab (32 caracteres hexadecimales)
+    match_uid = re.search(r'([0-9a-f]{32})', texto)
+    if match_uid:
+        return match_uid.group(1)
+    return texto
 
 def obtener_modelos_sketchfab(token):
     """Consulta la API de Sketchfab para obtener los modelos del usuario."""
@@ -107,7 +116,7 @@ with tab_cliente:
             """
             components.html(sketchfab_html, height=360)
         else:
-            st.warning("⚠️ No hay ningún modelo seleccionado. Ve a la pestaña **Panel Admin** e ingresa el UID de tu modelo de Sketchfab.")
+            st.warning("⚠️ No hay ningún modelo seleccionado. Ve a la pestaña **Panel Admin** e ingresa el UID o enlace de tu modelo.")
         
         st.markdown("---")
         
@@ -121,16 +130,15 @@ with tab_admin:
     st.header("⚙️ Configuración y Conexión Sketchfab")
     st.write("Gestiona la conexión con la API y asigna el modelo 3D para la visualización.")
     
-    # Opción 1: Ingreso Manual Directo (Solución infalible si la API protegida no lista los modelos)
-    st.subheader("🔗 Asignación Directa de Modelo (Recomendado)")
-    uid_manual = st.text_input("Ingresa el UID del modelo de Sketchfab (ej: 7002db64303d48938d8f6d7c750b38c2)", value=st.session_state.modelo_seleccionado_uid)
+    st.subheader("🔗 Asignación de Modelo")
+    entrada_usuario = st.text_input("Pega aquí el enlace, el iframe completo o el UID de tu modelo de Sketchfab", value=st.session_state.modelo_seleccionado_uid)
     if st.button("Guardar Modelo Activo"):
-        st.session_state.modelo_seleccionado_uid = uid_manual.strip()
-        st.success("¡Modelo 3D configurado y listo en el visor!")
+        uid_limpio = extraer_uid_sketchfab(entrada_usuario)
+        st.session_state.modelo_seleccionado_uid = uid_limpio
+        st.success(f"¡Modelo configurado correctamente! (UID detectado: {uid_limpio})")
 
     st.markdown("---")
     
-    # Opción 2: Sincronización Automática por API
     st.subheader("🔄 Sincronización Automática por API")
     token_input = st.text_input("Token de API de Sketchfab", type="password", value=st.session_state.sketchfab_token)
     
@@ -156,7 +164,7 @@ with tab_admin:
                         st.session_state.modelo_seleccionado_uid = uid
                         st.rerun()
         else:
-            st.info("La API no devolvió modelos públicos directos para este token. Usa la **Asignación Directa de Modelo** arriba con el UID de tu pieza en Sketchfab.")
+            st.info("La API no devolvió listado automático. Puedes usar tranquilamente el campo de **Asignación de Modelo** de arriba pegando el enlace o iframe de tu pieza.")
 
     st.markdown("---")
     st.subheader("📍 Coordenadas Base del Mapa UV (1024x1024)")
