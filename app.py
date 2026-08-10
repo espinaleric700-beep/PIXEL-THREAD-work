@@ -23,6 +23,15 @@ if "coordenadas_partes" not in st.session_state:
         "Mangas": {"base_x": 1536, "base_y": 512, "offset_x": 0, "offset_y": 0},
         "Cuello": {"base_x": 1536, "base_y": 1536, "offset_x": 0, "offset_y": 0}
     }
+else:
+    # Autocorrección por si la sesión previa tenía un formato incompleto
+    for parte in ["Frente", "Espalda", "Mangas", "Cuello"]:
+        if parte not in st.session_state.coordenadas_partes:
+            st.session_state.coordenadas_partes[parte] = {"base_x": 512, "base_y": 512, "offset_x": 0, "offset_y": 0}
+        if "offset_x" not in st.session_state.coordenadas_partes[parte]:
+            st.session_state.coordenadas_partes[parte]["offset_x"] = 0
+        if "offset_y" not in st.session_state.coordenadas_partes[parte]:
+            st.session_state.coordenadas_partes[parte]["offset_y"] = 0
 
 if "mapeo_archivos_bytes" not in st.session_state:
     st.session_state.mapeo_archivos_bytes = {
@@ -82,8 +91,8 @@ def generar_textura_limpia_3d(imagen_subida_b64, escala=200, offset_x=0, offset_
             img_elem = ImageOps.contain(img_elem, (escala, escala), Image.Resampling.LANCZOS)
             
             coords = coords_dict.get(parte_activa)
-            base_x = coords.get("base_x")
-            base_y = coords.get("base_y")
+            base_x = coords.get("base_x", 512)
+            base_y = coords.get("base_y", 512)
             
             pos_x = (base_x - img_elem.width // 2) + offset_x
             pos_y = (base_y - img_elem.height // 2) + offset_y
@@ -130,8 +139,8 @@ def generar_mapa_uv_visual(imagen_subida_b64, escala=200, offset_x=0, offset_y=0
             img_elem = ImageOps.contain(img_elem, (escala, escala), Image.Resampling.LANCZOS)
             
             coords = coords_dict.get(parte_activa)
-            base_x = coords.get("base_x")
-            base_y = coords.get("base_y")
+            base_x = coords.get("base_x", 512)
+            base_y = coords.get("base_y", 512)
             
             pos_x = (base_x - img_elem.width // 2) + offset_x
             pos_y = (base_y - img_elem.height // 2) + offset_y
@@ -158,9 +167,9 @@ with tab_cliente:
         parte_seleccionada = st.selectbox("Selecciona la parte de la prenda a editar", ["Frente", "Espalda", "Mangas", "Cuello"])
         escala_logo = st.slider("Tamaño del diseño", 50, 800, 200)
         
-        # Recuperar offsets actuales de la parte seleccionada
-        current_offset_x = st.session_state.coordenadas_partes[parte_seleccionada]["offset_x"]
-        current_offset_y = st.session_state.coordenadas_partes[parte_seleccionada]["offset_y"]
+        # Recuperar de forma segura los offsets actuales de la parte seleccionada
+        current_offset_x = st.session_state.coordenadas_partes[parte_seleccionada].get("offset_x", 0)
+        current_offset_y = st.session_state.coordenadas_partes[parte_seleccionada].get("offset_y", 0)
 
         offset_x = st.slider("Mover Horizontal (X)", -500, 500, current_offset_x, key="slider_x")
         offset_y = st.slider("Mover Vertical (Y)", -500, 500, current_offset_y, key="slider_y")
@@ -242,12 +251,10 @@ with tab_cliente:
         st.write("Haz clic y arrastra el logo directamente dentro del área para posicionarlo libremente:")
 
         if mapa_uv_visual_b64:
-            # Creamos una interfaz interactiva HTML con JavaScript para arrastrar el elemento con el mouse
             base_coords = st.session_state.coordenadas_partes[parte_seleccionada]
-            b_x = base_coords["base_x"]
-            b_y = base_coords["base_y"]
+            b_x = base_coords.get("base_x", 512)
+            b_y = base_coords.get("base_y", 512)
             
-            # Calcular posición inicial estimada en el visor web interactivo (mapeado a un cuadro de 400x400 píxeles web)
             web_scale_factor = 400 / 2048
             box_left = (b_x + offset_x - escala_logo // 2) * web_scale_factor
             box_top = (b_y + offset_y - escala_logo // 2) * web_scale_factor
@@ -271,7 +278,7 @@ with tab_cliente:
                 let currentOffsetY = {offset_y};
                 const baseX = {b_x};
                 const baseY = {b_y};
-                const scaleFactor = 2048 / 400; // de pixeles web a pixeles reales 2048x2048
+                const scaleFactor = 2048 / 400;
 
                 logo.addEventListener('mousedown', (e) => {{
                     isDragging = true;
@@ -292,7 +299,6 @@ with tab_cliente:
                     currentOffsetX += dx;
                     currentOffsetY += dy;
 
-                    // Actualizar posición visual en tiempo real en el cuadro web
                     const newLeft = ((baseX + currentOffsetX - ({escala_logo}/2)) / 2048) * 400;
                     const newTop = ((baseY + currentOffsetY - ({escala_logo}/2)) / 2048) * 400;
                     
@@ -305,7 +311,6 @@ with tab_cliente:
                         isDragging = false;
                         logo.style.cursor = 'grab';
                         
-                        // Enviar nuevos valores a Streamlit mediante URL parameters o recarga controlada
                         const url = new URL(window.parent.location.href);
                         url.searchParams.set('ox_{parte_seleccionada}', Math.round(currentOffsetX));
                         url.searchParams.set('oy_{parte_seleccionada}', Math.round(currentOffsetY));
@@ -316,7 +321,6 @@ with tab_cliente:
             """
             components.html(interactive_uv_html, height=430)
             
-            # Capturar parámetros de la URL si el usuario arrastró el elemento
             query_params = st.query_params
             param_ox = query_params.get(f"ox_{parte_seleccionada}")
             param_oy = query_params.get(f"oy_{parte_seleccionada}")
@@ -325,7 +329,7 @@ with tab_cliente:
                 try:
                     new_ox = int(param_ox)
                     new_oy = int(param_oy)
-                    if new_ox != st.session_state.coordenadas_partes[parte_seleccionada]["offset_x"] or new_oy != st.session_state.coordenadas_partes[parte_seleccionada]["offset_y"]:
+                    if new_ox != st.session_state.coordenadas_partes[parte_seleccionada].get("offset_x", 0) or new_oy != st.session_state.coordenadas_partes[parte_seleccionada].get("offset_y", 0):
                         st.session_state.coordenadas_partes[parte_seleccionada]["offset_x"] = new_ox
                         st.session_state.coordenadas_partes[parte_seleccionada]["offset_y"] = new_oy
                         st.rerun()
@@ -400,17 +404,17 @@ with tab_admin:
     col_a, col_b, col_c, col_d = st.columns(4)
     with col_a:
         st.markdown("**Frente**")
-        st.session_state.coordenadas_partes["Frente"]["base_x"] = st.number_input("Frente X", 0, 2048, st.session_state.coordenadas_partes["Frente"]["base_x"])
-        st.session_state.coordenadas_partes["Frente"]["base_y"] = st.number_input("Frente Y", 0, 2048, st.session_state.coordenadas_partes["Frente"]["base_y"])
+        st.session_state.coordenadas_partes["Frente"]["base_x"] = st.number_input("Frente X", 0, 2048, st.session_state.coordenadas_partes["Frente"].get("base_x", 512))
+        st.session_state.coordenadas_partes["Frente"]["base_y"] = st.number_input("Frente Y", 0, 2048, st.session_state.coordenadas_partes["Frente"].get("base_y", 512))
     with col_b:
         st.markdown("**Espalda**")
-        st.session_state.coordenadas_partes["Espalda"]["base_x"] = st.number_input("Espalda X", 0, 2048, st.session_state.coordenadas_partes["Espalda"]["base_x"])
-        st.session_state.coordenadas_partes["Espalda"]["base_y"] = st.number_input("Espalda Y", 0, 2048, st.session_state.coordenadas_partes["Espalda"]["base_y"])
+        st.session_state.coordenadas_partes["Espalda"]["base_x"] = st.number_input("Espalda X", 0, 2048, st.session_state.coordenadas_partes["Espalda"].get("base_x", 512))
+        st.session_state.coordenadas_partes["Espalda"]["base_y"] = st.number_input("Espalda Y", 0, 2048, st.session_state.coordenadas_partes["Espalda"].get("base_y", 1536))
     with col_c:
         st.markdown("**Mangas**")
-        st.session_state.coordenadas_partes["Mangas"]["base_x"] = st.number_input("Mangas X", 0, 2048, st.session_state.coordenadas_partes["Mangas"]["base_x"])
-        st.session_state.coordenadas_partes["Mangas"]["base_y"] = st.number_input("Mangas Y", 0, 2048, st.session_state.coordenadas_partes["Mangas"]["base_y"])
+        st.session_state.coordenadas_partes["Mangas"]["base_x"] = st.number_input("Mangas X", 0, 2048, st.session_state.coordenadas_partes["Mangas"].get("base_x", 1536))
+        st.session_state.coordenadas_partes["Mangas"]["base_y"] = st.number_input("Mangas Y", 0, 2048, st.session_state.coordenadas_partes["Mangas"].get("base_y", 512))
     with col_d:
         st.markdown("**Cuello**")
-        st.session_state.coordenadas_partes["Cuello"]["base_x"] = st.number_input("Cuello X", 0, 2048, st.session_state.coordenadas_partes["Cuello"]["base_x"])
-        st.session_state.coordenadas_partes["Cuello"]["base_y"] = st.number_input("Cuello Y", 0, 2048, st.session_state.coordenadas_partes["Cuello"]["base_y"])
+        st.session_state.coordenadas_partes["Cuello"]["base_x"] = st.number_input("Cuello X", 0, 2048, st.session_state.coordenadas_partes["Cuello"].get("base_x", 1536))
+        st.session_state.coordenadas_partes["Cuello"]["base_y"] = st.number_input("Cuello Y", 0, 2048, st.session_state.coordenadas_partes["Cuello"].get("base_y", 1536))
