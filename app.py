@@ -16,6 +16,16 @@ if "coordenadas_partes" not in st.session_state:
         "Mangas": {"base_x": 512, "base_y": 800},
         "Cuello": {"base_x": 512, "base_y": 200}
     }
+else:
+    partes_necesarias = {
+        "Frente": {"base_x": 250, "base_y": 500},
+        "Espalda": {"base_x": 750, "base_y": 500},
+        "Mangas": {"base_x": 512, "base_y": 800},
+        "Cuello": {"base_x": 512, "base_y": 200}
+    }
+    for p, vals in partes_necesarias.items():
+        if p not in st.session_state.coordenadas_partes:
+            st.session_state.coordenadas_partes[p] = vals
 
 if "mapeo_archivos" not in st.session_state:
     st.session_state.mapeo_archivos = {
@@ -130,36 +140,36 @@ with tab_cliente:
 with tab_admin:
     st.header("⚙️ Configuración y Gestión del Sistema")
     
-    # --- NUEVA SECCIÓN DE ARCHIVOS DE MAPEO ---
+    # --- SECCIÓN DE ARCHIVOS DE MAPEO CON SOPORTE SVG ---
     st.subheader("🗺️ Archivos para el Mapeo de Ubicación (UV Mapping)")
-    st.write("Sube aquí los archivos o guías de imagen correspondientes para configurar las zonas del modelo 3D:")
+    st.write("Sube aquí los archivos o guías de imagen (PNG, JPG o SVG) correspondientes para configurar las zonas del modelo 3D:")
     
     col_m1, col_m2, col_m3, col_m4 = st.columns(4)
     
     with col_m1:
         st.markdown("**Frente**")
-        file_frente = st.file_uploader("Subir Frente", type=["png", "jpg", "jpeg"], key="map_frente")
+        file_frente = st.file_uploader("Subir Frente", type=["png", "jpg", "jpeg", "svg"], key="map_frente")
         if file_frente:
             st.session_state.mapeo_archivos["Frente"] = file_frente.name
             st.success("Cargado")
             
     with col_m2:
         st.markdown("**Espalda**")
-        file_espalda = st.file_uploader("Subir Espalda", type=["png", "jpg", "jpeg"], key="map_espalda")
+        file_espalda = st.file_uploader("Subir Espalda", type=["png", "jpg", "jpeg", "svg"], key="map_espalda")
         if file_espalda:
             st.session_state.mapeo_archivos["Espalda"] = file_espalda.name
             st.success("Cargado")
             
     with col_m3:
         st.markdown("**Mangas**")
-        file_mangas = st.file_uploader("Subir Mangas", type=["png", "jpg", "jpeg"], key="map_mangas")
+        file_mangas = st.file_uploader("Subir Mangas", type=["png", "jpg", "jpeg", "svg"], key="map_mangas")
         if file_mangas:
             st.session_state.mapeo_archivos["Mangas"] = file_mangas.name
             st.success("Cargado")
             
     with col_m4:
         st.markdown("**Cuello**")
-        file_cuello = st.file_uploader("Subir Cuello", type=["png", "jpg", "jpeg"], key="map_cuello")
+        file_cuello = st.file_uploader("Subir Cuello", type=["png", "jpg", "jpeg", "svg"], key="map_cuello")
         if file_cuello:
             st.session_state.mapeo_archivos["Cuello"] = file_cuello.name
             st.success("Cargado")
