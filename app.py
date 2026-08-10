@@ -4,7 +4,7 @@ from PIL import Image
 import streamlit as st
 import streamlit.components.v1 as components
 
-# --- CONFIGURACIÓN DE Página ---
+# --- CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(page_title="Pixel Thread - Personalizador 3D", layout="wide")
 
 # --- SIMULACIÓN DE BASE DE DATOS / CONFIGURACIÓN ---
@@ -63,8 +63,8 @@ def generar_textura_3d(imagen_subida_b64, escala=200, offset_x=0, offset_y=0, pa
 # --- INTERFAZ DE STREAMLIT ---
 st.title("Personalizador 3D - Pixel Thread")
 
-# Creamos dos columnas: Izquierda para controles, Derecha para el modelo 3D
-col_panel, col_visor = st.columns([1, 2])
+# Creamos dos columnas estrictas: Izquierda (Controles), Derecha (Visor y Textura)
+col_panel, col_visor = st.columns([1, 1.5], gap="large")
 
 with col_panel:
     st.header("Panel de Control")
@@ -75,12 +75,12 @@ with col_panel:
     
     archivo_subido = st.file_uploader(f"Sube el diseño para: {parte_seleccionada}", type=["png", "jpg", "jpeg", "svg"])
 
+# Procesamiento de imagen fuera de las columnas para evitar bloqueos
 imagen_b64 = ""
 if archivo_subido is not None:
     bytes_imagen = archivo_subido.read()
     imagen_b64 = base64.b64encode(bytes_imagen).decode("utf-8")
 
-# Generar textura combinada
 textura_resultado_b64 = generar_textura_3d(
     imagen_subida_b64=imagen_b64, 
     escala=escala_logo, 
@@ -93,17 +93,10 @@ with col_visor:
     st.header("Visor 3D en Tiempo Real")
     
     if textura_resultado_b64:
-        # Mostramos la textura generada que se aplicará al modelo
+        # Mostramos la textura generada dentro de su columna correcta
         st.image(BytesIO(base64.b64decode(textura_resultado_b64)), caption="Mapa UV Texturizado (Listo para 3D)", use_container_width=True)
         
-        # Integración del visor (puedes reemplazar esto con tu componente de Sketchfab o Three.js si lo usabas mediante iframe)
-        # Ejemplo de contenedor para modelo 3D con Three.js / Sketchfab viewer:
-        sketchfab_html = f"""
-        <div style="width: 100%; height: 500px; border: 1px solid #ddd; border-radius: 10px; overflow: hidden;">
-            <iframe title="Visualizador 3D" width="100%" height="100%" src="https://sketchfab.com/models/TU_MODELO_ID/embed" frameborder="0" allowvr allow="autoplay; fullscreen; xr-spatial-tracking"></iframe>
-        </div>
-        """
-        # Si prefieres mostrar tu visor HTML personalizado, descomenta la siguiente línea y pon tu código:
-        # components.html(sketchfab_html, height=500)
+        # Aquí puedes activar tu componente HTML/Three.js o iframe cuando lo conectes
+        # components.html("TU_CODIGO_VISOR_3D_HTML", height=400)
     else:
-        st.info("Sube una imagen o ajusta los parámetros para actualizar la textura 3D.")
+        st.info("Sube una imagen o ajusta los parámetros para actualizar la textura.")
