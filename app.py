@@ -4,7 +4,7 @@ from firebase_admin import credentials, firestore
 from datetime import datetime
 import base64
 from io import BytesIO
-from PIL import Image
+from PIL import Image, ImageOps
 import requests
 
 # --- CONFIGURACIÓN DE PÁGINA ---
@@ -114,6 +114,56 @@ def procesar_archivo_subido(arch):
             pass
             
     return base64.b64encode(b_cont).decode("utf-8"), "raster"
+
+def generar_textura_3d_frente(pieza_frente):
+    """Combina el fondo de la pieza del frente y sus elementos superpuestos en una sola imagen para el modelo 3D"""
+    try:
+        base_b64 = pieza_frente.get("b64", "")
+        base_tipo = pieza_frente.get("tipo", "raster")
+        elementos = pieza_frente.get("elementos", [])
+
+        # Crear una imagen base en blanco o con la textura base de 1024x1024
+        img_base = Image.new("RGBA", (1024, 1024), (255, 255, 255, 255))
+        
+        if base_b64 and base_tipo != "svg":
+            try:
+                decoded_base = base64.b64decode(base_b64)
+                img_bg = Image.open(BytesIO(decoded_base)).convert("RGBA")
+                img_bg = img_bg.resize((1024, 1024))
+                img_base.paste(img_bg, (0, 0), img_bg)
+            except Exception:
+                pass
+
+        # Superponer cada elemento colocado en el frente
+        for elem in elementos:
+            e_b64 = elem.get("b64", "")
+            e_tipo = elem.get("tipo", "raster")
+            if e_b64 and e_tipo != "svg":
+                try:
+                    decoded_elem = base64.b64decode(e_b64)
+                    img_elem = Image.open(BytesIO(decoded_elem)).convert("RGBA")
+                    
+                    # Calcular tamaño y posición aproximada en base al porcentaje guardado
+                    w_pct = elem.get("ancho", 80)
+                    h_pct = elem.get("alto", 80)
+                    ew = int((w_pct / 100.0) * 400)
+                    eh = int((h_pct / 100.0) * 400)
+                    img_elem = img_elem.resize((max(20, ew), max(20, eh)))
+                    
+                    x_pct = elem.get("x", 50)
+                    y_pct = elem.get("y", 50)
+                    ex = int((x_pct / 100.0) * 1024) - (img_elem.width // 2)
+                    ey = int((y_pct / 100.0) * 1024) - (img_elem.height // 2)
+                    
+                    img_base.paste(img_elem, (ex, ey), img_elem)
+                except Exception:
+                    pass
+
+        buffered = BytesIO()
+        img_base.save(buffered, format="PNG")
+        return base64.b64encode(buffered.getvalue()).decode("utf-8")
+    except Exception:
+        return ""
 
 def obtener_configuracion_activa():
     try:
@@ -250,7 +300,7 @@ if st.session_state.modo_vista == "Estudio":
                                 db.collection("config_estudio").document("modelo_actual").update({
                                     "piezas": piezas
                                 })
-                                st.success("¡Imagen agregada al patrón!")
+                                st.success("¡Imagen agregada al patrón y al mockup!")
                                 st.rerun()
                             except Exception as e:
                                 st.error(f"Error: {e}")
@@ -352,7 +402,6 @@ if st.session_state.modo_vista == "Estudio":
                         contenido_elem = base64.b64decode(e_b64).decode('utf-8', errors='ignore')
                     else:
                         mime_e = "image/png" if e_tipo == "png_trans" else "image/jpeg"
-                        # CORRECCIÓN AQUÍ: Se asegura de pasar correctamente el formato base64 con su MIME type para renderizar la imagen cargada
                         contenido_elem = f"<img src='data:{mime_e};base64,{e_b64}' style='width: 100%; height: 100%; object-fit: contain; pointer-events: none;'/>"
 
                     html_elementos += f"""
@@ -559,6 +608,10 @@ if st.session_state.modo_vista == "Estudio":
     with col_right:
         with st.container(border=True):
             sketchfab_uid = config_actual.get("sketchfab_uid", "")
+            
+            # Generar la textura combinada del frente para el modelo 3D
+            textura_frente_b64 = generar_textura_3d_frente(p_frente)
+
             if sketchfab_uid:
                 iframe_html = f"""
                 <!DOCTYPE html>
@@ -573,6 +626,7 @@ if st.session_state.modo_vista == "Estudio":
                 """
                 st.components.v1.html(iframe_html, height=170)
             else:
+                # Script de model-viewer con soporte para texturas dinámicas aplicadas al frente
                 model_html = f"""
                 <!DOCTYPE html>
                 <html>
@@ -584,7 +638,18 @@ if st.session_state.modo_vista == "Estudio":
                     </style>
                 </head>
                 <body>
-                    <model-viewer src="{url_3d}" auto-rotate camera-controls interaction-prompt="none" shadow-intensity="1"></model-viewer>
+                    <model-viewer id="modelViewer" src="{url_3d}" auto-rotate camera-controls interaction-prompt="none" shadow-intensity="1"></model-viewer>
+                    
+                    <script>
+                        const viewer = document.getElementById('modelViewer');
+                        viewer.addEventListener('load', async () => {{
+                            const material = viewer.model.materials[0];
+                            if (material && "{textura_frente_b64}") {{
+                                const texture = await viewer.createTexture("data:image/png;base64,{textura_frente_b64}");
+                                material.pbrMetallicRoughness.baseColorTexture.setTexture(texture);
+                            }}
+                        }});
+                    </script>
                 </body>
                 </html>
                 """
