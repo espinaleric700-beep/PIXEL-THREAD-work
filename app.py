@@ -16,7 +16,6 @@ except ImportError:
 st.set_page_config(page_title="Pixel Thread - Personalizador 3D", layout="wide")
 
 # --- GESTIÓN DE ESTADO (SESSION STATE) ---
-# Coordenadas base absolutas dentro del mapa UV completo (2048x2048)
 if "coordenadas_partes" not in st.session_state:
     st.session_state.coordenadas_partes = {
         "Frente": {"base_x": 512, "base_y": 512},
@@ -74,13 +73,10 @@ def abrir_imagen_guia(file_bytes, filename, target_size=(1024, 1024)):
 def generar_textura_3d_completa(imagen_subida_b64, escala=200, offset_x=0, offset_y=0, parte_activa="Frente"):
     try:
         coords_dict = st.session_state.coordenadas_partes
-        
-        # Lienzo base UV completo de 2048x2048 dividido en 4 cuadrantes de 1024x1024
         canvas_size = (2048, 2048)
         part_size = (1024, 1024)
         img_uv_completo = Image.new("RGBA", canvas_size, (255, 255, 255, 0))
 
-        # Posiciones de los 4 cuadrantes en el mapa de 2048x2048
         mapping_positions = {
             "Frente": (0, 0),
             "Espalda": (0, 1024),
@@ -88,7 +84,7 @@ def generar_textura_3d_completa(imagen_subida_b64, escala=200, offset_x=0, offse
             "Cuello": (1024, 1024)
         }
 
-        # 1. Dibujar todas las guías en su cuadrante correspondiente
+        # 1. Dibujar todas las guías de mapeo
         for parte_nombre, pos in mapping_positions.items():
             datos_guia = st.session_state.mapeo_archivos_bytes.get(parte_nombre)
             if datos_guia:
@@ -96,27 +92,22 @@ def generar_textura_3d_completa(imagen_subida_b64, escala=200, offset_x=0, offse
                 img_parte = abrir_imagen_guia(file_bytes, filename, target_size=part_size)
                 img_uv_completo.alpha_composite(img_parte, pos)
             else:
-                # Cuadrante de referencia si no se ha subido archivo aún
                 referencia = Image.new("RGBA", part_size, (245, 245, 245, 255))
                 draw = ImageDraw.Draw(referencia)
                 draw.rectangle([(0, 0), (1023, 1023)], outline=(200, 200, 200), width=2)
                 draw.text((512, 512), f"Sin archivo: {parte_nombre}", fill=(150, 150, 150), anchor="mm")
                 img_uv_completo.alpha_composite(referencia, pos)
 
-        # 2. Superponer el diseño (logo) del usuario únicamente en la parte activa seleccionada
+        # 2. Superponer el diseño del usuario en la parte activa
         if imagen_subida_b64 and parte_activa in coords_dict:
             decoded_elem = base64.b64decode(imagen_subida_b64)
             img_elem = Image.open(BytesIO(decoded_elem)).convert("RGBA")
-            
-            # Escalar el diseño
             img_elem = ImageOps.contain(img_elem, (escala, escala), Image.Resampling.LANCZOS)
             
-            # Coordenadas relativas guardadas para esa parte
             coords = coords_dict.get(parte_activa)
             base_x = coords.get("base_x")
             base_y = coords.get("base_y")
             
-            # Posición final centrada con sus offsets
             pos_x = (base_x - img_elem.width // 2) + offset_x
             pos_y = (base_y - img_elem.height // 2) + offset_y
             
@@ -162,13 +153,48 @@ with tab_cliente:
     with col_visor:
         st.header("Visor 3D en Tiempo Real")
         
-        if st.session_state.modelo_seleccionado_uid:
+        if st.session_state.modelo_seleccionado_uid and textura_resultado_b64:
+            # Convertir la textura en formato Data URL para inyectarla directamente mediante la API de Sketchfab
+            data_url_textura = f"data:image/png;base64,{textura_resultado_b64}"
+            
             sketchfab_html = f"""
-            <div style="width: 100%; height: 350px; border-radius: 10px; overflow: hidden; border: 1px solid #ccc;">
-                <iframe title="Modelo 3D Sketchfab" width="100%" height="100%" src="https://sketchfab.com/models/{st.session_state.modelo_seleccionado_uid}/embed" frameborder="0" allowvr allow="autoplay; fullscreen; xr-spatial-tracking"></iframe>
-            </div>
+            <iframe title="Modelo 3D Sketchfab" id="api-frame" width="100%" height="350px" frameborder="0" allowvr allow="autoplay; fullscreen; xr-spatial-tracking"></iframe>
+            <script src="https://static.sketchfab.com/api/sketchfab-viewer-1.12.1.js"></script>
+            <script>
+                var iframe = document.getElementById('api-frame');
+                var uid = '{st.session_state.modelo_seleccionado_uid}';
+                var client = new Sketchfab(iframe);
+
+                client.init(uid, {{
+                    success: function (api) {{
+                        api.start();
+                        api.addEventListener('viewerready', function () {{
+                            // Cargar la textura generada dinámicamente en el modelo 3D
+                            api.addTexture('{data_url_textura}', function (err, textureUid) {{
+                                if (!err) {{
+                                    api.getMaterialList(function (err, materials) {{
+                                        if (!err && materials.length > 0) {{
+                                            // Asignamos la textura al canal de color base del primer material del modelo
+                                            var material = materials[0];
+                                            material.channels.AlbedoPBR.texture = {{
+                                                uid: textureUid
+                                            }};
+                                            api.setMaterial(material);
+                                        }}
+                                    }});
+                                }}
+                            }});
+                        }});
+                    }},
+                    error: function () {{
+                        console.error('Error al inicializar el visor de Sketchfab');
+                    }}
+                }});
+            </script>
             """
-            components.html(sketchfab_html, height=360)
+            components.html(sketchfab_html, height=370)
+        elif st.session_state.modelo_seleccionado_uid:
+            st.info("Generando textura 3D...")
         else:
             st.warning("⚠️ Selecciona un modelo desde la pestaña **Panel Admin y Configuración UV** para visualizarlo.")
         
