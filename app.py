@@ -593,7 +593,12 @@ else:
     with st.expander("👕 Configurar Patrón Base por Piezas y Modelo 3D", expanded=True):
         config_actual = obtener_configuracion_activa()
         nuevo_nombre = st.text_input("Nombre del Modelo / Prenda", config_actual.get("nombre_modelo", "Camisa Estándar"))
+        
+        # NUEVO: Input para la URL del modelo 3D o subida directa de archivo GLB
+        st.markdown("##### Modelo 3D (GLB)")
         nueva_url_3d = st.text_input("URL del Modelo 3D (.glb)", config_actual.get("modelo_3d_url", ""))
+        
+        up_glb = st.file_uploader("O sube tu archivo .GLB generado en Tripo", type=["glb", "gltf"])
         
         st.markdown("---")
         st.markdown("##### Subir Imágenes Base de las Piezas del Patrón")
@@ -609,6 +614,13 @@ else:
             if st.button("💾 Guardar Patrón Base"):
                 try:
                     piezas_actuales = config_actual.get("piezas", {})
+                    
+                    # Si subió un archivo GLB nuevo localmente, lo convertimos a Base64 para guardarlo directo en Firestore
+                    url_a_guardar = nueva_url_3d
+                    if up_glb:
+                        glb_bytes = up_glb.getvalue()
+                        b64_glb = base64.b64encode(glb_bytes).decode("utf-8")
+                        url_a_guardar = f"data:model/gltf-binary;base64,{b64_glb}"
                     
                     def actualizar_pieza_base(up_f, key_name):
                         if up_f:
@@ -626,11 +638,11 @@ else:
                     
                     db.collection("config_estudio").document("modelo_actual").set({
                         "nombre_modelo": nuevo_nombre,
-                        "modelo_3d_url": nueva_url_3d,
+                        "modelo_3d_url": url_a_guardar,
                         "piezas": piezas_actuales,
                         "actualizado": datetime.now()
                     }, merge=True)
-                    st.success("¡Patrón base guardado con éxito!")
+                    st.success("¡Patrón base y modelo 3D guardados con éxito!")
                     st.rerun()
                 except Exception as e:
                     st.error(f"Error al guardar: {e}")
@@ -658,9 +670,5 @@ else:
             p = doc.to_dict()
             with st.container(border=True):
                 st.write(f"**Cliente:** {p.get('cliente')} | **Proyecto:** {p.get('nombre_proyecto')} | **Estado:** {p.get('estado')}")
-                if st.button("Eliminar", key=f"del_{doc.id}"):
-                    db.collection("pedidos_bordado").document(doc.id).delete()
-                    recalcular_turnos()
-                    st.rerun()
     except Exception as e:
-        st.error(f"Error: {e}")
+        st.error(f"Error al cargar pedidos: {e}")
