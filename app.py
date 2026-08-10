@@ -13,7 +13,16 @@ if "coordenadas_partes" not in st.session_state:
     st.session_state.coordenadas_partes = {
         "Frente": {"base_x": 250, "base_y": 500},
         "Espalda": {"base_x": 750, "base_y": 500},
-        "Mangas": {"base_x": 512, "base_y": 800}
+        "Mangas": {"base_x": 512, "base_y": 800},
+        "Cuello": {"base_x": 512, "base_y": 200}
+    }
+
+if "mapeo_archivos" not in st.session_state:
+    st.session_state.mapeo_archivos = {
+        "Frente": None,
+        "Espalda": None,
+        "Mangas": None,
+        "Cuello": None
     }
 
 if "sketchfab_token" not in st.session_state:
@@ -77,7 +86,7 @@ with tab_cliente:
 
     with col_panel:
         st.header("Panel de Control")
-        parte_seleccionada = st.selectbox("Selecciona la parte de la prenda", ["Frente", "Espalda", "Mangas"])
+        parte_seleccionada = st.selectbox("Selecciona la parte de la prenda", ["Frente", "Espalda", "Mangas", "Cuello"])
         escala_logo = st.slider("Tamaño del diseño", 50, 500, 200)
         offset_x = st.slider("Mover Horizontal (X)", -300, 300, 0)
         offset_y = st.slider("Mover Vertical (Y)", -300, 300, 0)
@@ -119,8 +128,44 @@ with tab_cliente:
             st.info("Sube una imagen para ver el mapa UV generado.")
 
 with tab_admin:
-    st.header("⚙️ Extracción y Vista Previa de Modelos")
-    st.write("Tus modelos se extraen automáticamente desde la API. Cada tarjeta cuenta con una vista previa 3D interactiva.")
+    st.header("⚙️ Configuración y Gestión del Sistema")
+    
+    # --- NUEVA SECCIÓN DE ARCHIVOS DE MAPEO ---
+    st.subheader("🗺️ Archivos para el Mapeo de Ubicación (UV Mapping)")
+    st.write("Sube aquí los archivos o guías de imagen correspondientes para configurar las zonas del modelo 3D:")
+    
+    col_m1, col_m2, col_m3, col_m4 = st.columns(4)
+    
+    with col_m1:
+        st.markdown("**Frente**")
+        file_frente = st.file_uploader("Subir Frente", type=["png", "jpg", "jpeg"], key="map_frente")
+        if file_frente:
+            st.session_state.mapeo_archivos["Frente"] = file_frente.name
+            st.success("Cargado")
+            
+    with col_m2:
+        st.markdown("**Espalda**")
+        file_espalda = st.file_uploader("Subir Espalda", type=["png", "jpg", "jpeg"], key="map_espalda")
+        if file_espalda:
+            st.session_state.mapeo_archivos["Espalda"] = file_espalda.name
+            st.success("Cargado")
+            
+    with col_m3:
+        st.markdown("**Mangas**")
+        file_mangas = st.file_uploader("Subir Mangas", type=["png", "jpg", "jpeg"], key="map_mangas")
+        if file_mangas:
+            st.session_state.mapeo_archivos["Mangas"] = file_mangas.name
+            st.success("Cargado")
+            
+    with col_m4:
+        st.markdown("**Cuello**")
+        file_cuello = st.file_uploader("Subir Cuello", type=["png", "jpg", "jpeg"], key="map_cuello")
+        if file_cuello:
+            st.session_state.mapeo_archivos["Cuello"] = file_cuello.name
+            st.success("Cargado")
+
+    st.markdown("---")
+    st.subheader("⚙️ Extracción de Modelos desde la API de Sketchfab")
     
     token_input = st.text_input("Token de API de Sketchfab", type="password", value=st.session_state.sketchfab_token)
     if st.button("Actualizar Token"):
@@ -142,7 +187,6 @@ with tab_admin:
             
             with cols[idx % 3]:
                 st.markdown(f"**{name}**")
-                # Vista previa 3D interactiva para cada modelo en el admin
                 preview_html = f"""
                 <div style="width: 100%; height: 220px; border-radius: 8px; overflow: hidden; border: 1px solid #ddd; margin-bottom: 10px;">
                     <iframe title="{name}" width="100%" height="100%" src="https://sketchfab.com/models/{uid}/embed" frameborder="0" allowvr allow="autoplay; fullscreen; xr-spatial-tracking"></iframe>
@@ -160,7 +204,7 @@ with tab_admin:
     st.markdown("---")
     st.subheader("📍 Coordenadas Base del Mapa UV (1024x1024)")
     
-    col_a, col_b, col_c = st.columns(3)
+    col_a, col_b, col_c, col_d = st.columns(4)
     with col_a:
         st.markdown("**Frente**")
         st.session_state.coordenadas_partes["Frente"]["base_x"] = st.number_input("Frente X", 0, 1024, st.session_state.coordenadas_partes["Frente"]["base_x"])
@@ -173,3 +217,7 @@ with tab_admin:
         st.markdown("**Mangas**")
         st.session_state.coordenadas_partes["Mangas"]["base_x"] = st.number_input("Mangas X", 0, 1024, st.session_state.coordenadas_partes["Mangas"]["base_x"])
         st.session_state.coordenadas_partes["Mangas"]["base_y"] = st.number_input("Mangas Y", 0, 1024, st.session_state.coordenadas_partes["Mangas"]["base_y"])
+    with col_d:
+        st.markdown("**Cuello**")
+        st.session_state.coordenadas_partes["Cuello"]["base_x"] = st.number_input("Cuello X", 0, 1024, st.session_state.coordenadas_partes["Cuello"]["base_x"])
+        st.session_state.coordenadas_partes["Cuello"]["base_y"] = st.number_input("Cuello Y", 0, 1024, st.session_state.coordenadas_partes["Cuello"]["base_y"])
