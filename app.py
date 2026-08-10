@@ -16,8 +16,9 @@ if "coordenadas_partes" not in st.session_state:
         "Mangas": {"base_x": 512, "base_y": 800}
     }
 
+# Token de Sketchfab configurado por defecto
 if "sketchfab_token" not in st.session_state:
-    st.session_state.sketchfab_token = ""
+    st.session_state.sketchfab_token = "52e167c5a6024ee8b9b8fb8b9a7a89fc"
 
 if "modelo_seleccionado_uid" not in st.session_state:
     st.session_state.modelo_seleccionado_uid = ""
@@ -100,7 +101,6 @@ with tab_cliente:
     with col_visor:
         st.header("Visor 3D en Tiempo Real")
         
-        # Renderizar el modelo seleccionado mediante su UID de Sketchfab
         if st.session_state.modelo_seleccionado_uid:
             sketchfab_html = f"""
             <div style="width: 100%; height: 350px; border-radius: 10px; overflow: hidden; border: 1px solid #ccc;">
@@ -109,7 +109,7 @@ with tab_cliente:
             """
             components.html(sketchfab_html, height=360)
         else:
-            st.warning("⚠️ No hay ningún modelo seleccionado. Ve a la pestaña **Panel Admin** para conectar tu API y elegir un modelo.")
+            st.warning("⚠️ No hay ningún modelo seleccionado. Ve a la pestaña **Panel Admin** para elegir uno de tus modelos sincronizados.")
         
         st.markdown("---")
         
@@ -121,12 +121,12 @@ with tab_cliente:
 
 with tab_admin:
     st.header("⚙️ Conexión con la API de Sketchfab")
-    st.write("Ingresa tu token de API de Sketchfab para sincronizar y seleccionar tus modelos 3D automáticamente.")
+    st.write("Tu token de API está configurado. Aquí puedes ver y seleccionar los modelos de tu cuenta.")
     
     token_input = st.text_input("Token de API de Sketchfab", type="password", value=st.session_state.sketchfab_token)
-    if st.button("Conectar y Sincronizar Modelos"):
+    if st.button("Actualizar Token"):
         st.session_state.sketchfab_token = token_input
-        st.success("¡Token guardado con éxito!")
+        st.success("¡Token actualizado con éxito!")
 
     if st.session_state.sketchfab_token:
         st.markdown("---")
@@ -153,7 +153,7 @@ with tab_admin:
                         st.session_state.modelo_seleccionado_uid = uid
                         st.rerun()
         else:
-            st.info("No se encontraron modelos en tu cuenta de Sketchfab o el token es incorrecto.")
+            st.info("No se encontraron modelos en tu cuenta de Sketchfab o el token requiere permisos adicionales.")
 
     st.markdown("---")
     st.subheader("📍 Coordenadas Base del Mapa UV (1024x1024)")
