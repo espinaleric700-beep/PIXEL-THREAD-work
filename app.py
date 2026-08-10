@@ -59,20 +59,8 @@ def init_fb():
 
 db = init_fb()
 
-# --- FUNCIONES AUXILIARES Y DE SKETCHFAB ---
+# --- FUNCIONES AUXILIARES ---
 SKETCHFAB_API_KEY = "52e167c5a6024ee8b9b8fb8b9a7a89fc"
-
-def buscar_modelos_sketchfab(query="shirt"):
-    url = f"https://api.sketchfab.com/v3/search?type=models&q={query}&downloadable=true"
-    headers = {"Authorization": f"Token {SKETCHFAB_API_KEY}"}
-    try:
-        response = requests.get(url, headers=headers)
-        if response.status_code == 200:
-            data = response.json()
-            return data.get("results", [])
-    except Exception:
-        pass
-    return []
 
 def recalcular_turnos():
     try:
@@ -116,14 +104,29 @@ def procesar_archivo_subido(arch):
     return base64.b64encode(b_cont).decode("utf-8"), "raster"
 
 def generar_textura_3d_frente(pieza_frente):
-    """Combina el fondo del frente y los elementos posicionados para aplicarlos al visor 3D"""
+    """Combina la silueta base del frente con los elementos gráficos superpuestos para el modelo 3D"""
     try:
-        base_b64 = pieza_frente.get("b64", "")
-        base_tipo = pieza_frente.get("tipo", "raster")
-        elementos = pieza_frente.get("elementos", [])
+        if not isinstance(pieza_frente, dict):
+            base_b64 = str(pieza_frente)
+            base_tipo = "raster"
+            elementos = []
+        else:
+            base_b64 = pieza_frente.get("b64", "")
+            base_tipo = pieza_frente.get("tipo", "raster")
+            elementos = pieza_frente.get("elementos", [])
 
-        img_base = Image.new("RGBA", (1024, 1024), (255, 255, 255, 255))
+        # Crear lienzo base de la camiseta (Silueta con forma de frente de camisa)
+        img_base = Image.new("RGBA", (1024, 1024), (0, 0, 0, 0))
         
+        # Dibujar silueta interior de la camiseta predeterminada si no hay imagen base de patrón subida
+        from PIL import ImageDraw
+        draw = ImageDraw.Draw(img_base)
+        # Fondo forma camiseta estilizada blanca para que actúe como la prenda
+        draw.rounded_rectangle([150, 100, 874, 950], radius=80, fill=(255, 255, 255, 255))
+        # Escote delantero
+        draw.pieslice([362, 80, 662, 320], start=180, end=360, fill=(26, 26, 26, 255))
+
+        # Si hay una imagen base personalizada cargada en el admin para el frente, se usa
         if base_b64 and base_tipo != "svg":
             try:
                 decoded_base = base64.b64decode(base_b64)
@@ -133,6 +136,7 @@ def generar_textura_3d_frente(pieza_frente):
             except Exception:
                 pass
 
+        # Superponer los elementos de diseño (logos, estampados) en sus posiciones relativas exactas
         for elem in elementos:
             e_b64 = elem.get("b64", "")
             e_tipo = elem.get("tipo", "raster")
@@ -143,8 +147,8 @@ def generar_textura_3d_frente(pieza_frente):
                     
                     w_pct = elem.get("ancho", 80)
                     h_pct = elem.get("alto", 80)
-                    ew = int((w_pct / 100.0) * 500)
-                    eh = int((h_pct / 100.0) * 500)
+                    ew = int((w_pct / 100.0) * 450)
+                    eh = int((h_pct / 100.0) * 450)
                     img_elem = img_elem.resize((max(30, ew), max(30, eh)))
                     
                     x_pct = elem.get("x", 50)
@@ -296,7 +300,7 @@ if st.session_state.modo_vista == "Estudio":
                                 db.collection("config_estudio").document("modelo_actual").update({
                                     "piezas": piezas
                                 })
-                                st.success("¡Imagen agregada al patrón y al mockup 3D!")
+                                st.success("¡Imagen agregada al patrón y proyectada en el 3D!")
                                 st.rerun()
                             except Exception as e:
                                 st.error(f"Error: {e}")
@@ -323,7 +327,6 @@ if st.session_state.modo_vista == "Estudio":
                         except Exception as e:
                             st.error(f"Error: {e}")
 
-                # Sección para eliminar elementos subidos
                 st.markdown("---")
                 st.markdown("<div style='font-size: 12px; font-weight: bold;'>Eliminar Elementos Subidos</div>", unsafe_allow_html=True)
                 
@@ -605,7 +608,6 @@ if st.session_state.modo_vista == "Estudio":
         with st.container(border=True):
             textura_frente_b64 = generar_textura_3d_frente(p_frente)
 
-            # Visor 3D interactivo garantizado usando Three.js integrado
             threejs_viewer_html = f"""
             <!DOCTYPE html>
             <html>
@@ -630,25 +632,21 @@ if st.session_state.modo_vista == "Estudio":
                     renderer.setSize(container.clientWidth, container.clientHeight);
                     container.appendChild(renderer.domElement);
 
-                    // Luces ambientales y direccionales para dar relieve
-                    const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+                    const ambientLight = new THREE.AmbientLight(0xffffff, 0.9);
                     scene.add(ambientLight);
 
                     const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
                     dirLight.position.set(5, 5, 5);
                     scene.add(dirLight);
 
-                    // Grupo para rotar el modelo en 3D
                     const modelGroup = new THREE.Group();
                     scene.add(modelGroup);
 
-                    // Crear la geometría de la camisa / panel frontal 3D texturizado
                     const geometry = new THREE.PlaneGeometry(1.8, 2.2);
-                    const material = new THREE.MeshStandardMaterial({{ color: 0xffffff, roughness: 0.4 }});
+                    const material = new THREE.MeshStandardMaterial({{ color: 0xffffff, roughness: 0.4, transparent: true }});
                     const mesh = new THREE.Mesh(geometry, material);
                     modelGroup.add(mesh);
 
-                    // Cargar la textura en tiempo real desde Base64
                     const b64Data = "{textura_frente_b64}";
                     if (b64Data) {{
                         const textureLoader = new THREE.TextureLoader();
@@ -660,7 +658,6 @@ if st.session_state.modo_vista == "Estudio":
                         }});
                     }}
 
-                    // Interactividad de rotación con mouse / touch
                     let isDragging = false;
                     let previousMousePosition = {{ x: 0, y: 0 }};
 
@@ -682,7 +679,6 @@ if st.session_state.modo_vista == "Estudio":
 
                     window.addEventListener('mouseup', () => {{ isDragging = false; }});
 
-                    // Animación de rotación automática suave si no se interactúa
                     function animate() {{
                         requestAnimationFrame(animate);
                         if (!isDragging) {{
