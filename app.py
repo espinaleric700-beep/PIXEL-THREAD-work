@@ -5,7 +5,6 @@ from datetime import datetime
 import base64
 from io import BytesIO
 from PIL import Image
-import requests
 
 # --- CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(
@@ -59,8 +58,7 @@ def init_fb():
 
 db = init_fb()
 
-# --- FUNCIONES AUXILIARES ---
-SKETCHFAB_API_KEY = "52e167c5a6024ee8b9b8fb8b9a7a89fc"
+SKETCHFAB_UID = "52e167c5a6024ee8b9b8fb8b9a7a89fc" # UID de tu modelo en Sketchfab
 
 def recalcular_turnos():
     try:
@@ -104,7 +102,7 @@ def procesar_archivo_subido(arch):
     return base64.b64encode(b_cont).decode("utf-8"), "raster"
 
 def generar_textura_3d_frente(pieza_frente):
-    """Combina la silueta base del frente con los elementos gráficos superpuestos para el modelo 3D"""
+    """Genera la textura combinada mapeada en UV para aplicarse al material del modelo 3D"""
     try:
         if not isinstance(pieza_frente, dict):
             base_b64 = str(pieza_frente)
@@ -115,18 +113,8 @@ def generar_textura_3d_frente(pieza_frente):
             base_tipo = pieza_frente.get("tipo", "raster")
             elementos = pieza_frente.get("elementos", [])
 
-        # Crear lienzo base de la camiseta (Silueta con forma de frente de camisa)
-        img_base = Image.new("RGBA", (1024, 1024), (0, 0, 0, 0))
+        img_base = Image.new("RGBA", (1024, 1024), (255, 255, 255, 255))
         
-        # Dibujar silueta interior de la camiseta predeterminada si no hay imagen base de patrón subida
-        from PIL import ImageDraw
-        draw = ImageDraw.Draw(img_base)
-        # Fondo forma camiseta estilizada blanca para que actúe como la prenda
-        draw.rounded_rectangle([150, 100, 874, 950], radius=80, fill=(255, 255, 255, 255))
-        # Escote delantero
-        draw.pieslice([362, 80, 662, 320], start=180, end=360, fill=(26, 26, 26, 255))
-
-        # Si hay una imagen base personalizada cargada en el admin para el frente, se usa
         if base_b64 and base_tipo != "svg":
             try:
                 decoded_base = base64.b64decode(base_b64)
@@ -136,7 +124,6 @@ def generar_textura_3d_frente(pieza_frente):
             except Exception:
                 pass
 
-        # Superponer los elementos de diseño (logos, estampados) en sus posiciones relativas exactas
         for elem in elementos:
             e_b64 = elem.get("b64", "")
             e_tipo = elem.get("tipo", "raster")
@@ -175,8 +162,7 @@ def obtener_configuracion_activa():
         pass
     return {
         "nombre_modelo": "Camisa Estándar",
-        "modelo_3d_url": "",
-        "sketchfab_uid": "",
+        "sketchfab_uid": SKETCHFAB_UID,
         "piezas": {
             "frente": {"b64": "", "tipo": "raster", "elementos": []},
             "espalda": {"b64": "", "tipo": "raster", "elementos": []},
@@ -186,7 +172,6 @@ def obtener_configuracion_activa():
         }
     }
 
-# --- ESTADOS ---
 params = st.query_params
 if "modo_vista" not in st.session_state: 
     st.session_state.modo_vista = params.get("seccion", "Estudio")
@@ -194,11 +179,8 @@ if "user" not in st.session_state:
     st.session_state.user = params.get("user", "ClienteGeneral")
 if "herramienta_activa" not in st.session_state:
     st.session_state.herramienta_activa = "Archivos"
-
 if "zoom" not in st.session_state:
     st.session_state.zoom = 100
-if "herramienta_lienzo" not in st.session_state:
-    st.session_state.herramienta_lienzo = "cursor"
 
 def actualizar_url(vista, user):
     st.session_state.modo_vista = vista
@@ -232,6 +214,7 @@ if st.session_state.modo_vista == "Estudio":
 
     config_actual = obtener_configuracion_activa()
     piezas = config_actual.get("piezas", {})
+    sk_uid = config_actual.get("sketchfab_uid", SKETCHFAB_UID)
 
     col_iconos, col_panel, col_centro, col_right = st.columns([0.5, 2.3, 4.7, 2.5], gap="medium")
 
@@ -300,7 +283,7 @@ if st.session_state.modo_vista == "Estudio":
                                 db.collection("config_estudio").document("modelo_actual").update({
                                     "piezas": piezas
                                 })
-                                st.success("¡Imagen agregada al patrón y proyectada en el 3D!")
+                                st.success("¡Imagen agregada y aplicada al modelo 3D!")
                                 st.rerun()
                             except Exception as e:
                                 st.error(f"Error: {e}")
@@ -340,7 +323,7 @@ if st.session_state.modo_vista == "Estudio":
                     sel_idx = st.selectbox("Seleccionar Elemento a Borrar", range(len(elementos_totales)), format_func=lambda i: f"{elementos_totales[i][0].upper()} - {elementos_totales[i][1]['id']}")
                     p_target, el_target = elementos_totales[sel_idx]
                     
-                    if st.button("🗑️ Eliminar Elemento Seleccionado", key=f"del_elem_{el_target['id']}"):
+                    if st.button("🗑️ Eliminar Elemento", key=f"del_elem_{el_target['id']}"):
                         try:
                             piezas[p_target]["elementos"] = [el for el in piezas[p_target]["elementos"] if el["id"] != el_target["id"]]
                             db.collection("config_estudio").document("modelo_actual").update({"piezas": piezas})
@@ -603,95 +586,74 @@ if st.session_state.modo_vista == "Estudio":
             with tb10:
                 if st.button("⚡ 50", key="t_bolt", help="Acción rápida"): pass
 
-    # 4. Panel Derecho (Visor 3D Interactivo con Three.js)
+    # 4. Panel Derecho (Visor Oficial de Sketchfab interactivo con Textura Dinámica)
     with col_right:
         with st.container(border=True):
             textura_frente_b64 = generar_textura_3d_frente(p_frente)
 
-            threejs_viewer_html = f"""
+            sketchfab_viewer_html = f"""
             <!DOCTYPE html>
             <html>
             <head>
                 <style>
                     body {{ margin: 0; background-color: #141414; overflow: hidden; }}
-                    #canvas3d {{ width: 100%; height: 160px; display: block; }}
+                    #sketchfab-iframe {{ width: 100%; height: 160px; border: none; display: block; }}
                 </style>
-                <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+                <script src="https://static.sketchfab.com/api/sketchfab-viewer-1.12.1.js"></script>
             </head>
             <body>
-                <div id="canvas3d"></div>
+                <iframe id="sketchfab-iframe" src="" allow="autoplay; fullscreen; vr" xr-spatial-tracking execution-while-out-of-viewport execution-while-not-rendered web-share allowfullscreen></iframe>
+                
                 <script>
-                    const container = document.getElementById('canvas3d');
-                    const scene = new THREE.Scene();
-                    scene.background = new THREE.Color(0x141414);
+                    var iframe = document.getElementById('sketchfab-iframe');
+                    var urlid = '{sk_uid}';
+                    var client = new Sketchfab(iframe);
 
-                    const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
-                    camera.position.z = 3.8;
+                    var textureUid = null;
+                    var targetMaterial = null;
 
-                    const renderer = new THREE.WebGLRenderer({{ antialias: true }});
-                    renderer.setSize(container.clientWidth, container.clientHeight);
-                    container.appendChild(renderer.domElement);
+                    client.init(urlid, {{
+                        success: function onSuccess(api) {{
+                            api.start();
+                            api.addEventListener('viewerready', function() {{
+                                // Buscar los materiales del modelo para aplicar la textura personalizada encima
+                                api.getMaterialList(function(err, materials) {{
+                                    if (!err) {{
+                                        for (var i = 0; i < materials.length; i++) {{
+                                            // Seleccionamos el material principal de la tela
+                                            targetMaterial = materials[i];
+                                            break; 
+                                        }}
+                                        updateTexture(api);
+                                    }}
+                                }});
+                            }});
+                        }},
+                        error: function onError() {{
+                            console.error('Error al cargar Sketchfab Viewer API');
+                        }}
+                    }});
 
-                    const ambientLight = new THREE.AmbientLight(0xffffff, 0.9);
-                    scene.add(ambientLight);
+                    function updateTexture(api) {{
+                        var b64Data = "data:image/png;base64,{textura_frente_b64}";
+                        if (!b64Data || !targetMaterial) return;
 
-                    const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
-                    dirLight.position.set(5, 5, 5);
-                    scene.add(dirLight);
-
-                    const modelGroup = new THREE.Group();
-                    scene.add(modelGroup);
-
-                    const geometry = new THREE.PlaneGeometry(1.8, 2.2);
-                    const material = new THREE.MeshStandardMaterial({{ color: 0xffffff, roughness: 0.4, transparent: true }});
-                    const mesh = new THREE.Mesh(geometry, material);
-                    modelGroup.add(mesh);
-
-                    const b64Data = "{textura_frente_b64}";
-                    if (b64Data) {{
-                        const textureLoader = new THREE.TextureLoader();
-                        textureLoader.load('data:image/png;base64,' + b64Data, function(texture) {{
-                            texture.generateMipmaps = true;
-                            texture.minFilter = THREE.LinearMipmapLinearFilter;
-                            material.map = texture;
-                            material.needsUpdate = true;
+                        api.addTexture(b64Data, function(err, uid) {{
+                            if (!err) {{
+                                textureUid = uid;
+                                // Asignar la textura generada al canal Diffuse/Albedo del material manteniendo intacto el modelo 3D
+                                targetMaterial.channels.AlbedoPBR.texture = {{
+                                    uid: textureUid
+                                }};
+                                api.setMaterial(targetMaterial);
+                            }}
                         }});
                     }}
-
-                    let isDragging = false;
-                    let previousMousePosition = {{ x: 0, y: 0 }};
-
-                    container.addEventListener('mousedown', (e) => {{
-                        isDragging = true;
-                        previousMousePosition = {{ x: e.clientX, y: e.clientY }};
-                    }});
-
-                    window.addEventListener('mousemove', (e) => {{
-                        if (!isDragging) return;
-                        const deltaX = e.clientX - previousMousePosition.x;
-                        const deltaY = e.clientY - previousMousePosition.y;
-
-                        modelGroup.rotation.y += deltaX * 0.01;
-                        modelGroup.rotation.x += deltaY * 0.01;
-
-                        previousMousePosition = {{ x: e.clientX, y: e.clientY }};
-                    }});
-
-                    window.addEventListener('mouseup', () => {{ isDragging = false; }});
-
-                    function animate() {{
-                        requestAnimationFrame(animate);
-                        if (!isDragging) {{
-                            modelGroup.rotation.y += 0.005;
-                        }}
-                        renderer.render(scene, camera);
-                    }}
-                    animate();
                 </script>
             </body>
             </html>
             """
-            st.components.v1.html(threejs_viewer_html, height=170)
+            st.components.v1.html(sketchfab_viewer_html, height=170)
 
             st.markdown("<div style='font-size: 12px; font-weight: bold; margin-top: 4px;'>Color de Base</div>", unsafe_allow_html=True)
             cc1, cc2, cc3, cc4, cc5, cc6, cc7 = st.columns(7)
@@ -723,9 +685,10 @@ if st.session_state.modo_vista == "Estudio":
 else:
     st.subheader("🛠️ Panel de Administración")
     
-    with st.expander("👕 Configurar Patrón Base por Piezas", expanded=True):
+    with st.expander("👕 Configurar Modelo y Patrón", expanded=True):
         config_actual = obtener_configuracion_activa()
         nuevo_nombre = st.text_input("Nombre del Modelo / Prenda", config_actual.get("nombre_modelo", "Camisa Estándar"))
+        nuevo_uid = st.text_input("Sketchfab Model UID", config_actual.get("sketchfab_uid", SKETCHFAB_UID))
         
         st.markdown("---")
         st.markdown("##### Subir Imágenes Base de las Piezas del Patrón")
@@ -738,7 +701,7 @@ else:
         
         col_btn1, col_btn2 = st.columns(2)
         with col_btn1:
-            if st.button("💾 Guardar Patrón Base"):
+            if st.button("💾 Guardar Configuración"):
                 try:
                     piezas_actuales = config_actual.get("piezas", {})
                     
@@ -758,10 +721,11 @@ else:
                     
                     db.collection("config_estudio").document("modelo_actual").set({
                         "nombre_modelo": nuevo_nombre,
+                        "sketchfab_uid": nuevo_uid,
                         "piezas": piezas_actuales,
                         "actualizado": datetime.now()
                     }, merge=True)
-                    st.success("¡Patrón base guardado con éxito!")
+                    st.success("¡Configuración guardada con éxito!")
                     st.rerun()
                 except Exception as e:
                     st.error(f"Error al guardar: {e}")
@@ -775,7 +739,7 @@ else:
                     db.collection("config_estudio").document("modelo_actual").update({
                         "piezas": piezas_actuales
                     })
-                    st.success("¡Elementos de diseño limpiados correctamente!")
+                    st.success("¡Elementos limpios correctamente!")
                     st.rerun()
                 except Exception as e:
                     st.error(f"Error: {e}")
