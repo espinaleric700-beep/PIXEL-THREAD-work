@@ -152,7 +152,7 @@ params = st.query_params
 if "modo_vista" not in st.session_state: 
     st.session_state.modo_vista = params.get("seccion", "Estudio")
 if "user" not in st.session_state: 
-    st.session_state.user = params.get("user", "ClienteGeneral")
+    st.session_state.user = params.get("user", "eric")
 if "herramienta_activa" not in st.session_state:
     st.session_state.herramienta_activa = "Editar"
 if "imagen_activa_b64" not in st.session_state:
@@ -164,7 +164,8 @@ def actualizar_url(vista, user):
     st.query_params.update({"seccion": vista, "user": user})
     st.rerun()
 
-ADMINS_AUTORIZADOS = ["pixel2580", "eric"]
+# Añadido tu nombre legal y variaciones para garantizar acceso al Panel Admin
+ADMINS_AUTORIZADOS = ["pixel2580", "eric", "eric ramon espinal cruz"]
 
 # --- BARRA SUPERIOR ---
 top_c1, top_c2, top_c3 = st.columns([3, 6, 3])
