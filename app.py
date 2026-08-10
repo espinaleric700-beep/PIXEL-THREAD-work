@@ -27,8 +27,8 @@ else:
         if p not in st.session_state.coordenadas_partes:
             st.session_state.coordenadas_partes[p] = vals
 
-if "mapeo_archivos" not in st.session_state:
-    st.session_state.mapeo_archivos = {
+if "mapeo_archivos_bytes" not in st.session_state:
+    st.session_state.mapeo_archivos_bytes = {
         "Frente": None,
         "Espalda": None,
         "Mangas": None,
@@ -60,24 +60,35 @@ def obtener_modelos_sketchfab(token):
     except Exception:
         return []
 
-def generar_textura_3d(imagen_subida_b64, escala=200, offset_x=0, offset_y=0, parte="Frente"):
+def generar_textura_3d(imagen_subida_b64, escala=200, offset_x=0, offset_y=0, parte_activa="Frente"):
     try:
         coords_dict = st.session_state.coordenadas_partes
-        img_base = Image.new("RGBA", (1024, 1024), (255, 255, 255, 255))
         
-        for nombre_parte, coords in coords_dict.items():
-            base_x = coords.get("base_x", 512)
-            base_y = coords.get("base_y", 512)
+        # 1. Intentar cargar la guía de mapeo sincronizada si existe
+        guia_bytes = st.session_state.mapeo_archivos_bytes.get(parte_activa)
+        if guia_bytes:
+            try:
+                img_base = Image.open(BytesIO(guia_bytes)).convert("RGBA")
+                img_base = img_base.resize((1024, 1024))
+            except Exception:
+                img_base = Image.new("RGBA", (1024, 1024), (255, 255, 255, 255))
+        else:
+            img_base = Image.new("RGBA", (1024, 1024), (255, 255, 255, 255))
+        
+        # 2. Posicionar el diseño del usuario usando las coordenadas sincronizadas de esa parte
+        coords = coords_dict.get(parte_activa, {"base_x": 512, "base_y": 512})
+        base_x = coords.get("base_x", 512)
+        base_y = coords.get("base_y", 512)
+        
+        if imagen_subida_b64:
+            decoded_elem = base64.b64decode(imagen_subida_b64)
+            img_elem = Image.open(BytesIO(decoded_elem)).convert("RGBA")
+            img_elem.thumbnail((escala, escala))
             
-            if nombre_parte == parte and imagen_subida_b64:
-                decoded_elem = base64.b64decode(imagen_subida_b64)
-                img_elem = Image.open(BytesIO(decoded_elem)).convert("RGBA")
-                img_elem.thumbnail((escala, escala))
-                
-                ex = (base_x - img_elem.width // 2) + offset_x
-                ey = (base_y - img_elem.height // 2) + offset_y
-                
-                img_base.paste(img_elem, (ex, ey), img_elem)
+            ex = (base_x - img_elem.width // 2) + offset_x
+            ey = (base_y - img_elem.height // 2) + offset_y
+            
+            img_base.paste(img_elem, (ex, ey), img_elem)
 
         buffered = BytesIO()
         img_base.save(buffered, format="PNG")
@@ -113,7 +124,7 @@ with tab_cliente:
         escala=escala_logo, 
         offset_x=offset_x, 
         offset_y=offset_y, 
-        parte=parte_seleccionada
+        parte_activa=parte_seleccionada
     )
 
     with col_visor:
@@ -133,16 +144,16 @@ with tab_cliente:
         
         if textura_resultado_b64:
             imagen_decodificada = base64.b64decode(textura_resultado_b64)
-            st.image(BytesIO(imagen_decodificada), caption="Mapa UV Texturizado en Tiempo Real (1024x1024)", use_container_width=True)
+            st.image(BytesIO(imagen_decodificada), caption=f"Mapa UV Sincronizado ({parte_seleccionada}) - 1024x1024", use_container_width=True)
         else:
             st.info("Sube una imagen para ver el mapa UV generado.")
 
 with tab_admin:
     st.header("⚙️ Configuración y Gestión del Sistema")
     
-    # --- SECCIÓN DE ARCHIVOS DE MAPEO CON SOPORTE SVG ---
+    # --- SECCIÓN DE ARCHIVOS DE MAPEO SINCRONIZADOS ---
     st.subheader("🗺️ Archivos para el Mapeo de Ubicación (UV Mapping)")
-    st.write("Sube aquí los archivos o guías de imagen (PNG, JPG o SVG) correspondientes para configurar las zonas del modelo 3D:")
+    st.write("Sube los archivos de guía (PNG, JPG o SVG). Estos se sincronizarán directamente con las coordenadas y el visor:")
     
     col_m1, col_m2, col_m3, col_m4 = st.columns(4)
     
@@ -150,29 +161,29 @@ with tab_admin:
         st.markdown("**Frente**")
         file_frente = st.file_uploader("Subir Frente", type=["png", "jpg", "jpeg", "svg"], key="map_frente")
         if file_frente:
-            st.session_state.mapeo_archivos["Frente"] = file_frente.name
-            st.success("Cargado")
+            st.session_state.mapeo_archivos_bytes["Frente"] = file_frente.getvalue()
+            st.success("Sincronizado")
             
     with col_m2:
         st.markdown("**Espalda**")
         file_espalda = st.file_uploader("Subir Espalda", type=["png", "jpg", "jpeg", "svg"], key="map_espalda")
         if file_espalda:
-            st.session_state.mapeo_archivos["Espalda"] = file_espalda.name
-            st.success("Cargado")
+            st.session_state.mapeo_archivos_bytes["Espalda"] = file_espalda.getvalue()
+            st.success("Sincronizado")
             
     with col_m3:
         st.markdown("**Mangas**")
         file_mangas = st.file_uploader("Subir Mangas", type=["png", "jpg", "jpeg", "svg"], key="map_mangas")
         if file_mangas:
-            st.session_state.mapeo_archivos["Mangas"] = file_mangas.name
-            st.success("Cargado")
+            st.session_state.mapeo_archivos_bytes["Mangas"] = file_mangas.getvalue()
+            st.success("Sincronizado")
             
     with col_m4:
         st.markdown("**Cuello**")
         file_cuello = st.file_uploader("Subir Cuello", type=["png", "jpg", "jpeg", "svg"], key="map_cuello")
         if file_cuello:
-            st.session_state.mapeo_archivos["Cuello"] = file_cuello.name
-            st.success("Cargado")
+            st.session_state.mapeo_archivos_bytes["Cuello"] = file_cuello.getvalue()
+            st.success("Sincronizado")
 
     st.markdown("---")
     st.subheader("⚙️ Extracción de Modelos desde la API de Sketchfab")
