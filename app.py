@@ -119,8 +119,8 @@ with tab_cliente:
             st.info("Sube una imagen para ver el mapa UV generado.")
 
 with tab_admin:
-    st.header("⚙️ Extracción de Modelos desde la API de Sketchfab")
-    st.write("Tus modelos se extraen automáticamente usando tu token de API configurado.")
+    st.header("⚙️ Extracción y Vista Previa de Modelos")
+    st.write("Tus modelos se extraen automáticamente desde la API. Cada tarjeta cuenta con una vista previa 3D interactiva.")
     
     token_input = st.text_input("Token de API de Sketchfab", type="password", value=st.session_state.sketchfab_token)
     if st.button("Actualizar Token"):
@@ -131,7 +131,6 @@ with tab_admin:
     st.markdown("---")
     st.subheader("📦 Modelos Disponibles en tu Cuenta")
     
-    # Extracción automática al cargar la pestaña del panel admin
     modelos = obtener_modelos_sketchfab(st.session_state.sketchfab_token)
     
     if modelos:
@@ -140,22 +139,23 @@ with tab_admin:
         for idx, modelo in enumerate(modelos):
             uid = modelo.get("uid")
             name = modelo.get("name")
-            thumbnails = modelo.get("thumbnails", {}).get("images", [])
-            # Selecciona la miniatura de tamaño mediano o la primera disponible
-            thumb_url = thumbnails[1]["url"] if len(thumbnails) > 1 else (thumbnails[0]["url"] if thumbnails else "")
             
             with cols[idx % 3]:
-                if thumb_url:
-                    st.image(thumb_url, caption=name, use_container_width=True)
-                else:
-                    st.write(f"**{name}**")
-                    
+                st.markdown(f"**{name}**")
+                # Vista previa 3D interactiva para cada modelo en el admin
+                preview_html = f"""
+                <div style="width: 100%; height: 220px; border-radius: 8px; overflow: hidden; border: 1px solid #ddd; margin-bottom: 10px;">
+                    <iframe title="{name}" width="100%" height="100%" src="https://sketchfab.com/models/{uid}/embed" frameborder="0" allowvr allow="autoplay; fullscreen; xr-spatial-tracking"></iframe>
+                </div>
+                """
+                components.html(preview_html, height=230)
+                
                 is_selected = (st.session_state.modelo_seleccionado_uid == uid)
                 if st.button("Seleccionar Modelo" if not is_selected else "✅ Modelo Activo", key=f"api_model_{uid}"):
                     st.session_state.modelo_seleccionado_uid = uid
                     st.rerun()
     else:
-        st.error("No se pudieron extraer los modelos. Comprueba que tu token sea válido y que tu cuenta tenga modelos subidos.")
+        st.error("No se pudieron extraer los modelos. Comprueba que tu token sea válido.")
 
     st.markdown("---")
     st.subheader("📍 Coordenadas Base del Mapa UV (1024x1024)")
