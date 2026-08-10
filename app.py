@@ -108,6 +108,7 @@ def generar_textura_3d(imagen_subida_b64):
         decoded_elem = base64.b64decode(imagen_subida_b64)
         img_elem = Image.open(BytesIO(decoded_elem)).convert("RGBA")
         
+        # Lienzo base de la textura UV (1024x1024) en blanco
         img_base = Image.new("RGBA", (1024, 1024), (255, 255, 255, 255))
         img_elem = img_elem.resize((500, 500))
         ex = (1024 - 500) // 2
@@ -173,7 +174,6 @@ if st.session_state.modo_vista == "Estudio":
     config_actual = obtener_configuracion_activa()
     sk_uid = config_actual.get("sketchfab_uid", SKETCHFAB_UID)
 
-    # 3 Columnas: Barra de herramientas lateral, Panel de controles, Visor 3D
     col_iconos, col_panel, col_visor = st.columns([0.6, 3.4, 6.0], gap="small")
 
     with col_iconos:
@@ -277,6 +277,7 @@ if st.session_state.modo_vista == "Estudio":
             
             textura_b64 = generar_textura_3d(st.session_state.imagen_activa_b64)
 
+            # Visor Sketchfab con inyección robusta de textura vía JavaScript API
             sketchfab_viewer_html = f"""
             <!DOCTYPE html>
             <html>
@@ -294,26 +295,25 @@ if st.session_state.modo_vista == "Estudio":
                     var iframe = document.getElementById('sketchfab-iframe');
                     var urlid = '{sk_uid}';
                     var client = new Sketchfab(iframe);
+                    var base64Tex = "data:image/png;base64,{textura_b64}";
 
                     client.init(urlid, {{
                         success: function onSuccess(api) {{
                             api.start();
                             api.addEventListener('viewerready', function() {{
-                                api.getMaterialList(function(err, materials) {{
-                                    if (!err && materials.length > 0) {{
-                                        var material = materials[0];
-                                        var b64Data = "data:image/png;base64,{textura_b64}";
-                                        
-                                        if ("{textura_b64}" !== "") {{
-                                            api.addTexture(b64Data, function(err, textureUid) {{
-                                                if (!err) {{
+                                if ("{textura_b64}" !== "") {{
+                                    api.addTexture(base64Tex, function(err, textureUid) {{
+                                        if (!err) {{
+                                            api.getMaterialList(function(err, materials) {{
+                                                if (!err && materials.length > 0) {{
+                                                    var material = materials[0];
                                                     material.channels.AlbedoPBR.texture = {{ uid: textureUid }};
                                                     api.setMaterial(material);
                                                 }}
                                             }});
                                         }}
-                                    }}
-                                }});
+                                    }});
+                                }}
                             }});
                         }},
                         error: function onError() {{
